@@ -1,4 +1,4 @@
-<!-- RULES POINTER START — managed by sync_rules.js, do not edit -->
+<!-- RULES POINTER START — verify this pointer whenever LESSONS_AND_RULES.md changes (Rule 26) -->
 @../claude-workflow/LESSONS_AND_RULES.md
 <!-- RULES POINTER END -->
 
