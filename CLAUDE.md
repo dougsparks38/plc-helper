@@ -83,6 +83,21 @@ count (`RC`) tags because REAL precision degrades above ~16.7 million.
 **REAL floating-point quirk**: Use `0.199999` instead of `0.2` to
 compensate for Logix5000 REAL precision issues.
 
+**AOI reuse across projects — a source-of-truth risk (2026-09-02)**:
+Casne engineers commonly copy Add-On Instructions from a prior project
+into a new one rather than write them from scratch, since many AOIs are
+built to be transportable. There is a master reference program
+(something like "AOI Development") intended as the canonical source,
+but in practice engineers just as often grab a copy from an old project
+instead of checking the master. Implication: a bug fixed inside one
+project's copy of an AOI (e.g. a stray comment, a scaling error) will
+NOT automatically propagate anywhere else — the same bug can resurface
+in a future project that copied the old version, and the master
+reference may itself be stale if nobody updated it. When auditing or
+fixing AOI-level issues, keep in mind the fix is local to this project's
+copy unless someone deliberately updates the master AOI Development
+program too.
+
 ## Reference document conventions
 
 - All AOIs and UDTs are documented in a single unified markdown file
