@@ -114,18 +114,15 @@ Example:
 .EnableIn - Enable Input - System Defined Parameter [exclude]
 ```
 
-## Available Tasks
+## Tasks
 
-```
-Document data structures for SCADA designer (TASK_001)
-```
-
-To run a task, open the corresponding file and paste its contents into
-Claude Code.
-
-## Task Ideas (not yet implemented)
-
-Audit PLC — IO list, tag database, and code cross-reference (TASK_002)
+Full task write-ups (purpose, inputs, process, outputs) live in
+`PLCHelper_Tasks.md`, not here — that file is the catalog of what each
+TASK_00X actually does. Building/updating the SCADA reference document
+(TASK_001) is invoked as a Skill —
+`claude-workflow/Skills/plc-aoi-reference-creation-and-update.skill.md`
+— not a local file in this folder; the "Reference document conventions"
+section above is a condensed summary, not the authoritative copy.
 
 ## Equipment abbreviation lookup table
 
@@ -147,82 +144,5 @@ meanings — the engineer must resolve which applies in context.
 | TK | Tank | |
 | UPS | Uninterruptible Power Supply | |
 
-## TASK_002 detail — Audit PLC
-
-### Purpose
-
-Cross-reference three sources of truth against each other to find
-discrepancies, orphaned tags, unanswered questions, and scope errors.
-Replaces a manual audit process that is time-consuming and error-prone.
-
-### Inputs
-
-| Input | Format | Notes |
-|-------|--------|-------|
-| IO list | Excel (.xlsx) | Hand-maintained by engineer. Rich document with many columns — structure varies by project. Share at task build time. |
-| PLC tag database | CSV export from Studio 5000 | Contains real tags, UDTs, IO tags, aliases, and rung comments. Lot of noise — must filter carefully. |
-| PLC code | L5X export of full program | Full program export, not individual AOI files. |
-
-### Three bidirectional cross-references
-
-**Cross-reference 1: IO List ↔ PLC Tag Database**
-- Every device on the IO list should have corresponding tags in the
-  controller tag database
-- Every relevant tag in the controller tag database should appear on
-  the IO list
-
-**Cross-reference 2: IO List ↔ PLC Code**
-- Every device on the IO list should appear somewhere in the PLC code
-- Every IO tag used in the PLC code should be on the IO list
-
-**Cross-reference 3: PLC Tag Database ↔ PLC Code**
-- Every tag in the database should be used somewhere in the code
-- Every tag referenced in the code should exist in the tag database
-
-### Loop identifier matching
-
-The matching key between all three sources is the loop identifier.
-Loop identifiers can be:
-- Numeric loop numbers (e.g. `1234`, `023`) — standard ANSI case
-- Alphanumeric equipment abbreviations (e.g. `FLR`, `UPS`, `GEN`)
-
-See the Equipment abbreviation lookup table in this file. Any identifier
-not matching a numeric pattern and not found in the lookup table should
-be flagged for engineer review.
-
-### PLC tag database — tag types to process
-
-The CSV export from Studio 5000 contains mixed content. Handle as follows:
-
-| Type | Action |
-|------|--------|
-| Real tags | Include |
-| UDT instances | Include |
-| IO tags | Include |
-| Aliases | Include |
-| Rung comments containing a question or unresolved note | Flag as "unanswered question" |
-| All other rung comments | Ignore |
-
-Rung comments that suggest unanswered questions include phrases like
-"ask", "what", "why", "todo", "fix", "check", "?", or similar.
-
-### Audit output flags
-
-- Device on IO list with no matching tags in PLC tag database
-- Tag in PLC tag database with no match on IO list
-- Device on IO list with no appearance in PLC code
-- IO tag used in PLC code with no match on IO list
-- Tag in PLC tag database not used anywhere in PLC code
-- Tag referenced in PLC code not found in tag database
-- Tags that are program scope instead of controller scope
-- Loop identifiers not matching any numeric pattern or known abbreviation
-- Rung comments containing unanswered questions
-
-### Notes
-
-- IO list column structure varies by project — inspect the file at
-  runtime to identify the column containing the device/loop identifier
-- The audit is read-only — it flags issues but does not make changes
-- Program scope tag findings should be reviewed carefully before any
-  changes are made in Studio 5000
-- Additional audit features may be added as they are discovered
+Note: the Equipment abbreviation lookup table above is used by TASK_002
+(Audit PLC) — see `PLCHelper_Tasks.md` for that task's full write-up.
