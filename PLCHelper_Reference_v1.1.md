@@ -449,16 +449,11 @@ Revision 1.0. [No description in source — needs to be written]
 
 ## MODVLV
 
-**Source:** Casne *(unverified — see note below)*
+**Source:** Casne (confirmed by Doug, 2026-09-03)
 
 UDT — Modulating Valve (MODVLV). User-Defined Data Type for a PID-controlled proportional valve.
 Bundles all setpoints, PID controller, mode bits, position I/O, and fault alarms into one tag structure.
 Source file: MODVLV_DataType.L5X
-
-> Note: MODVLV's source file (`MODVLV_DataType.L5X`) was not part of this task's input, so its `DataType`
-> element's `Vendor` attribute (if any) could not be directly checked. Tagged Casne here by inference —
-> no evidence of vendor authorship, consistent with every other entry in this file that lacks the
-> attribute. Confirm against the actual source file if certainty is needed.
 
 .MANPOS_scao - Manual Position Setpoint (SCADA to PLC); operator-entered position when in manual mode
 .SETPOINT_scao - Loop setpoint scaled in engineering units (SCADA to PLC)
