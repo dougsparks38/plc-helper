@@ -1,12 +1,17 @@
-# Blue Sky AOIs v1.3
+# Casne AOI Reference
 
 Complete parameter documentation for all Add-On Instructions (AOIs) and User-Defined Data Types (UDTs)
-in this repository. Parameters and members listed in XML source order. All names copied exactly from
-the L5X files. Sections are sorted A–Z by name.
+Casne has built and reused across jobs. Parameters and members listed in XML source order. All names
+copied exactly from the L5X files. Sections are sorted A–Z by name. Each section is tagged with its
+source: **Casne** (built/authored in-house, no `Vendor` attribute on the source `AddOnInstructionDefinition`)
+or the vendor named in that attribute (e.g. **Rockwell Automation**).
 
 ---
 
 ## ALARM_AOI
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 1.3. Generic discrete alarm with debounce timer, invert-input support, and latch/reset behavior.
 One instance per alarm point; every alarm should map to a FactoryTalk SE/ME alarm trigger.
@@ -29,6 +34,9 @@ One instance per alarm point; every alarm should map to a FactoryTalk SE/ME alar
 ---
 
 ## CONSPD4_AOI
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 2.4. Constant-speed motor/pump AOI. Provides HOA mode control, fail-to-run alarm, stuck-on runtime alarm,
 circuit breaker auxiliary alarm, total and monthly runtime hour tracking, and last start/stop/runtime timestamps.
@@ -107,7 +115,10 @@ MOTOR_STATUS_scai values: 0=stopped, 1=running, 2=fault
 
 ---
 
-## DailyMinMaxAve3_AOI
+## DailyMinMaxAve3
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 2.1. Daily minimum, maximum, and rolling average calculator.
 Tracks today's and yesterday's min/max/average values plus month-to-date statistics.
@@ -132,7 +143,54 @@ Depends on _LocalDateTime context AOI.
 
 ---
 
+## DayOfWeek
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. [No description in source — needs to be written]
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.Year - Year input, used to calculate the day of week (required)
+.Month - Month input, used to calculate the day of week (required)
+.Day - Day input, used to calculate the day of week (required)
+.DOW_Output - Calculated day-of-week output code (PLC to SCADA / calling logic)
+
+---
+
+## FaultHandler_Program
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. [No description in source — needs to be written]
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.CurrentFault - Current fault description (InOut, STRING)
+
+---
+
+## _FaultTest_With_Reset
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. Fault test for one fault, with reset.
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.FaultRecord - Fault record structure (InOut, FAULTRECORD)
+.FaultDescription - This is the fault description that will be copied into the fault description output
+.CurrentFault - This is the current fault description, output of this module
+
+---
+
 ## FLOWIN3_AOI
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 0.1. Flow transmitter AOI. Provides hi/lo alarms with hysteresis, channel/range fault alarms,
 and full flow totalizer (daily, WTD, MTD, YTD, and lifetime with rollover handling).
@@ -194,6 +252,9 @@ Depends on _LocalDateTime and DayOfWeek context AOIs.
 
 ## FLOWVLV_AOI
 
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
 Revision 1.4. On/off valve control AOI. Use for on/off valves only — not proportional/analog valves.
 Provides dual-coil actuate/de-actuate outputs, fail-to-actuate and fail-to-de-actuate alarms, runtime hour tracking,
 and standard AutoCall interlock inputs.
@@ -244,6 +305,9 @@ State values: 0=Open, 1=Closed, 2=Traveling, 99=I/O error
 
 ## INTERLOCK_AOI
 
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
 Revision 1.0. Interlock visualization AOI. Provides HMI animation of interlock states using
 extended tag properties. Each of the 32 Interlocks bits should have its description set to the
 interlock name; those descriptions appear in the HMI via the extended tag mechanism.
@@ -256,7 +320,28 @@ interlock name; those descriptions appear in the HMI via the extended tag mechan
 
 ---
 
+## L_ModuleSts
+
+**Source:** Rockwell Automation
+**Last updated:** 2026-09-03
+
+Revision 4.0 (RevisionExtension ".00 Release"). Logix - Module Status. Checks the I/O connection status
+of a given module (Ref_Module); if the status is not "running", Sts_IOFault is raised. For use with
+Studio 5000 Logix Designer and Logix controller firmware v24 and later. Part of Rockwell's Process Library.
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.Ref_Module - Module (from I/O Configuration tree) whose status is sought (InOut)
+.Inp_Sim - 1=Use Simulated Module Status, 0=Report Actual Module Status
+.Set_SimFault - When in Simulation: 1=Module Faulted, 0=Module OK
+.Sts_IOFault - 1=Module I/O communication fault (not in Running state)
+
+---
+
 ## LEVELIN3_AOI
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 1.1. Level transmitter AOI. Provides four-level alarms (HiHi/Hi/Lo/LoLo) with hysteresis,
 channel/range fault alarms, up to five pump on/off level setpoints, percent and gallon level outputs,
@@ -355,7 +440,29 @@ and tank feet/inches conversion.
 
 ---
 
+## _LocalDateTime
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. [No description in source — needs to be written]
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.Year - Current year (output)
+.Month - Current month (output)
+.Day - Current day (output)
+.Hour - Current hour (output)
+.Minute - Current minute (output)
+.Second - Current second (output)
+.MicroSecond - Current microsecond (output)
+
+---
+
 ## MODVLV
+
+**Source:** Casne (confirmed by Doug, 2026-09-03) — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 UDT — Modulating Valve (MODVLV). User-Defined Data Type for a PID-controlled proportional valve.
 Bundles all setpoints, PID controller, mode bits, position I/O, and fault alarms into one tag structure.
@@ -409,7 +516,48 @@ Source file: MODVLV_DataType.L5X
 
 ---
 
-## RollingSum_AOI
+## PROCESSOR_STATUS
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. Processor Status.
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.key_run - Key in run position
+.key_prog - Key in program position
+.key_remote - Key in remote position
+.Test_Mode - Test mode status (output)
+.edits_enabled - Online edits enabled status (output)
+.edits_disabled - Online edits disabled status (output)
+.forces_present - I/O forces present status (output)
+.forces_enabled - I/O forces enabled status (output)
+.forces_present_and_enabled - I/O forces present and enabled status (output)
+.PLC_Device_Name - PLC device name string (InOut, SINT[33])
+.first_scan - First scan bit (output)
+.PLC_STATUS - PLC status array (InOut, DINT[7])
+
+---
+
+## Prog_Scan_Times
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. Program Scan Times.
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.Program_time - Current program scan time (output)
+.max_Scantime - Maximum recorded program scan time (output)
+
+---
+
+## RollingSum
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 0.0. Rolling sum and average calculator over a configurable time window.
 Accumulates a process value over the last N minutes and outputs the sum and average.
@@ -425,7 +573,39 @@ Depends on _LocalDateTime context AOI. Created by Doug Sparks, 4/9/26.
 
 ---
 
+## STATUS
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. Minor faults.
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.LowBattery - Low battery status (output)
+.Periodic_task - Periodic task status (output)
+.rS232_error - RS232 communication error status (output)
+
+---
+
+## TimeSec
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. [No description in source — needs to be written]
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.TimeInMicroSeconds - Time value in microseconds (InOut, LINT)
+.TimeInSeconds - Time value in seconds (InOut, LINT)
+
+---
+
 ## VARSPD2_AOI
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
 
 Revision 2.1. Variable-speed drive (VFD) AOI. Extends CONSPD4_AOI with analog speed command/feedback,
 drive fault, channel fault, open-wire alarms, hi/lo current alarms, and PPM/Constant speed calculation modes.
@@ -534,3 +714,26 @@ Parameters are stored alphabetically in the L5X file.
 .Stuck_On_Alm - Pump Stuck on / Runtime Alarm output
 .UnACK_Alm - Unacknowledged alarm present (output)
 .AUTO_STATUS_scai - Auto mode status code (PLC to SCADA)
+
+---
+
+## VARSPD_PIDE_AOI
+
+**Source:** Casne — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
+**Last updated:** 2026-09-03
+
+Revision 1.0. Handles switching between manual and auto operation for a variable-speed PIDE control loop,
+ensuring bumpless transfer between auto/manual/auto modes. In Manual, the operator commands speed directly
+from SCADA; in Auto, PIDE adjusts speed to maintain the ProcessVariable at the operator-entered setpoint.
+Uses the paired VARSPD2_AOI instance's PID_Auto bit to select mode, applies operator CVMIN_scao/CVMAX_scao
+limits to the PIDE output, maps ProcessVariable to PV and ControlVariable to CV, and preserves smooth
+transitions between operating modes. Created 8/27/26.
+
+.EnableIn - Enable Input - System Defined Parameter
+.EnableOut - Enable Output - System Defined Parameter
+.DRIVE_Name - VFD Drive Name (InOut, VARSPD2_AOI instance)
+.PIDE_Name - PIDE name (InOut, PID_ENHANCED instance)
+.CVMAX_scao - CVMAX SCADA to PLC
+.CVMIN_scao - CVMIN SCADA to PLC
+.ProcessVariable - Process Variable to be mapped into the PIDE.PV
+.ControlVariable - PIDE.CV will be mapped into the Control Variable

@@ -123,8 +123,8 @@ program too.
   if none exist or none are usable, the exact placeholder
   `[No description in source — needs to be written]` is used instead —
   never an inferred guess at what the AOI does
-- Version bumped by 0.1 with every change; previous version kept
-- Current reference file: `PLCHelper_Reference_v1.1.md`
+- Current reference file: `PLCHelper_Reference.md`, updated in place —
+  see git history for prior versions
 
 ### Reference file format
 
