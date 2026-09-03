@@ -51,18 +51,38 @@ these up until Doug says it's time.
 Not full task specs yet — batch-formalized into `PLCHelper_Tasks.md`
 later, on Doug's cue, per his stated preference.*
 
-1. **"Handoff to SCADA"** *(raised 2026-09-03, sparked by a real
-   situation — a coworker's Ignition screen design work stalled for
-   weeks after the test PLC/tags became ready, apparently just because
-   she got pulled onto another project)* — a task/skill for producing
-   whatever a SCADA/Ignition designer actually needs to pick up and
-   finalize screens/tag bindings for a job, once the PLC side is ready.
-   At Casne, "SCADA" and "HMI" are used interchangeably. Still being
-   scoped with Doug — open questions: exact deliverable (a job-specific
-   tag/instance list ready for HMI binding? something else?); whether
-   this is a general PLCHelper methodology applied to a job's L5X
-   (output living in that job's own folder, matching the TASK_003
-   pattern) or something else entirely.
+1. **"Handoff to SCADA" — AOI-to-UDT structure verification** *(raised
+   2026-09-03, sparked by a real situation — a coworker's Ignition
+   screen design work stalled for weeks after the test PLC/tags became
+   ready, apparently just because she got pulled onto another project)*
+
+   At Casne, "SCADA" and "HMI" are used interchangeably. The actual
+   concept, now understood concretely:
+   - An AOI (Add-On Instruction) in the Rockwell PLC is a data-structure
+     wrapper — one tag reference with a full parameter set defined
+     underneath it. PLCHelper already reads this (see the Casne AOI
+     Reference).
+   - On the Ignition side, Doug mirrors each AOI type with a matching
+     **UDT (User Defined Type)** — Ignition's own equivalent concept.
+     Every AOI instance in the PLC gets a same-named UDT instance in
+     Ignition (tag name matched **exactly**, including capitalization),
+     so Ignition can bind to the PLC tag automatically. For this to
+     work, the UDT's sub-elements must exactly match the AOI's real
+     parameters.
+   - Current problem: the coworker built UDTs matching the AOI
+     structures, but they aren't quite right — some mismatch against
+     the actual AOI parameter sets.
+   - **Proposed task**: for each distinct AOI type used in a job, Doug
+     exports the corresponding Ignition UDT (format not yet confirmed —
+     XML or JSON) and gives it to PLCHelper, which compares it against
+     that AOI's real parameter structure (from the Casne AOI Reference
+     or the L5X directly) and corrects the UDT definition so every
+     sub-element matches, name for name.
+   - **Not yet buildable** — blocked on Doug having a real Ignition UDT
+     export in hand to work through with PLCHelper interactively first
+     ("tell it where we started and what we need instead"), same
+     hands-on-first pattern as how TASK_003 and the AOI Reference itself
+     got built. Revisit once that export exists.
 
 ## Completed
 
