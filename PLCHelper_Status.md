@@ -92,17 +92,61 @@ later, on Doug's cue, per his stated preference.*
      UDT-name ↔ AOI-type mapping (supplied by Doug per UDT), not a
      name-matching heuristic.
    - **In progress (2026-09-03)** — Doug is actively feeding PLCHelper
-     reference data to work through this interactively. First data point
-     received: a known-working single (non-UDT) Ignition tag,
-     `AUTO_hwdi` under `O2InjectionSystem`, OPC Item Path
-     `ns=1;s=[BOP_O2_CombinedTest]O2_AC001.AUTO_hwdi` — confirms the
-     OPC path shape (`[PLC program name]AOI_instance.parameter`) that a
-     parameterized UDT template needs to reproduce, with the AOI-instance
-     segment (`O2_AC001`) becoming a UDT parameter and everything else
-     fixed per member. Consistent with `AUTO_hwdi` as documented in the
-     Casne AOI Reference (CONSPD4_AOI). Session ongoing — not yet
-     buildable as a formal task, still hands-on with Doug per the same
-     pattern as TASK_003 and the AOI Reference itself.
+     reference data to work through this interactively, using Ignition
+     Designer directly on `O2InjectionSystem/O2_AC001` (a CONSPD4_AOI
+     instance) as the live test case:
+     - **Known-working baseline**: a manually-browsed, non-UDT Ignition
+       tag, `AUTO_hwdi` under `O2InjectionSystem`, OPC Item Path
+       `ns=1;s=[BOP_O2_CombinedTest]O2_AC001.AUTO_hwdi` — confirms the
+       OPC path shape (`[PLC program name]AOI_instance.parameter`) a
+       parameterized UDT template needs to reproduce. Consistent with
+       `AUTO_hwdi` as documented in the Casne AOI Reference (CONSPD4_AOI).
+     - **Confirmed bug pattern #1 — OPC Server name typo**: the UDT's
+       OPC Server field read `Ignition OPC-UA Server` (with a hyphen)
+       while the actual configured/working server connection is named
+       `Ignition OPC UA Server` (no hyphen). This alone produces
+       `Error_Configuration("Server ... does not exist.")` — a totally
+       different-looking error than a path/parameter problem, even
+       though the real cause is a single stray character. This appears
+       to be set per-member, not inherited from one shared location —
+       every member needs checking individually, not just the type
+       header.
+     - **Confirmed bug pattern #2 — `{InstanceName}` needed to be an
+       explicit custom parameter**: Ignition's official docs describe
+       `{InstanceName}` as an automatic built-in UDT parameter needing
+       no manual setup — that did not hold true in Doug's actual system.
+       It had to be added as an explicit custom parameter (same pattern
+       as the already-working `DeviceName` parameter) and set to the
+       instance name (`O2_AC001`) before it resolved. Documenting the
+       real observed behavior here rather than the docs' claim, since
+       they conflicted and the real system is what matters for this task.
+     - **Fix confirmed working**: with both of the above corrected, the
+       `AUTO_hwdi` member now shows a green checkmark (resolving
+       correctly) instead of `Error_Configuration`.
+     - **Remaining scope, not yet done**: every *other* member of this
+       same `O2_AC001`/CONSPD4_AOI-equivalent UDT (`Ack_All`,
+       `AUTO_PB_scdo`, `AUTO_scdi`, `AUTO_STATUS_scai`,
+       `AutoCall_INTRLK_scdi`, `AutoCall_scdi`, `CBAux_alm`, and more)
+       still shows `Error_Configuration` — this exact two-part fix
+       likely needs repeating per member, and possibly across every
+       other UDT type in the project if the same typo/parameter gap was
+       copied around the same way. This is the concrete case that
+       justifies the task: doing this by hand, one member at a time, is
+       exactly what PLCHelper should be able to do systematically.
+     - **Export format decided**: JSON, not XML — Ignition natively
+       exports tags/UDTs as JSON; XML is only an import format that gets
+       converted to JSON internally anyway (confirmed via official docs,
+       2026-09-03). Important gotcha also confirmed: exporting a UDT
+       *instance* does not include the UDT *definition* — must export
+       from the "UDT Definitions" tab specifically to get the full
+       type/member structure PLCHelper needs.
+     - **Next step**: Doug will export the UDT Definitions JSON and drop
+       it in `BlueSky\PII_Review\`. Standard CLEAN-auto-move rule applies
+       (see `BlueSky/CLAUDE.md`). Once it's in `BlueSky`, PLCHelper will
+       review it against the Casne AOI Reference and produce a corrected
+       version, applying both confirmed bug patterns above.
+     - Still not yet formalized as a task spec — hands-on with Doug per
+       the same pattern as TASK_003 and the AOI Reference itself.
 
 ## Completed
 
@@ -110,4 +154,6 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 2, 2026*
+*Last updated: September 3, 2026 — logged the full AOI-to-UDT
+troubleshooting session (two confirmed bug patterns, a confirmed working
+fix, export format decision) under "Handoff to SCADA."*
