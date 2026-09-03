@@ -78,11 +78,31 @@ later, on Doug's cue, per his stated preference.*
      that AOI's real parameter structure (from the Casne AOI Reference
      or the L5X directly) and corrects the UDT definition so every
      sub-element matches, name for name.
-   - **Not yet buildable** — blocked on Doug having a real Ignition UDT
-     export in hand to work through with PLCHelper interactively first
-     ("tell it where we started and what we need instead"), same
-     hands-on-first pattern as how TASK_003 and the AOI Reference itself
-     got built. Revisit once that export exists.
+   - **Naming convention — UDT names do NOT track PLC AOI version numbers**
+     (confirmed 2026-09-03): a PLC AOI's version bumps only when new
+     sub-elements are *added* (never on removal — deleting a parameter
+     doesn't break the Ignition screen, so it doesn't force a bump). On
+     the Ignition side, the UDT is never renamed to match a new AOI
+     version — it's kept as-is and just gets new sub-elements added when
+     the PLC side adds them. Example found in the wild: Ignition UDT
+     named `CONSPD2_AOI` legitimately corresponds to current PLC type
+     `CONSPD4_AOI` — **this is expected, not an error, and must never be
+     flagged as a mismatch.** Real design consequence: the eventual task
+     cannot assume UDT name == AOI type name. It needs an explicit
+     UDT-name ↔ AOI-type mapping (supplied by Doug per UDT), not a
+     name-matching heuristic.
+   - **In progress (2026-09-03)** — Doug is actively feeding PLCHelper
+     reference data to work through this interactively. First data point
+     received: a known-working single (non-UDT) Ignition tag,
+     `AUTO_hwdi` under `O2InjectionSystem`, OPC Item Path
+     `ns=1;s=[BOP_O2_CombinedTest]O2_AC001.AUTO_hwdi` — confirms the
+     OPC path shape (`[PLC program name]AOI_instance.parameter`) that a
+     parameterized UDT template needs to reproduce, with the AOI-instance
+     segment (`O2_AC001`) becoming a UDT parameter and everything else
+     fixed per member. Consistent with `AUTO_hwdi` as documented in the
+     Casne AOI Reference (CONSPD4_AOI). Session ongoing — not yet
+     buildable as a formal task, still hands-on with Doug per the same
+     pattern as TASK_003 and the AOI Reference itself.
 
 ## Completed
 
