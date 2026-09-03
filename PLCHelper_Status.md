@@ -111,28 +111,35 @@ later, on Doug's cue, per his stated preference.*
        to be set per-member, not inherited from one shared location —
        every member needs checking individually, not just the type
        header.
-     - **Confirmed bug pattern #2 — `{InstanceName}` needed to be an
-       explicit custom parameter**: Ignition's official docs describe
-       `{InstanceName}` as an automatic built-in UDT parameter needing
-       no manual setup — that did not hold true in Doug's actual system.
-       It had to be added as an explicit custom parameter (same pattern
-       as the already-working `DeviceName` parameter) and set to the
-       instance name (`O2_AC001`) before it resolved. Documenting the
-       real observed behavior here rather than the docs' claim, since
-       they conflicted and the real system is what matters for this task.
-     - **Fix confirmed working**: with both of the above corrected, the
-       `AUTO_hwdi` member now shows a green checkmark (resolving
-       correctly) instead of `Error_Configuration`.
-     - **Remaining scope, not yet done**: every *other* member of this
-       same `O2_AC001`/CONSPD4_AOI-equivalent UDT (`Ack_All`,
-       `AUTO_PB_scdo`, `AUTO_scdi`, `AUTO_STATUS_scai`,
-       `AutoCall_INTRLK_scdi`, `AutoCall_scdi`, `CBAux_alm`, and more)
-       still shows `Error_Configuration` — this exact two-part fix
-       likely needs repeating per member, and possibly across every
-       other UDT type in the project if the same typo/parameter gap was
-       copied around the same way. This is the concrete case that
-       justifies the task: doing this by hand, one member at a time, is
-       exactly what PLCHelper should be able to do systematically.
+     - **RETRACTED — `{InstanceName}` was never actually a bug**
+       (corrected 2026-09-03, superseding what was logged earlier the
+       same day): originally recorded as "confirmed bug pattern #2"
+       because adding an explicit `InstanceName` parameter coincided
+       with fixing `AUTO_hwdi`. That was a confounded test — two things
+       were changed at once (the OPC Server name AND the parameter), and
+       it later turned out `AUTO_hwdi`'s own path uses `{Name}`, not
+       `{InstanceName}`, so the parameter addition could not have been
+       what fixed it. Doug then proved this cleanly: after the OPC
+       Server hyphen fix alone resolved almost every member, he deleted
+       the `InstanceName` parameter entirely from the UDT and every
+       previously-working member kept working. **`{InstanceName}` is
+       genuinely automatic and built-in, exactly as Ignition's official
+       docs originally described** — no manual parameter needed. The
+       real, sole bug the whole time was the OPC Server name typo.
+     - **Fix confirmed working**: the OPC Server hyphen correction alone
+       resolved almost every member of the UDT (verified by Doug
+       directly in Ignition). A small number of members are still
+       showing errors — not yet diagnosed, and not assumed to be the
+       same root cause as the hyphen bug.
+     - **Remaining scope, not yet done**: identify the actual cause of
+       the small number of still-failing members (not yet known to be
+       related to `{InstanceName}`/`{Name}` at all) — diagnose before
+       fixing, don't assume. Separately, this same OPC-Server-name-typo
+       check likely needs applying across every other UDT type in the
+       project, since the same typo could have been copied around the
+       same way. This is the concrete case that justifies the task:
+       doing this by hand, one member at a time, is exactly what
+       PLCHelper should be able to do systematically.
      - **Export format decided**: JSON, not XML — Ignition natively
        exports tags/UDTs as JSON; XML is only an import format that gets
        converted to JSON internally anyway (confirmed via official docs,
