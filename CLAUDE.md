@@ -100,12 +100,22 @@ program too.
 
 ## Reference document conventions
 
-- All AOIs and UDTs are documented in a single unified markdown file
+- All AOIs and UDTs are documented in a single unified markdown file —
+  the "Casne AOI Reference," a general, company-wide library of AOIs
+  Casne has built and reused across jobs, not scoped to any one job
 - Sections are sorted alphabetically — AOIs and UDTs combined
 - Member/parameter names copied exactly as they appear in the XML —
   no capitalization changes of any kind
+- Every section is tagged with its source — **Casne** (no `Vendor`
+  attribute on the source element) or the vendor named in that
+  attribute (e.g. **Rockwell Automation**)
+- Every section has a top-level summary paragraph sourced only from
+  that entry's own `<Description>`/`<RevisionNote>`/`<AdditionalHelpText>`;
+  if none exist or none are usable, the exact placeholder
+  `[No description in source — needs to be written]` is used instead —
+  never an inferred guess at what the AOI does
 - Version bumped by 0.1 with every change; previous version kept
-- Current reference file: `PLCHelper_Reference_v1.0.md`
+- Current reference file: `PLCHelper_Reference_v1.1.md`
 
 ### Reference file format
 
