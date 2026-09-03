@@ -45,6 +45,25 @@ these up until Doug says it's time.
         and-scan) needs to transfer as understanding, not just a rule
         someone's told once
 
+## Talent Candidates (pending write-up)
+
+*Logged as they come up during ad hoc PLCHelper Q&A/testing sessions.
+Not full task specs yet — batch-formalized into `PLCHelper_Tasks.md`
+later, on Doug's cue, per his stated preference.*
+
+1. **"Handoff to SCADA"** *(raised 2026-09-03, sparked by a real
+   situation — a coworker's Ignition screen design work stalled for
+   weeks after the test PLC/tags became ready, apparently just because
+   she got pulled onto another project)* — a task/skill for producing
+   whatever a SCADA/Ignition designer actually needs to pick up and
+   finalize screens/tag bindings for a job, once the PLC side is ready.
+   At Casne, "SCADA" and "HMI" are used interchangeably. Still being
+   scoped with Doug — open questions: exact deliverable (a job-specific
+   tag/instance list ready for HMI binding? something else?); whether
+   this is a general PLCHelper methodology applied to a job's L5X
+   (output living in that job's own folder, matching the TASK_003
+   pattern) or something else entirely.
+
 ## Completed
 
 *(none yet)*
