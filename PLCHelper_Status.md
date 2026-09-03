@@ -140,11 +140,22 @@ later, on Doug's cue, per his stated preference.*
        *instance* does not include the UDT *definition* — must export
        from the "UDT Definitions" tab specifically to get the full
        type/member structure PLCHelper needs.
-     - **Next step**: Doug will export the UDT Definitions JSON and drop
-       it in `BlueSky\PII_Review\`. Standard CLEAN-auto-move rule applies
-       (see `BlueSky/CLAUDE.md`). Once it's in `BlueSky`, PLCHelper will
-       review it against the Casne AOI Reference and produce a corrected
-       version, applying both confirmed bug patterns above.
+     - **Hard scope boundary (confirmed 2026-09-03) — never add missing
+       sub-elements, never generate a missing-elements list either.**
+       Doug explicitly does not want PLCHelper adding UDT members just
+       because the AOI has a matching parameter — some omissions are
+       deliberate (not every AOI parameter is needed for SCADA/HMI), and
+       Doug does not want speculative "here's what might be missing"
+       reports either ("I want to stay away from guessing what people
+       need in the future"). **The task is fix-confirmed-bugs only**:
+       apply the two confirmed patterns above (OPC Server name, the
+       `{InstanceName}` parameter) across every member that needs them.
+       Never add, remove, or flag any member based on AOI/UDT parameter-
+       set differences — that judgment stays with Doug, always.
+     - **Export received and moved in (2026-09-03)**:
+       `CONSPD2_AOI UDT definition tags.json` — CLEAN scan, moved into
+       `BlueSky` via the general auto-move rule. Ready for PLCHelper to
+       apply the two confirmed fixes across every member.
      - Still not yet formalized as a task spec — hands-on with Doug per
        the same pattern as TASK_003 and the AOI Reference itself.
 
