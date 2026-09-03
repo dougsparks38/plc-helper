@@ -109,6 +109,15 @@ program too.
 - Every section is tagged with its source — **Casne** (no `Vendor`
   attribute on the source element) or the vendor named in that
   attribute (e.g. **Rockwell Automation**)
+- Casne-sourced entries append the job/file this documentation was
+  drawn from to the Source line (e.g. `Casne — Blue Sky O2 program
+  (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X`); vendor
+  entries need no job appended. Every entry also carries a
+  `**Last updated:**` line immediately after Source. Standing
+  convention: whenever an entry is substantively touched again (new
+  job's program, rewritten description, changed parameters), update
+  both its Source and Last-updated lines to the newest event — see the
+  skill file for the full rule
 - Every section has a top-level summary paragraph sourced only from
   that entry's own `<Description>`/`<RevisionNote>`/`<AdditionalHelpText>`;
   if none exist or none are usable, the exact placeholder
