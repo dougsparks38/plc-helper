@@ -357,8 +357,28 @@ a warning rather than guessed.
   expected, not an error. The script therefore takes the output UDT name
   as an explicit option (`--udt-name`) and defaults to the AOI type name
   only when not told otherwise. It never infers a mapping by name.
-- Generated members intentionally carry **no history configuration**.
-  History is a per-member engineering decision Doug makes in Designer.
+- **Generated members intentionally carry no history configuration**
+  (confirmed working as intended, 2026-09-04 — Doug noticed only 1 member
+  landed with history enabled after generating `FLOWIN3_AOI`, and wanted
+  to make sure that wasn't a bug). It isn't: History Enabled is a
+  per-member engineering decision, not a convention derivable from the
+  AOI or reference UDT — the reference itself only had history on 10 of
+  31 members, with differing settings, so there's no single pattern to
+  copy. Guessing which members should be historized would be exactly the
+  kind of speculation the Hard scope boundary already forbids elsewhere.
+  **Current practice:** Doug sets History Enabled manually per member in
+  Designer after generation, based on his own judgment (he typically
+  historizes alarm-type members, per ~6 years of Ignition/UPRR
+  experience, but hasn't formalized this as an explicit rule yet).
+  **Possible future enhancement, not built:** if Doug ever defines a
+  precise, explicit rule for which members get historized (e.g. "any
+  member matching this exact naming pattern gets History Enabled with
+  these exact settings") — sourced from his own UPRR project convention,
+  not invented by PLCHelper — the script could apply that rule
+  deterministically, the same way it already applies the OPC Server and
+  path-template conventions. That is a supplied rule, not a guess, so it
+  would not conflict with the Hard scope boundary. Not scoped or
+  designed until Doug actually has that rule in hand.
 - `{InstanceName}` is a genuine built-in Ignition parameter requiring no
   manual setup; `{Name}` is **not** built-in and must be a custom
   parameter where it appears. Generated templates use `{InstanceName}`.
@@ -368,8 +388,12 @@ a warning rather than guessed.
 
 ---
 
-*Last updated: September 4, 2026 — added TASK_004 (generate a brand-new
-Ignition UDT definition JSON from an AOI's real parameter set), including
-the Doug-approved "include every parameter" scope decision and how it
-coexists with the existing Hard scope boundary on correcting existing
-UDTs. Prior update: September 2, 2026.*
+*Last updated: September 4, 2026 (2nd) — expanded TASK_004's history-tag
+note: confirmed the no-history-on-generated-members behavior is correct
+(not a bug), documented Doug's current manual practice, and logged a
+possible future enhancement (an explicit, Doug-supplied historization
+rule) without designing it. Prior update, same day: added TASK_004
+(generate a brand-new Ignition UDT definition JSON from an AOI's real
+parameter set), including the Doug-approved "include every parameter"
+scope decision and how it coexists with the existing Hard scope boundary
+on correcting existing UDTs. Prior update: September 2, 2026.*
