@@ -35,7 +35,7 @@ once the spec is solid.
 | TASK_001 | Document data structures for SCADA designer | Implemented (as a Skill) | Moved out of PLCHelper into `claude-workflow/Skills/plc-aoi-reference-creation-and-update.skill.md` — reusable across sessions instead of a loose local file |
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
-| TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions |
+| TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
 
 ---
 
@@ -300,10 +300,12 @@ task.
      reference's members, which is the minimal correct member. Optional
      per-member extras (`historyEnabled`, `historyProvider`,
      `historyTagGroup`, `historyMaxAge`, `sampleMode`,
-     `historicalDeadbandStyle`, …) are per-member engineering choices,
-     **not** conventions — they are deliberately not invented for
-     generated members. Doug enables history on the specific members he
-     wants it on, in Designer.
+     `historicalDeadbandStyle`, …) are stripped out of that key set, so a
+     reference member's own history settings can never leak onto an
+     unrelated generated member. Generated members get their history from
+     the Historization rule below instead — except for the storage
+     provider and historical tag group, which *are* derived from the
+     reference's historized members as a convention.
    - **Top-level type shape** — `tagType: "UdtType"`, plus the
      reference's `parameters` block (e.g. `DeviceName`, `Description`),
      `tagGroup`, permissions, and `dataType`.
@@ -318,7 +320,11 @@ task.
    - Because both come from the same L5X string, the member name and the
      path can never disagree in case — confirmed bug pattern #2 is
      eliminated by construction.
-5. **Write the output JSON** into the **job's own folder**, never into
+5. **Apply the historization rule** to each member by name — see
+   "Historization rule" below. Matching members get History enabled with
+   the settings for their signal type; every other member gets no history
+   keys at all.
+6. **Write the output JSON** into the **job's own folder**, never into
    PLCHelper.
 
 ### Data type mapping (confirmed from real files, 2026-09-04)
@@ -341,14 +347,100 @@ reference — learning it per-member would faithfully reproduce the bugs.
 Any PLC data type the script has no confirmed mapping for is reported as
 a warning rather than guessed.
 
+### Historization rule (Doug-supplied and confirmed 2026-09-04, implemented)
+
+A generated member gets History enabled **only** if its name
+(case-insensitive) matches one of these. Nothing else is historized, and
+no other suffix or pattern is inferred:
+
+| Match | Signal type |
+|---|---|
+| ends with `_hwai`, `_hwao`, `_scai`, `_scao` | **analog** |
+| ends with `_hwdi`, `_hwdo`, `_scdi`, `_scdo` | **digital** |
+| ends with exactly `_alm` or `_alarm` | **digital** |
+
+The eight suffixes are the ones already in `CLAUDE.md`'s "Naming
+conventions" table; that table is the single source of truth for what
+they mean and is not restated here.
+
+**Compound alarm names are deliberately excluded** — `_alm_dis`,
+`_alm_ack`, `_alm_res`, and any other `_alm_*` form. Those are alarm
+*controls*, not the alarm itself. Only the bare `_alm` / `_alarm` ending
+matches. **Alarms are always Boolean at Casne** (confirmed by Doug), so
+they classify as digital regardless of how the AOI names or types the
+alarm parameter.
+
+Members that match nothing get **no history keys at all** — the same as
+the script's original behavior.
+
+**Settings applied by signal type.** The values come from `CLAUDE.md`'s
+"Ignition tag History — digital vs. analog configuration" section (its
+correctness rules plus the two Casne standing defaults) and are not
+re-derived here:
+
+| Setting | Digital | Analog |
+|---|---|---|
+| History Enabled | true | true |
+| Deadband Style | `Discrete`, set explicitly | `Auto` — represented by **omitting the key**, see below |
+| Deadband Mode | `Absolute` | `Absolute` |
+| Historical Deadband | `0.0` | ⚠ `0.01` **placeholder — not a verified value** |
+| Sample Mode | `On Change` | `On Change` |
+| Max Time Between Samples | 20 | 20 |
+| Max Time Units | Minutes | Minutes |
+
+Three implementation notes worth keeping:
+
+1. **JSON key names and enum spellings differ from the Designer UI
+   labels**, and were taken from real Ignition UDT definition exports
+   rather than assumed from the UI: `On Change` serializes as
+   `"OnChange"`, `Minutes` as `"MIN"`, the setting names are
+   `historicalDeadbandStyle` / `historicalDeadbandMode` /
+   `historicalDeadband` / `historyMaxAge` / `historyMaxAgeUnits`, and the
+   Analog style serializes as `"Analog_Compressed"` — not `"Analog"`.
+2. **`Auto` is written by omitting `historicalDeadbandStyle`.** Ignition
+   omits settings sitting at their default when it exports, and no
+   `"Auto"` literal appears in any real export checked — so omitting the
+   key is how a real Ignition file represents Auto. On a Float, Auto
+   resolves to Analog, which is what CLAUDE.md's analog findings call
+   for.
+3. **The digital deadband `0.0` is a deliberate choice between the two
+   values CLAUDE.md allows** (0 or 0.01). `0.0` was chosen because
+   CLAUDE.md also notes a non-zero deadband next to Discrete style is
+   inert/vestigial; `0.0` states "store every transition" plainly. Both
+   are safely below the `>= 1.0` value that would silently suppress *all*
+   history on a BOOL — CLAUDE.md's documented trap.
+
+⚠ **The analog Historical Deadband is a flagged placeholder, not an
+engineering answer.** CLAUDE.md is explicit that the Ignition docs give
+no method, recommended value, or rule of thumb for choosing this number —
+it is a per-signal judgment call. `0.01` is used only because it is the
+value in the docs' own worked example, which CLAUDE.md cites. The script
+prints a REVIEW REQUIRED block on every run that emits one, and Doug must
+adjust it per signal. The digital deadband is not a judgment call and
+needs no review.
+
+**History context comes from the reference, not from this spec.** Storage
+provider (`historyProvider`) and historical tag group (`historyTagGroup`)
+are project/environment facts with no correct value to invent, so they
+are derived from the reference UDT's own historized members — the same
+"most common value across the reference" pattern already used for the OPC
+Server value and the path template. If the reference has no historized
+members, they are left unset and the script prints a warning that history
+will not store until a provider is chosen. Any *other* history key the
+reference's historized members carry is reported but not applied, so an
+unrecognized convention gets a human look instead of being silently
+copied or silently dropped.
+
 ### Outputs
 
 1. A new Ignition UDT definition JSON, written to the job's folder,
    importable via Ignition Designer's **UDT Definitions** tab, with one
    member per AOI parameter.
 2. A console report: parameter count, the conventions derived from the
-   reference (so they can be eyeballed before import), and warnings for
-   any unmapped data type.
+   reference (so they can be eyeballed before import), which members the
+   historization rule enabled History on (split digital vs. analog, with
+   the non-matching count), the analog-deadband REVIEW REQUIRED block,
+   and warnings for any unmapped data type.
 
 ### Open Questions / Notes
 
@@ -357,36 +449,25 @@ a warning rather than guessed.
   expected, not an error. The script therefore takes the output UDT name
   as an explicit option (`--udt-name`) and defaults to the AOI type name
   only when not told otherwise. It never infers a mapping by name.
-- **Generated members intentionally carry no history configuration**
-  (confirmed working as intended, 2026-09-04 — Doug noticed only 1 member
-  landed with history enabled after generating `FLOWIN3_AOI`, and wanted
-  to make sure that wasn't a bug). It isn't: History Enabled is a
-  per-member engineering decision, not a convention derivable from the
-  AOI or reference UDT — the reference itself only had history on 10 of
-  31 members, with differing settings, so there's no single pattern to
-  copy. Guessing which members should be historized would be exactly the
-  kind of speculation the Hard scope boundary already forbids elsewhere.
-  **Current practice:** Doug sets History Enabled manually per member in
-  Designer after generation, based on his own judgment (he typically
-  historizes alarm-type members, per ~6 years of Ignition/UPRR
-  experience, but hasn't formalized this as an explicit rule yet).
-  **Possible future enhancement, not built:** if Doug ever defines a
-  precise, explicit rule for which members get historized (e.g. "any
-  member matching this exact naming pattern gets History Enabled with
-  these exact settings") — sourced from his own UPRR project convention,
-  not invented by PLCHelper — the script could apply that rule
-  deterministically, the same way it already applies the OPC Server and
-  path-template conventions. That is a supplied rule, not a guess, so it
-  would not conflict with the Hard scope boundary. Not scoped or
-  designed until Doug actually has that rule in hand.
+- **Historization is now applied automatically by an explicit rule** —
+  see the "Historization rule" section above. This supersedes the
+  previous behavior, in which generated members deliberately carried no
+  history configuration at all because no explicit rule existed yet
+  (Doug set History Enabled by hand, per member, in Designer). Doug
+  supplied the rule on 2026-09-04 and it is now built in. What has
+  **not** changed: the script still never *guesses* which members to
+  historize — it applies a rule Doug stated, exactly as written, the
+  same way it already applies the OPC Server and path-template
+  conventions. Members outside the rule still get no history keys at all.
   **Related but distinct (verified 2026-09-04):** what the History
   settings themselves should *be*, once a member has already been chosen
-  for historization, is now documented — see `CLAUDE.md`'s "Ignition tag
+  for historization, is documented — see `CLAUDE.md`'s "Ignition tag
   History — digital vs. analog configuration" section. That covers
   Deadband Style/Mode/value correctness by signal type (digital vs.
-  analog) only. It deliberately does **not** address *which* members get
-  historized, which remains the unformalized judgment call described
-  above — so it does not narrow the Hard scope boundary.
+  analog) only — the two concerns stay separate: CLAUDE.md says what the
+  settings should be, the Historization rule above says which members
+  receive them. Neither narrows the Hard scope boundary, which governs
+  *correcting an existing* UDT, not generating a new one.
 - `{InstanceName}` is a genuine built-in Ignition parameter requiring no
   manual setup; `{Name}` is **not** built-in and must be a custom
   parameter where it appears. Generated templates use `{InstanceName}`.
@@ -396,7 +477,14 @@ a warning rather than guessed.
 
 ---
 
-*Last updated: September 4, 2026 (3rd) — cross-referenced TASK_004's
+*Last updated: September 4, 2026 (4th) — TASK_004 now applies an explicit
+Doug-supplied Historization rule instead of generating no history at all.
+Added the "Historization rule" section (which members match, which
+compound alarm forms are excluded, the settings by signal type, the real
+JSON key/enum spellings taken from actual Ignition exports, and the
+flagged analog-deadband placeholder), added it as a Process step, and
+replaced the old "possible future enhancement, not built" note — that
+enhancement is now built. Prior update, same day: cross-referenced TASK_004's
 history-tag note to the new "Ignition tag History — digital vs. analog
 configuration" section in CLAUDE.md, making explicit that the new section
 covers History settings-correctness by signal type only and does not
