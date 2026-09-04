@@ -106,6 +106,25 @@ RSLogix5000Content
 | `_intm` | Intermediate accumulator (pre-rollover value) |
 | `_` prefix | Internal implementation detail |
 
+## UDT type naming convention (source: `Casne Programming Standards for PLC.docx`, 2026-09-04)
+
+This is about the **UDT type's own name** — a different thing from the
+member-suffix table above.
+
+- **Primary UDTs** (the main, general-purpose types): name them in
+  **ALL CAPS** — e.g. `FLOWIN3_AOI`, `CONSPD2_AOI`.
+- **Secondary UDTs** (supporting/dependent types used inside a primary
+  UDT): start the name with an underscore `_`, and give the whole name
+  **lowercase** letters. The leading underscore is what sorts them to the
+  bottom of the UDT list in the Tag Browser, keeping primary types easy
+  to find at the top.
+
+Relevant to `generate_ignition_udt.py` (TASK_004)'s `--udt-name` option:
+when generating a **primary** UDT, the name should be ALL CAPS per this
+convention; the script does not enforce this itself (it takes whatever
+name it's given), so follow the convention when choosing the value to
+pass.
+
 ## Editing L5X files
 
 - Ladder logic rungs are in `<Text><![CDATA[...]]></Text>` blocks
