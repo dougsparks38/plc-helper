@@ -184,6 +184,20 @@ flat lines in charts that assume step data, so many integrators use Discrete
 for floats too. Either is defensible — this is a judgment call, not a
 correctness question, and Casne has no standing convention on it yet.
 
+**Casne standing default for digital signals (decided 2026-09-04):**
+resolves the Sample Mode judgment call the initial review flagged.
+
+| Setting | Digital default |
+|---|---|
+| Sample Mode | **On Change** — not "Tag Group" polling, so a transition shorter than a polled interval can't be missed |
+| Max Time Between Samples | **20 minutes** — forces a periodic log even with no change, so a stuck/dead connection is visible as a gap in history rather than silence that could be mistaken for "nothing happened" |
+| Max Time Units | Minutes |
+
+This is a **standing convention for digital tags going forward**, distinct
+from the Deadband Style/Mode correctness rules above (which are not
+optional) — Sample Mode has no single "correct" answer the docs mandate,
+so this is Casne's own choice, not something derived from documentation.
+
 ## Editing L5X files
 
 - Ladder logic rungs are in `<Text><![CDATA[...]]></Text>` blocks
