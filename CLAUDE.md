@@ -183,6 +183,128 @@ forum consensus is that its slope-compression behavior makes trends read as
 flat lines in charts that assume step data, so many integrators use Discrete
 for floats too. Either is defensible — this is a judgment call, not a
 correctness question, and Casne has no standing convention on it yet.
+**Updated below:** the docs now do lean one way on this, but only in a
+version-and-provider-scoped note — see "Official lean against Analog style."
+
+### Analog-specific findings (verified 2026-09-04, reviewing `Analog_hwai`)
+
+Verified while reviewing `Analog_hwai` on the superseded
+`zzDelete_FLOWIN3_AOI_old` UDT (Float/REAL, 0.0–100.0 EU range). Extends the
+digital review above; nothing above is retracted.
+
+**`Auto` on a Float is not "equivalent to explicit Analog" in the way
+explicit `Discrete` was equivalent on a BOOL — and the type-change argument
+does not carry over.** `Auto` on a Float resolves to Analog, so today `Auto`
+and explicit `Analog` behave identically. But the reason explicit was
+preferred on a BOOL was that it *survives a data-type change on the member*,
+and that reasoning is specific to the digital case:
+
+- On a BOOL, explicit `Discrete` protects the correct choice — if the member
+  later became a Float, `Auto` would silently flip it to Analog.
+- On a Float, explicit `Analog` protects a choice you would probably *not*
+  want on any other type, so pinning it is arguably worse under a type change
+  than leaving `Auto`.
+
+The practical consequence that matters more: **`Auto` can never give you
+Discrete on a Float.** If Discrete is what's wanted on an analog member (see
+next item), it must be set explicitly — leaving `Auto` silently opts into
+Analog.
+
+**Official lean against Analog style — real, but narrowly scoped.** The
+Ignition **8.3** Configuring Tag History page carries a note box, "Using
+Deadband with the Core Historian," stating: "Out of order writes (such as with
+the Analog deadband style) for the Core Historian can be taxing on your
+system. To avoid potential impacts on performance and I/O utilization, it is
+recommended to use either the Discrete deadband style or turn deadband mode
+off and use the Periodic Sample Mode."
+
+Scope limits, verified rather than assumed — do not over-read this note:
+
+- It is **absent from the 8.1 docs entirely** (that page's note boxes were
+  checked; no out-of-order-writes/performance note exists there).
+- "Core Historian" is the **8.3-only QuestDB-backed internal provider**. The
+  term appears nowhere in the 8.1 provider docs; every 8.1 provider is
+  SQL/database-based (Datasource, Internal/SQLite, Remote, Splitter, DB
+  Table, Simulator, OPC-HDA).
+
+So this is the first *official* support for the Discrete-on-floats
+preference the forum consensus above already described — but it is an
+8.3 + Core-Historian performance note, not a general correctness rule.
+**Whether it applies to a given job depends on the Ignition version and
+whether the provider is Core Historian or a SQL provider** — for `Hist_IW`
+that is unresolved and has not been assumed either way.
+
+Separately, an 8.1 retrieval-side note on Analog style: "Be aware that if a
+tag is storing history using the Analog style, the returned dataset will
+include post-query seed values."
+
+**Deadband Mode `Absolute` with `0.01` on a 0–100 span:** Absolute is the
+documented default and is correct here. Note the arithmetic — Percent mode is
+"calculated as a percentage of the tag's engineering unit span," so on a
+**0–100 span specifically, Absolute and Percent are numerically identical**
+(X% of a 100-unit span = X units). The Absolute/Percent choice only starts to
+matter on this member if its EU range ever changes off 0–100; Percent would
+then rescale with it and Absolute would not.
+
+**On choosing the deadband value: the docs give no guidance at all.** Both
+the 8.1 and 8.3 pages were checked; neither offers a method, a recommended
+value, or a rule of thumb for picking a Historical Deadband. This is purely
+an engineering judgment call about how much signal noise is worth storing —
+there is no documented right answer, and one should not be invented. For
+reference only, `0.01` is the value used in the docs' own worked example, and
+0.01 on a 0–100 span is a very fine deadband (0.01% of span) that will store
+nearly every change.
+
+**Sample Mode for an analog tag — the docs do not address this.** Neither the
+8.1 nor the 8.3 page states a default Sample Mode, and neither distinguishes
+analog from discrete/Boolean tags in choosing one. The only official
+statement touching it is the 8.3 Core Historian note above (which pairs
+"deadband off" with Periodic). Forum discussion is community-only — no
+Inductive Automation staff replies were found in the threads reviewed — and
+treats float tags as warranting *rate-based bucketing* (fast/medium/slow,
+e.g. pressure vs. temperature) rather than a single correct mode.
+
+**So this is a judgment call, the same way Analog-vs-Discrete style is** —
+not a documented correctness question. Casne has no standing convention for
+analog Sample Mode, and one is not asserted here; that decision is Doug's,
+as the digital one was.
+
+Two things that *are* documented and worth checking against a Tag-Group
+configuration like `History 5 Sec`:
+
+1. "Typically, the Historical Tag Group should execute at the same rate as
+   the tag's Tag Group or slower" — a 5-second historical group is only
+   appropriate if the member's own tag group scans at 5 seconds or faster.
+2. Reasoning from the doc definitions (not a doc statement): `On Change`
+   checks "each time the tag value changes," and an OPC tag's value only
+   updates when its own tag group scans it — so `On Change` on an analog is
+   already bounded by the tag's scan rate, not unbounded.
+
+⚠️ **`Max Time Between Samples` = 20 Minutes may be inert here, because
+Sample Mode is `Tag Group`.** Official 8.1 docs, How the Tag Historian System
+Works: "When using a Tag Group sample mode, there are two locations where a
+Max Time can be defined: On the tag's history settings, and on the Tag
+Group's history settings. The Tag Group's settings override the settings on
+the Tag, *except* when the Tag Group is using it's default values."
+
+**This is a real asymmetry with the digital standing default above.** The
+digital convention pairs 20 minutes with `On Change`, where the tag's own max
+time governs directly. Here the same 20 minutes sits next to `Tag Group`
+mode, so whether it takes effect depends on the `History 5 Sec` tag group's
+own max-time setting — the number showing in the tag editor is not proof it
+is in force. A community-reported wrinkle (not official, and not verified
+first-hand): once a tag group's max time has been touched, the group's value
+reportedly keeps winning even after being set back to its default.
+
+**On the 20 Minutes matching the new digital default:** treat this as
+coincidence/template artifact, not evidence for an analog default. This UDT
+is a superseded `zzDelete_` reference that Doug did not just configure, and
+the surrounding values are the Ignition defaults or doc-example values
+(`Auto` is confirmed the default Deadband Style; `Absolute` the default
+Deadband Mode; `0.01` the docs' example value — whether `0.01` is also the
+shipped default could not be confirmed). A settings block sitting at its
+defaults is not an independent engineering decision that happens to agree
+with the new convention.
 
 **Casne standing default for digital signals (decided 2026-09-04):**
 resolves the Sample Mode judgment call the initial review flagged.
