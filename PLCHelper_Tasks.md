@@ -35,6 +35,7 @@ once the spec is solid.
 | TASK_001 | Document data structures for SCADA designer | Implemented (as a Skill) | Moved out of PLCHelper into `claude-workflow/Skills/plc-aoi-reference-creation-and-update.skill.md` — reusable across sessions instead of a loose local file |
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
+| TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions |
 
 ---
 
@@ -211,4 +212,164 @@ is generic.
 
 ---
 
-*Last updated: September 2, 2026*
+## TASK_004 — Generate Ignition UDT definition from an AOI
+
+**Status:** Implemented (2026-09-04) — script: `generate_ignition_udt.py`
+
+### Purpose
+
+At Casne, every AOI type used in a PLC job is mirrored on the Ignition
+side by a UDT (User Defined Type) whose members correspond to that AOI's
+parameters. Building those UDTs by hand — one member at a time, in
+Ignition Designer — is slow and produces exactly the class of errors
+already documented in `PLCHelper_Status.md` under "Handoff to SCADA":
+an OPC Server name typo (confirmed bug pattern #1) and member-name
+case mismatches (confirmed bug pattern #2). Both are single-character
+mistakes that produce confusing, misleading Ignition errors.
+
+This task removes the manual step entirely: point it at an AOI type and
+a fresh L5X export, and it emits a complete, ready-to-import Ignition
+UDT definition JSON. Because the member names and OPC Item Paths are
+generated directly from the L5X, both confirmed bug patterns become
+structurally impossible rather than something to catch later.
+
+### Scope decision — include EVERY parameter, always (Doug-approved, 2026-09-04)
+
+**This task generates one member for every single parameter of the AOI.
+No exclusions. No filtering. No judgment about which parameters are
+"needed for SCADA/HMI."**
+
+This is a deliberate, explicitly Doug-approved exception to the general
+"never guess which parameters to include" principle, and it applies to
+**this one operation only** — generating a brand-new UDT from scratch.
+Doug's reasoning: he was unable to identify any actual benefit to
+excluding parameters from a new UDT, and the manual filtering step was a
+recurring source of error and rework.
+
+**How this relates to the Hard scope boundary in `PLCHelper_Status.md`:**
+that boundary — never add members to a UDT, never generate a
+"missing members" list — remains fully in force for *correcting an
+existing* UDT. The distinction is:
+
+| Operation | Rule |
+|---|---|
+| Correcting an **existing** UDT | Never add/remove/flag members based on AOI-vs-UDT differences. Fix confirmed bugs only. Judgment stays with Doug. |
+| Generating a **brand-new** UDT (this task) | Include every AOI parameter. No filtering. |
+
+The reason these don't conflict: an existing UDT's omissions may be
+deliberate engineering decisions, and overriding them would be guessing.
+A brand-new UDT has no such decisions embedded in it yet — so the
+complete parameter set is the only non-speculative starting point, and
+Doug can delete what he doesn't want in Designer afterward. Deleting a
+member Doug can see is cheap; discovering a missing member months later
+via a broken Ignition screen is not.
+
+The `[exclude]` marker convention in `CLAUDE.md` is a
+**reference-document** convention (which parameters get documented in
+the Casne AOI Reference) and is deliberately **not** consulted by this
+task.
+
+### Inputs
+
+| Input | Format | Notes |
+|-------|--------|-------|
+| AOI type name | string | e.g. `FLOWIN3_AOI`. Must match the `Name` attribute of an `AddOnInstructionDefinition` in the L5X exactly. |
+| L5X export | `.L5X` (XML) | Full program export from Studio 5000. Lives in the **job's own folder** (e.g. `BlueSky\`), read cross-folder — never copied into PLCHelper, same pattern as TASK_003, so PLCHelper stays reusable across jobs and no client content enters this repo. |
+| Reference UDT JSON | `.json` | An existing Ignition UDT **definition** export, used only to learn *conventions* — OPC Server value, OPC Item Path template shape, member JSON structure, top-level type structure. Its actual member data is never copied. Must be exported from Ignition's **"UDT Definitions"** tab; exporting a UDT *instance* does not include the definition. |
+
+### Process
+
+1. **Parse the L5X** for the named `AddOnInstructionDefinition` and read
+   its `<Parameters>` block. Each `<Parameter>` carries `Name`,
+   `DataType`, `Usage` (Input/Output/InOut), `Required`, `Visible`,
+   `ExternalAccess`, `Radix`, and an optional `<Description>` CDATA.
+   Take the parameter list in **document order** — that is the order the
+   engineer sees in Studio 5000.
+2. **Parse the reference UDT JSON** to derive conventions rather than
+   assume them:
+   - **OPC Server** — the value used by its members. Verified in the real
+     files as `Ignition OPC UA Server` (**no hyphen**). The hyphenated
+     `Ignition OPC-UA Server` is confirmed bug pattern #1 and produces
+     `Error_Configuration("Server ... does not exist.")`.
+   - **OPC Item Path template** — derived by taking each reference
+     member's `opcItemPath.binding` and replacing that member's own name
+     with a placeholder, then using the **most common** result. Verified
+     shape: `ns=1;s=[{DeviceName}]{InstanceName}.<MemberName>` with
+     `bindType: "parameter"`.
+   - **Member JSON shape** — the **most common key set** across the
+     reference's members, which is the minimal correct member. Optional
+     per-member extras (`historyEnabled`, `historyProvider`,
+     `historyTagGroup`, `historyMaxAge`, `sampleMode`,
+     `historicalDeadbandStyle`, …) are per-member engineering choices,
+     **not** conventions — they are deliberately not invented for
+     generated members. Doug enables history on the specific members he
+     wants it on, in Designer.
+   - **Top-level type shape** — `tagType: "UdtType"`, plus the
+     reference's `parameters` block (e.g. `DeviceName`, `Description`),
+     `tagGroup`, permissions, and `dataType`.
+3. **Map each PLC data type to its Ignition equivalent.** Mapping
+   confirmed empirically against the real files (see Data type mapping
+   below), not from generic docs.
+4. **Emit one member per parameter**, with:
+   - `name` set to the AOI parameter name **verbatim, case included** —
+     no capitalization changes of any kind
+   - `opcItemPath.binding` built from the derived template with the same
+     verbatim name substituted in
+   - Because both come from the same L5X string, the member name and the
+     path can never disagree in case — confirmed bug pattern #2 is
+     eliminated by construction.
+5. **Write the output JSON** into the **job's own folder**, never into
+   PLCHelper.
+
+### Data type mapping (confirmed from real files, 2026-09-04)
+
+| PLC (L5X) | Ignition | How confirmed |
+|---|---|---|
+| `BOOL` | `Boolean` | 24 of 25 BOOL members in the real reference UDT |
+| `DINT` | `Int4` | 3 of 4 DINT members |
+| `REAL` | `Float4` | consistent, no counterexample |
+| `SINT` / `INT` | `Int4` | inferred from the DINT integer mapping — flagged in the report when hit, not silently assumed |
+| `STRING` | `String` | observed in the real instance exports |
+
+**The reference UDT contains its own data-type errors** — found while
+deriving this mapping: `AutoCall_INTRLK_scdi` is `BOOL` in the PLC but
+`Int4` in the UDT, and `AUTO_STATUS_scai` is `DINT` in the PLC but
+`Float4`. These are hand-entry mistakes in the coworker-built UDT, not
+conventions. The mapping is therefore **fixed in the script from the
+confirmed-correct majority**, and is *not* learned per-member from the
+reference — learning it per-member would faithfully reproduce the bugs.
+Any PLC data type the script has no confirmed mapping for is reported as
+a warning rather than guessed.
+
+### Outputs
+
+1. A new Ignition UDT definition JSON, written to the job's folder,
+   importable via Ignition Designer's **UDT Definitions** tab, with one
+   member per AOI parameter.
+2. A console report: parameter count, the conventions derived from the
+   reference (so they can be eyeballed before import), and warnings for
+   any unmapped data type.
+
+### Open Questions / Notes
+
+- **UDT name does not track the AOI version number.** A UDT named
+  `CONSPD2_AOI` legitimately corresponds to PLC type `CONSPD4_AOI` —
+  expected, not an error. The script therefore takes the output UDT name
+  as an explicit option (`--udt-name`) and defaults to the AOI type name
+  only when not told otherwise. It never infers a mapping by name.
+- Generated members intentionally carry **no history configuration**.
+  History is a per-member engineering decision Doug makes in Designer.
+- `{InstanceName}` is a genuine built-in Ignition parameter requiring no
+  manual setup; `{Name}` is **not** built-in and must be a custom
+  parameter where it appears. Generated templates use `{InstanceName}`.
+- The script does not import into Ignition and does not modify any
+  existing UDT — it only writes a new file. Correcting existing UDTs
+  remains a separate concern under the Hard scope boundary.
+
+---
+
+*Last updated: September 4, 2026 — added TASK_004 (generate a brand-new
+Ignition UDT definition JSON from an AOI's real parameter set), including
+the Doug-approved "include every parameter" scope decision and how it
+coexists with the existing Hard scope boundary on correcting existing
+UDTs. Prior update: September 2, 2026.*
