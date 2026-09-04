@@ -161,9 +161,15 @@ later, on Doug's cue, per his stated preference.*
        members resolved, but a couple still showed bare `Error` rather
        than resolving or showing `Error_Configuration`. For the
        `Analog_hwai` sub-element, the UDT's OPC Item Path referenced the
-       parameter as `Analog_hwai`, while the actual member name inside
-       the PLC's AOI instance is `ANALOG_hwai` — differing in
-       capitalization only. Fixing the case resolved it.
+       parameter as `ANALOG_hwai`, while the actual member name inside
+       the PLC's AOI instance is `Analog_hwai` — differing in
+       capitalization only. Fixing Ignition's case to match the PLC
+       resolved it. *(Corrected 2026-09-04 — Doug initially reported
+       this backwards, i.e. PLC as `ANALOG_hwai` and Ignition as
+       `Analog_hwai`; he double-checked directly in the PLC and confirmed
+       the above is the correct direction. The general takeaway — case
+       must match exactly, check the PLC directly rather than trust
+       memory — is unaffected either way.)*
 
        **Practical diagnostic takeaway (the reusable part):** when
        triaging a batch of broken UDT members in Ignition's Tag Browser,
@@ -229,7 +235,11 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 4, 2026 — added Confirmed bug pattern #2 under
+*Last updated: September 4, 2026 (2nd) — corrected the direction of
+Confirmed bug pattern #2's case example (Doug had initially reported it
+backwards; double-checked directly in the PLC and confirmed the real
+member is `Analog_hwai`, Ignition had the wrong `ANALOG_hwai`). Prior
+update, same day: added Confirmed bug pattern #2 under
 "Handoff to SCADA" (member-name case mismatch between the UDT's OPC Item
 Path and the real AOI member name, diagnosed firsthand on Blue Sky's
 `O2_FIT100`/`FLOWIN3_AOI`), including the `Error_Configuration` vs. bare
