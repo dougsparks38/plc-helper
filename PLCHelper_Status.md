@@ -128,16 +128,69 @@ later, on Doug's cue, per his stated preference.*
        real, sole bug the whole time was the OPC Server name typo.
      - **Fix confirmed working**: the OPC Server hyphen correction alone
        resolved almost every member of the UDT (verified by Doug
-       directly in Ignition). A small number of members are still
-       showing errors — not yet diagnosed, and not assumed to be the
-       same root cause as the hyphen bug.
-     - **Remaining scope, not yet done**: identify the actual cause of
-       the small number of still-failing members (not yet known to be
-       related to `{InstanceName}`/`{Name}` at all) — diagnose before
-       fixing, don't assume. Separately, this same OPC-Server-name-typo
-       check likely needs applying across every other UDT type in the
-       project, since the same typo could have been copied around the
-       same way. This is the concrete case that justifies the task:
+       directly in Ignition). A small number of members were still
+       showing errors — root cause since identified, see Confirmed bug
+       pattern #2 below.
+     - **Confirmed bug pattern #2 — member-name case mismatch between
+       the UDT's OPC Item Path and the real AOI member name** *(diagnosed
+       by Doug firsthand 2026-09-04, working on Blue Sky's `O2_FIT100` —
+       a `FLOWIN3_AOI` instance. Numbering note: the label "#2" was
+       briefly held by the `{InstanceName}` entry that was retracted
+       above; it is now assigned to this, the second genuinely confirmed
+       pattern.)*
+
+       Ignition's tag diagnostic status distinguishes **two different
+       root-cause categories** for a broken OPC UA tag binding to a
+       Rockwell PLC, and the exact error text tells you which one you
+       have:
+       - `Error_Configuration(...)` — the OPC path/server *configuration*
+         itself is malformed. Confirmed instance: the OPC Server name
+         typo of pattern #1 above, which produces
+         `Error_Configuration("Server ... does not exist.")`.
+       - `Error` (bare, no `_Configuration`) — the OPC path syntax and
+         the server reference are both valid, but the specific
+         tag/member reference does not resolve. **Confirmed root cause:
+         a case-sensitivity mismatch** between the member name
+         referenced in the UDT template's OPC Item Path and the actual
+         member name as it exists inside that specific AOI instance in
+         the PLC. Communication will not resolve unless the case matches
+         exactly.
+
+       Confirmed example (from Ignition directly, on `O2_FIT100`): after
+       Doug corrected the OPC-Server-hyphen issue across the UDT, most
+       members resolved, but a couple still showed bare `Error` rather
+       than resolving or showing `Error_Configuration`. For the
+       `Analog_hwai` sub-element, the UDT's OPC Item Path referenced the
+       parameter as `Analog_hwai`, while the actual member name inside
+       the PLC's AOI instance is `ANALOG_hwai` — differing in
+       capitalization only. Fixing the case resolved it.
+
+       **Practical diagnostic takeaway (the reusable part):** when
+       triaging a batch of broken UDT members in Ignition's Tag Browser,
+       read the specific error text before changing anything —
+       `Error_Configuration` means go check the OPC Server / path
+       configuration; bare `Error` on an otherwise-correctly-configured
+       path means go check for a case mismatch between the OPC Item
+       Path's referenced member name and the real PLC-side AOI member
+       name. This is also the operational reason behind `CLAUDE.md`'s
+       "member names copied exactly as they appear in the XML — no
+       capitalization changes of any kind" convention: it is a
+       functional requirement, not a cosmetic one.
+
+       Scope note: confirmed on `FLOWIN3_AOI`/`O2_FIT100`. It is a
+       strong candidate explanation for the still-failing members on the
+       `CONSPD4_AOI`/`O2_AC001` UDT above, but that has not been
+       verified there yet — diagnose each one, don't assume. Deliberately
+       **not** tooled: no automated case-checking and no generated list
+       of members that might have this issue, per the Hard scope
+       boundary below. Natural candidate for a systematic check once the
+       eventual UDT-vs-AOI comparison task is actually built — not
+       designed or scoped now.
+     - **Remaining scope, not yet done**: the OPC-Server-name-typo check
+       from pattern #1 likely needs applying across every other UDT type
+       in the project, since the same typo could have been copied around
+       the same way — and the pattern #2 case check now belongs in that
+       same sweep. This is the concrete case that justifies the task:
        doing this by hand, one member at a time, is exactly what
        PLCHelper should be able to do systematically.
      - **Export format decided**: JSON, not XML — Ignition natively
@@ -155,10 +208,14 @@ later, on Doug's cue, per his stated preference.*
        Doug does not want speculative "here's what might be missing"
        reports either ("I want to stay away from guessing what people
        need in the future"). **The task is fix-confirmed-bugs only**:
-       apply the two confirmed patterns above (OPC Server name, the
-       `{InstanceName}` parameter) across every member that needs them.
+       apply the two confirmed patterns above (OPC Server name typo,
+       member-name case mismatch) across every member that needs them.
        Never add, remove, or flag any member based on AOI/UDT parameter-
        set differences — that judgment stays with Doug, always.
+       *(Corrected 2026-09-04 — the "two confirmed patterns" list above
+       previously named the `{InstanceName}` parameter as the second
+       pattern; that was retracted and was never a real bug, so pattern
+       #2 is now the member-name case mismatch.)*
      - **Export received and moved in (2026-09-03)**:
        `CONSPD2_AOI UDT definition tags.json` — CLEAN scan, moved into
        `BlueSky` via the general auto-move rule. Ready for PLCHelper to
@@ -172,6 +229,14 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 3, 2026 — logged the full AOI-to-UDT
-troubleshooting session (two confirmed bug patterns, a confirmed working
-fix, export format decision) under "Handoff to SCADA."*
+*Last updated: September 4, 2026 — added Confirmed bug pattern #2 under
+"Handoff to SCADA" (member-name case mismatch between the UDT's OPC Item
+Path and the real AOI member name, diagnosed firsthand on Blue Sky's
+`O2_FIT100`/`FLOWIN3_AOI`), including the `Error_Configuration` vs. bare
+`Error` diagnostic distinction; this closes out the previously
+undiagnosed "still-failing members" question, so Remaining scope was
+narrowed to the cross-UDT sweep, and the Hard scope boundary's stale
+reference to the retracted `{InstanceName}` pattern was corrected. Prior
+update (Sept 3): logged the full AOI-to-UDT troubleshooting session
+(confirmed bug pattern #1, a confirmed working fix, export format
+decision) under "Handoff to SCADA."*
