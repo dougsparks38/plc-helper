@@ -1,0 +1,13 @@
+# PII_Review is a STAGING folder — its contents must never be committed.
+#
+# PLCHelper, unlike the no-git client folders (BlueSky, Augean, UW_WCUP,
+# UPRR_Systemwide), IS a git repo that gets pushed to GitHub. A document
+# sitting here has not yet passed pii_scan.py, so committing it would push
+# un-vetted content to a remote. This file ignores everything in this folder
+# except itself: the folder stays tracked (so it exists on a fresh clone),
+# but nothing staged inside it can be committed by accident.
+#
+# See claude-workflow/CASNE_PII_INTAKE_PROCESS.md for the intake process.
+
+*
+!.gitignore

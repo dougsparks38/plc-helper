@@ -8,6 +8,50 @@ This file provides guidance to Claude Code for the PLCHelper project —
 a growing collection of tools and prompts to assist with common PLC
 engineering tasks for Rockwell Automation RSLogix 5000 / Studio 5000.
 
+## Confidentiality / PII intake — read before adding any file here
+
+The general PII intake process (the `PII_Review` staging folder, the scan,
+the confirmed-override mechanism) is shared across all Casne projects —
+see `claude-workflow/CASNE_PII_INTAKE_PROCESS.md` for the full process.
+That file is the single source of truth (Rule 9); do not restate its steps
+here.
+
+**Why this matters differently in PLCHelper — this folder IS a git repo.**
+The other Casne folders that use this intake process (BlueSky, Augean,
+UW_WCUP, UPRR_Systemwide) are deliberately **not** git repos and are never
+pushed anywhere — their risk is client confidentiality, contained to this
+machine. PLCHelper is the opposite shape: it is a real git repo
+(`github.com/dougsparks38/plc-helper`) and its contents get committed and
+**pushed to GitHub**, on Doug's personal account. So the intake discipline
+here is guarding a different exposure — anything that lands in this folder
+and gets committed leaves the machine permanently and lands in a personal
+repo, separate from any question of which client it belongs to.
+
+Practical consequences:
+
+- **`PII_Review\` contents are git-ignored on purpose.** The folder itself
+  is tracked (via a `.gitignore` inside it that ignores everything but
+  itself — this repo had no prior empty-folder convention, so this is the
+  standard git idiom). A document staged there has not yet been scanned, so
+  it must not be committable. Do not remove or weaken that `.gitignore`,
+  and do not `git add -f` anything out of that folder.
+- **Passing the scan clears a document for the folder, not automatically
+  for the repo.** Moving a CLEAN document out of `PII_Review` into the
+  project folder proper makes it readable, and it then becomes a normal
+  tracked file that will be pushed. For any document whose value is as
+  local reference material rather than something that belongs in a public-
+  facing repo, ask Doug before committing it — being CLEAN on `pii_scan.py`
+  is not the same as "should live on GitHub."
+- **Rule 36 still applies to every push from this folder** —
+  `python pii_scan.py --agent PLCHelper` before any `git push`.
+
+**Scope note:** most PLCHelper content is general, company-wide engineering
+methodology (AOI/UDT conventions, audit tasks), which per the shared process
+doc is not client-confidential by itself. This section exists because
+PLCHelper is now also taking in general Casne internal reference material —
+e.g. the PLC-engineer onboarding document — which is internal-to-Casne
+content sitting in a repo that gets pushed publicly.
+
 ## Project context
 
 - Platform: Allen-Bradley / Rockwell Automation
