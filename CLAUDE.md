@@ -273,12 +273,19 @@ resolves the Sample Mode judgment call above, same as the digital decision.
 | Setting | Analog default |
 |---|---|
 | Sample Mode | **On Change** — same choice as digital; per the reasoning above, on an OPC tag this is already bounded by the tag's own scan rate, not unbounded |
+| Max Time Between Samples | **20 minutes** — same value as digital (confirmed 2026-09-04) |
+| Max Time Units | Minutes |
 
-This makes Sample Mode = On Change the Casne default for **both** digital
-and analog tags. What still differs by signal type is **Deadband Style**
-(Discrete for digital, Analog or Discrete for analog per the note above) —
-that's the one setting the docs actually mandate differently, not Sample
-Mode.
+This makes Sample Mode = On Change **and** Max Time Between Samples =
+20 minutes the Casne default for **both** digital and analog tags. With
+Sample Mode now On Change (not Tag Group), the tag's own Max Time setting
+governs directly — the Tag-Group-override caveat below no longer applies
+to newly-configured members using this default; it only explains why the
+*old* `zzDelete_` reference's `20 Minutes` (under Tag Group mode) wasn't
+reliable evidence of anything. What still differs by signal type is
+**Deadband Style** (Discrete for digital, Analog or Discrete for analog
+per the note above) — that's the one setting the docs actually mandate
+differently, not Sample Mode or Max Time.
 
 Two things that *are* documented and worth checking against a Tag-Group
 configuration like `History 5 Sec`:
