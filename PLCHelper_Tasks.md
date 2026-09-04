@@ -379,6 +379,14 @@ a warning rather than guessed.
   path-template conventions. That is a supplied rule, not a guess, so it
   would not conflict with the Hard scope boundary. Not scoped or
   designed until Doug actually has that rule in hand.
+  **Related but distinct (verified 2026-09-04):** what the History
+  settings themselves should *be*, once a member has already been chosen
+  for historization, is now documented — see `CLAUDE.md`'s "Ignition tag
+  History — digital vs. analog configuration" section. That covers
+  Deadband Style/Mode/value correctness by signal type (digital vs.
+  analog) only. It deliberately does **not** address *which* members get
+  historized, which remains the unformalized judgment call described
+  above — so it does not narrow the Hard scope boundary.
 - `{InstanceName}` is a genuine built-in Ignition parameter requiring no
   manual setup; `{Name}` is **not** built-in and must be a custom
   parameter where it appears. Generated templates use `{InstanceName}`.
@@ -388,7 +396,12 @@ a warning rather than guessed.
 
 ---
 
-*Last updated: September 4, 2026 (2nd) — expanded TASK_004's history-tag
+*Last updated: September 4, 2026 (3rd) — cross-referenced TASK_004's
+history-tag note to the new "Ignition tag History — digital vs. analog
+configuration" section in CLAUDE.md, making explicit that the new section
+covers History settings-correctness by signal type only and does not
+narrow the Hard scope boundary on which members get historized. Prior
+update, same day: expanded TASK_004's history-tag
 note: confirmed the no-history-on-generated-members behavior is correct
 (not a bug), documented Doug's current manual practice, and logged a
 possible future enhancement (an explicit, Doug-supplied historization

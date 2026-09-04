@@ -125,6 +125,65 @@ convention; the script does not enforce this itself (it takes whatever
 name it's given), so follow the convention when choosing the value to
 pass.
 
+## Ignition tag History — digital vs. analog configuration (verified 2026-09-04)
+
+Source: official Inductive Automation docs, [Configuring Tag
+History](https://www.docs.inductiveautomation.com/docs/8.1/ignition-modules/tag-historian/configuring-tag-history),
+cross-checked against Inductive Automation forum consensus. Verified while
+reviewing `AUTO_hwdi` on the Blue Sky `CONSPD2_AOI` UDT.
+
+**Scope note:** this documents what the History settings *mean* and which
+values are correct for a digital vs. an analog signal. It is **not** a rule
+for *which* members get historized — that remains an explicit
+per-member engineering decision, see `PLCHelper_Tasks.md` TASK_004's
+history-tag note and the Hard scope boundary there.
+
+**Deadband Style is the one setting that must differ by signal type:**
+
+| Setting | Digital (`_hwdi`, `_hwdo`, `_scdi`, `_scdo`, `_alm`, any BOOL) | Analog (`_hwai`, `_hwao`, `_scai`, `_scao`, any REAL/Float4) |
+|---|---|---|
+| Deadband Style | **Discrete** | **Analog**, or Discrete — see note below |
+| Deadband Mode | Absolute | Absolute (Percent = % of EU span; meaningless without an EU span) |
+| Historical Deadband | must be **less than 1** — 0 or 0.01 both fine | a real engineering value chosen for the signal |
+
+**Why Discrete is the correct style for a digital signal — two reasons,
+both from the docs:**
+
+1. **Storage.** Under Discrete, "a new value (V1) will only be stored when:
+   `|V1-V0| >= Deadband`." A BOOL transition is always a change of exactly
+   1, so any deadband below 1 always passes and every transition is stored.
+2. **Retrieval — this is the bigger one.** Under Discrete the value "will
+   not be interpolated. The value returned will be the previous known
+   value" (step interpolation). Under Analog it "will be interpolated
+   linearly between the last stored value and the next value" — which on a
+   Boolean produces meaningless fractional values like 0.4 on a trend.
+   Analog style on a digital tag is wrong for this reason, not just
+   stylistically odd.
+
+**The `Auto` default already does the right thing** — it picks Analog for
+Float/Double and Discrete for every other data type. Setting Discrete
+explicitly on a BOOL is therefore correct *and* redundant; explicit is
+preferred because it survives a data-type change on the member.
+
+**On a non-zero Historical Deadband next to Discrete style (e.g. 0.01 on a
+BOOL):** harmless, but vestigial — it can never change the outcome, since
+the smallest possible BOOL change (1) always exceeds it. The docs do **not**
+state that the deadband field is ignored for Discrete style or for Boolean
+tags; they give a formula that is simply always satisfied. Treat it as
+inert, not as proof the engine skips the math.
+
+⚠️ **The real trap:** a Historical Deadband of **1 or greater** on a BOOL
+would silently suppress *all* history for that tag, because `|1-0| >= 1` is
+the boundary and nothing larger is achievable. Values like 0.01 are safe
+precisely because they are below 1. When reviewing an inherited UDT, check
+the *magnitude* of the deadband on digital members, not just the style.
+
+**Analog members:** Analog style is the documented match for Float, but
+forum consensus is that its slope-compression behavior makes trends read as
+flat lines in charts that assume step data, so many integrators use Discrete
+for floats too. Either is defensible — this is a judgment call, not a
+correctness question, and Casne has no standing convention on it yet.
+
 ## Editing L5X files
 
 - Ladder logic rungs are in `<Text><![CDATA[...]]></Text>` blocks
