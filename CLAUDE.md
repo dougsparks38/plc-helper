@@ -265,9 +265,20 @@ treats float tags as warranting *rate-based bucketing* (fast/medium/slow,
 e.g. pressure vs. temperature) rather than a single correct mode.
 
 **So this is a judgment call, the same way Analog-vs-Discrete style is** —
-not a documented correctness question. Casne has no standing convention for
-analog Sample Mode, and one is not asserted here; that decision is Doug's,
-as the digital one was.
+not a documented correctness question.
+
+**Casne standing default for analog signals (decided 2026-09-04):**
+resolves the Sample Mode judgment call above, same as the digital decision.
+
+| Setting | Analog default |
+|---|---|
+| Sample Mode | **On Change** — same choice as digital; per the reasoning above, on an OPC tag this is already bounded by the tag's own scan rate, not unbounded |
+
+This makes Sample Mode = On Change the Casne default for **both** digital
+and analog tags. What still differs by signal type is **Deadband Style**
+(Discrete for digital, Analog or Discrete for analog per the note above) —
+that's the one setting the docs actually mandate differently, not Sample
+Mode.
 
 Two things that *are* documented and worth checking against a Tag-Group
 configuration like `History 5 Sec`:
