@@ -432,6 +432,53 @@ reference's historized members carry is reported but not applied, so an
 unrecognized convention gets a human look instead of being silently
 copied or silently dropped.
 
+### Reference JSON preparation convention (Doug-confirmed, 2026-09-07)
+
+Prompted by a real gap found on the first live run: `FLOWIN3_AOI`'s
+generated UDT was missing an `ENGUNIT` top-level parameter because the
+reference used to build the script didn't have one. Root cause: the
+top-level `parameters` block (`DeviceName`, `Description`, `ENGUNIT`,
+etc.) is **entirely** derived from the reference JSON — it has no
+connection to the L5X at all, unlike the per-signal members. Considered
+and rejected: hardcoding "always include DeviceName/Description,
+conditionally include ENGUNIT by AOI type" into the script. That would
+be the first place TASK_004 embeds an engineering judgment call instead
+of deriving it from a real file, and would create two parallel sources
+for the same thing (reference-derived vs. hardcoded) — a likely source
+of future confusion, not less. Kept the rule simple instead: **the
+top-level parameters always come from whichever reference is supplied,
+full stop** — and moved "which parameters this AOI category needs" into
+an explicit, human-prepared reference file per target UDT, the same
+pattern already used for the Historization rule and the data-type
+mapping table.
+
+**Workflow for preparing references (no script change needed):**
+1. For each target UDT, create one small Ignition export with the
+   correct top-level `parameters` for that AOI's category — `DeviceName`
+   and `Description` always; `ENGUNIT` only for AOI types where
+   engineering units genuinely apply (flow/level/pressure-style
+   instrument AOIs) — Doug decides per category, not the script.
+2. **The reference cannot be parameters-only.** The script also derives
+   the OPC Server value, OPC Item Path template, and member JSON shape
+   from the reference's own **members** — it needs at least one real,
+   correctly-configured member to learn those conventions from. Easiest
+   path: base each new reference on a UDT already fixed (e.g. keep one
+   known-good member from `FLOWIN3_AOI`'s corrected UDT), swapping in
+   the new top-level parameters for that category.
+3. **Export from the "UDT Definitions" tab specifically** — the same
+   established gotcha as always: a tag *instance* export does not
+   include the UDT *definition* the script needs.
+4. Multiple reference JSONs (one per target UDT) can be PII-scanned
+   together in a single `pii_scan.py` pass — no need to combine them
+   into one file; the scanner already handles a whole folder at once.
+5. Run the script once per target UDT, each time pointing at the L5X
+   and that UDT's own dedicated reference JSON.
+
+**Immediate next step:** regenerate `FLOWIN3_AOI` using
+`FLOWIN3_AOI old tags.json` (received and cleared via `PII_Review`
+2026-09-07) as the corrected reference, since it has `ENGUNIT` where
+Friday's original reference did not.
+
 ### Outputs
 
 1. A new Ignition UDT definition JSON, written to the job's folder,
@@ -536,7 +583,21 @@ per this file's own convention (spec first, build second).
 
 ---
 
-*Last updated: September 7, 2026 — added TASK_005 (Idea stage): generate
+*Last updated: September 7, 2026 (2nd) — added TASK_004's "Reference
+JSON preparation convention": a real gap found live (Friday's
+`FLOWIN3_AOI` UDT missing `ENGUNIT` because the reference used to build
+it didn't have one, since top-level `parameters` come entirely from the
+reference, not the L5X) led to a considered-and-rejected script change
+(hardcoding which AOI types get which parameters) in favor of keeping
+the script's single rule simple and moving that judgment into an
+explicit, Doug-prepared reference file per target UDT — same pattern as
+the Historization rule and data-type mapping table. Documented the prep
+workflow (one small reference export per UDT, must retain a real member
+for convention-derivation, export from UDT Definitions specifically,
+batch-scan multiple references together, no script change needed) and
+the immediate next step (regenerate `FLOWIN3_AOI` with the newly
+received, PII-cleared `FLOWIN3_AOI old tags.json` as its corrected
+reference). Prior update, same day — added TASK_005 (Idea stage): generate
 importable Ignition tag instance JSONs for every L5X tag matching a given
 prefix (e.g. `O2_`), depending on TASK_004's UDT definitions already
 existing for whatever types those tags reference. Raised alongside Blue
