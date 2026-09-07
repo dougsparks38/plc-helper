@@ -490,6 +490,12 @@ Friday's original reference did not.
    the non-matching count), the analog-deadband REVIEW REQUIRED block,
    and warnings for any unmapped data type.
 
+**Reporting note (Doug-confirmed, 2026-09-07):** the script's own
+REVIEW REQUIRED block already surfaces the analog-deadband-placeholder
+caveat on every run. Don't restate it as a separate reminder when
+reporting results back to Doug — the console output already covers it,
+and repeating it every time is unwanted noise, not a helpful safeguard.
+
 ### Open Questions / Notes
 
 - **UDT name does not track the AOI version number.** A UDT named
@@ -583,7 +589,13 @@ per this file's own convention (spec first, build second).
 
 ---
 
-*Last updated: September 7, 2026 (2nd) — added TASK_004's "Reference
+*Last updated: September 7, 2026 (3rd) — regenerated `FLOWIN3_AOI`'s UDT
+using the new `FLOWIN3_AOI old tags.json` reference; `EngUnit` confirmed
+present in the actual output file, zero data-type warnings, 25/51
+members historized. Added a Reporting note to TASK_004: Doug confirmed
+the analog-deadband REVIEW REQUIRED reminder should not be restated in
+chat when reporting results — the script's own console output already
+covers it. Prior update, same day (2nd) — added TASK_004's "Reference
 JSON preparation convention": a real gap found live (Friday's
 `FLOWIN3_AOI` UDT missing `ENGUNIT` because the reference used to build
 it didn't have one, since top-level `parameters` come entirely from the
