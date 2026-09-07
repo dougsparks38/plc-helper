@@ -36,6 +36,7 @@ once the spec is solid.
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
+| TASK_005 | Generate Ignition tag instances from L5X tag prefix | Idea | Given a fresh L5X export and a tag-name prefix (e.g. `O2_`), find every controller-scope PLC tag matching that prefix and emit a folder of importable Ignition tag *instance* JSONs (name, correct UDT type reference, OPC binding) — auto-populating a whole scope's tag tree instead of building each tag by hand in Designer. Depends on TASK_004's UDT definitions already existing for whatever AOI types those tags reference. |
 
 ---
 
@@ -477,7 +478,72 @@ copied or silently dropped.
 
 ---
 
-*Last updated: September 4, 2026 (4th) — TASK_004 now applies an explicit
+## TASK_005 — Generate Ignition tag instances from L5X tag prefix
+
+**Status:** Idea (raised 2026-09-07, not yet fully speced)
+
+### Purpose
+
+TASK_004 generates Ignition UDT *type definitions* from an AOI — but
+someone still has to manually create every individual tag *instance* in
+Ignition Designer, one at a time, pointing each at the right UDT type.
+For a scope with many tags (e.g. every Blue Sky O2-scope PLC tag), this
+is the same class of slow, error-prone manual work TASK_004 already
+eliminated on the definition side — just one level down, on the instance
+side.
+
+The idea: given a fresh L5X export and a tag-name prefix (e.g. `O2_`),
+find every matching controller-scope tag in the PLC and emit a folder of
+importable Ignition tag instance JSONs — one per matching tag — each
+correctly typed and bound, ready to import into Designer's tag tree in
+one pass instead of building it by hand.
+
+### Relationship to TASK_004
+
+Depends on TASK_004's output existing first: this task can only assign a
+tag instance to a UDT type that has already been generated (or already
+exists) in Ignition. Raised alongside Blue Sky's O2-scope UDT
+regeneration work (`BLUE_SKY_STATUS.md` Open Item 2) as the natural next
+step once those UDTs are in place.
+
+### Inputs (expected, not yet confirmed)
+
+| Input | Format | Notes |
+|-------|--------|-------|
+| L5X export | `.L5X` (XML) | Same fresh, full program export used by TASK_004 — not yet decided whether this task re-parses it independently or reuses TASK_004's parse. |
+| Tag-name prefix | string | e.g. `O2_`. Scopes which controller-scope tags get emitted. |
+| UDT type mapping | — | For each matching tag, needs to know which Ignition UDT type it should be an instance of. Not yet decided how this gets determined — from the tag's PLC data type / AOI type directly, from a Doug-supplied mapping, or some combination. **Open question below.** |
+
+### Open Questions — needs a real scoping pass before this becomes Spec Ready
+
+- **How is UDT type determined per tag?** A PLC tag's data type may
+  directly name an AOI type (straightforward), or the tag could be a
+  base atomic type (BOOL/DINT/REAL/etc. — no UDT applies at all, may not
+  belong in this task's output).
+- **Naming/instance-path convention** — what determines the emitted
+  tag's name and folder placement in Ignition's tag tree? Likely needs
+  the same kind of real-file-derived convention TASK_004 uses (learn from
+  an existing example, don't assume).
+- **Scope boundary** — does "every tag starting with `O2_`" include tags
+  that are themselves members of a UDT instance (already covered once the
+  parent instance is created), or only top-level/controller-scope tags?
+  Double-counting risk if not defined precisely.
+- **Reuse vs. duplicate parsing logic with TASK_004** — worth deciding
+  before implementation, not after.
+
+This task stays at Idea status until these are worked through with Doug,
+per this file's own convention (spec first, build second).
+
+---
+
+*Last updated: September 7, 2026 — added TASK_005 (Idea stage): generate
+importable Ignition tag instance JSONs for every L5X tag matching a given
+prefix (e.g. `O2_`), depending on TASK_004's UDT definitions already
+existing for whatever types those tags reference. Raised alongside Blue
+Sky's O2-scope UDT regeneration work; several real open questions flagged
+(how UDT type gets determined per tag, naming/path convention, scope
+boundary against UDT-member double-counting) before this can move past
+Idea to Spec Ready. Prior update, September 4, 2026 (4th) — TASK_004 now applies an explicit
 Doug-supplied Historization rule instead of generating no history at all.
 Added the "Historization rule" section (which members match, which
 compound alarm forms are excluded, the settings by signal type, the real
