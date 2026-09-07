@@ -483,7 +483,11 @@ Friday's original reference did not.
 
 1. A new Ignition UDT definition JSON, written to the job's folder,
    importable via Ignition Designer's **UDT Definitions** tab, with one
-   member per AOI parameter.
+   member per AOI parameter. For the actual Designer import steps — and
+   why right-click → *Import Tags* can show up greyed out — see
+   `CLAUDE.md`'s "Importing generated UDT definitions into Ignition
+   Designer" section. Short version: use the Tag Browser's **More
+   Options (hamburger)** menu → Import, not the right-click menu.
 2. A console report: parameter count, the conventions derived from the
    reference (so they can be eyeballed before import), which members the
    historization rule enabled History on (split digital vs. analog, with
@@ -589,7 +593,12 @@ per this file's own convention (spec first, build second).
 
 ---
 
-*Last updated: September 7, 2026 (3rd) — regenerated `FLOWIN3_AOI`'s UDT
+*Last updated: September 7, 2026 (4th) — TASK_004's Outputs now points at
+`CLAUDE.md`'s new "Importing generated UDT definitions into Ignition
+Designer" section for the actual Designer import steps, after a live
+mid-import block: right-click → *Import Tags* showed greyed out because
+the selected node was a UDT definition, not a folder. Pointer only, no
+duplicated content (Lesson 9). Prior update, same day (3rd) — regenerated `FLOWIN3_AOI`'s UDT
 using the new `FLOWIN3_AOI old tags.json` reference; `EngUnit` confirmed
 present in the actual output file, zero data-type warnings, 25/51
 members historized. Added a Reporting note to TASK_004: Doug confirmed

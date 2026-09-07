@@ -338,6 +338,52 @@ from the Deadband Style/Mode correctness rules above (which are not
 optional) — Sample Mode has no single "correct" answer the docs mandate,
 so this is Casne's own choice, not something derived from documentation.
 
+## Importing generated UDT definitions into Ignition Designer (verified 2026-09-07)
+
+This is the receiving end of TASK_004 — the actual Designer steps for
+getting a generated UDT definition JSON in. Written down because "Import
+Tags" appearing greyed out cost real time mid-import on 2026-09-07.
+
+**Use the Tag Browser toolbar, not the right-click menu.** The Tag
+Browser's **More Options** menu (the hamburger / three-dots icon on the
+Tag Browser toolbar) contains the Import and Export buttons, and that
+path works in the UDT Definitions tab. The official docs describe both
+routes — right-click a folder → `Import Tags > Direct`, *and* More
+Options → Import Tags — but the context-menu route is the one that
+intermittently comes up unavailable in the UDT Definitions tab. Reach
+for the hamburger menu first and the problem never occurs.
+
+**Why right-click → Import Tags shows greyed out.** Import is only
+enabled when the selection is a **folder** (or the tag provider root).
+A **UDT definition** is not a folder, even though in the UDT Definitions
+tab it looks like one — it has an expand arrow and holds members. Select
+a definition and you get the exact asymmetry seen on 2026-09-07: *Export
+Tags* enabled (you can export a definition), *Import Tags* greyed out
+(you cannot import *into* one). Confirmed by a forum thread on 8.1.27
+where the fix was "select the folder it resides in, or the root."
+
+Diagnostic order when Import is greyed out:
+1. Is the selected node a UDT definition rather than a folder? Most
+   likely cause. Click the parent folder — or just use the hamburger menu.
+2. Is the Tag Provider Selector on **System** or **Client**? The Tag
+   Browser's import/export tool does not work for System tags at all.
+3. Does the provider allow editing? Tag provider **Tag Editing
+   Permissions** (Gateway → Config → Tags → Realtime) gates edit/create/
+   delete, a Standard provider has a **Read Only** checkbox, and a
+   **Remote Tag Provider is read only by default** (Default Security
+   Zone). Tell them apart in five seconds: if this is the cause, the
+   toolbar **Add Tag** button is also unavailable and nothing in that
+   provider can be created or renamed anywhere — not just here.
+
+**Unrelated trap on the same operation — empty folders (IGN-2678).** An
+import containing an **empty folder** fails with the misleading error
+`Udt definitions can only be imported in the UDT Definitions tab`. The
+message is wrong about the cause; the empty folder is the problem. Open
+as a known bug since 8.1.5 (Jan 2022), still reproducing on 8.1.45 and
+8.3.1. Worth knowing because generated JSON can easily carry an empty
+folder — if that error appears while importing a TASK_004 output, check
+for empty folders before believing the message.
+
 ## Editing L5X files
 
 - Ladder logic rungs are in `<Text><![CDATA[...]]></Text>` blocks
