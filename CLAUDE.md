@@ -367,6 +367,9 @@ Diagnostic order when Import is greyed out:
    likely cause. Click the parent folder — or just use the hamburger menu.
 2. Is the Tag Provider Selector on **System** or **Client**? The Tag
    Browser's import/export tool does not work for System tags at all.
+   **Confirmed in the field 2026-09-08** while importing MODVLV's UDT
+   definition — the Provider Selector was the actual cause of a greyed-out
+   Import that day, not a theoretical possibility. Check it early.
 3. Does the provider allow editing? Tag provider **Tag Editing
    Permissions** (Gateway → Config → Tags → Realtime) gates edit/create/
    delete, a Standard provider has a **Read Only** checkbox, and a
