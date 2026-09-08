@@ -36,7 +36,8 @@ once the spec is solid.
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
-| TASK_005 | Generate Ignition tag instances from L5X tag prefix | Idea | Given a fresh L5X export and a tag-name prefix (e.g. `O2_`), find every controller-scope PLC tag matching that prefix and emit a folder of importable Ignition tag *instance* JSONs (name, correct UDT type reference, OPC binding) — auto-populating a whole scope's tag tree instead of building each tag by hand in Designer. Depends on TASK_004's UDT definitions already existing for whatever AOI types those tags reference. |
+| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | Idea | Given a fresh L5X export, find every AOI *instance* whose type already has a valid, generated UDT definition, and emit a folder of importable Ignition tag *instance* JSONs — `DeviceName` supplied as a parameter, `Description` read from that instance's own PLC description, `EngUnit` left blank for Doug to fill in. Auto-populates missing tag instances instead of building each by hand in Designer. |
+| TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 
 ---
 
@@ -535,9 +536,10 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ---
 
-## TASK_005 — Generate Ignition tag instances from L5X tag prefix
+## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** Idea (raised 2026-09-07, not yet fully speced)
+**Status:** Idea (raised 2026-09-07, refined and re-scoped 2026-09-08 —
+still not fully speced)
 
 ### Purpose
 
@@ -549,51 +551,134 @@ is the same class of slow, error-prone manual work TASK_004 already
 eliminated on the definition side — just one level down, on the instance
 side.
 
-The idea: given a fresh L5X export and a tag-name prefix (e.g. `O2_`),
-find every matching controller-scope tag in the PLC and emit a folder of
-importable Ignition tag instance JSONs — one per matching tag — each
-correctly typed and bound, ready to import into Designer's tag tree in
-one pass instead of building it by hand.
+**Re-scoped 2026-09-08** (was originally a generic `O2_`-prefix match —
+see the retired framing at the bottom of this section): the actual
+trigger was Doug noticing that after regenerating several UDT
+definitions during the Blue Sky batch, the *instances* in Ignition still
+needed real, manual work — this task exists to automate that instance
+creation, scoped precisely rather than by a loose tag-name prefix.
+
+### Process (as Doug described it 2026-09-08)
+
+1. Read every **AOI instance** in the L5X (not just type definitions —
+   this needs instance-level data TASK_004 doesn't currently parse).
+2. **Only act on instances whose AOI type already has a valid, generated
+   UDT definition** — cross-reference against whatever set of AOI types
+   currently have a confirmed-working UDT (the per-AOI checklist in
+   `BLUE_SKY_STATUS.md` is the live version of that set for Blue Sky).
+   Skip anything else — this task doesn't invent UDTs, TASK_004 does.
+3. For each qualifying instance, emit an Ignition tag instance JSON:
+   - `DeviceName` — supplied as an explicit parameter (Doug's "device
+     string"), not derived. Open question: one value for the whole run,
+     or per-instance? Not yet confirmed.
+   - `Description` — read directly from **that specific AOI instance's**
+     own `<Description>` in the L5X (real per-instance data, not the
+     type-level description TASK_004 already reads). This is new: no
+     existing PLCHelper task currently reads instance-level AOI usage
+     data, only type definitions.
+   - `EngUnit` — **left blank.** No way to derive this automatically
+     (same conclusion as everywhere else it's come up); Doug fills it in
+     per instance afterward.
 
 ### Relationship to TASK_004
 
-Depends on TASK_004's output existing first: this task can only assign a
-tag instance to a UDT type that has already been generated (or already
-exists) in Ignition. Raised alongside Blue Sky's O2-scope UDT
-regeneration work (`BLUE_SKY_STATUS.md` Open Item 2) as the natural next
-step once those UDTs are in place.
-
-### Inputs (expected, not yet confirmed)
-
-| Input | Format | Notes |
-|-------|--------|-------|
-| L5X export | `.L5X` (XML) | Same fresh, full program export used by TASK_004 — not yet decided whether this task re-parses it independently or reuses TASK_004's parse. |
-| Tag-name prefix | string | e.g. `O2_`. Scopes which controller-scope tags get emitted. |
-| UDT type mapping | — | For each matching tag, needs to know which Ignition UDT type it should be an instance of. Not yet decided how this gets determined — from the tag's PLC data type / AOI type directly, from a Doug-supplied mapping, or some combination. **Open question below.** |
+Depends on TASK_004's output existing first, now precisely (not loosely
+— see re-scope above): this task can only assign a tag instance to a UDT
+type already confirmed generated and working. Raised alongside Blue
+Sky's O2-scope UDT regeneration work (`BLUE_SKY_STATUS.md` Open Item 1)
+as the natural next step once enough of those UDTs are in place.
 
 ### Open Questions — needs a real scoping pass before this becomes Spec Ready
 
-- **How is UDT type determined per tag?** A PLC tag's data type may
-  directly name an AOI type (straightforward), or the tag could be a
-  base atomic type (BOOL/DINT/REAL/etc. — no UDT applies at all, may not
-  belong in this task's output).
+- **`DeviceName` parameterization** — one value for a whole run, or
+  supplied per instance? Not yet confirmed.
 - **Naming/instance-path convention** — what determines the emitted
   tag's name and folder placement in Ignition's tag tree? Likely needs
   the same kind of real-file-derived convention TASK_004 uses (learn from
   an existing example, don't assume).
-- **Scope boundary** — does "every tag starting with `O2_`" include tags
-  that are themselves members of a UDT instance (already covered once the
-  parent instance is created), or only top-level/controller-scope tags?
-  Double-counting risk if not defined precisely.
+- **Example Ignition tag export needed** — to derive the instance-level
+  OPC path/binding convention the same way TASK_004 derives UDT
+  conventions from a reference. Not yet supplied.
 - **Reuse vs. duplicate parsing logic with TASK_004** — worth deciding
   before implementation, not after.
 
 This task stays at Idea status until these are worked through with Doug,
 per this file's own convention (spec first, build second).
 
+*(Retired framing, superseded 2026-09-08: the original idea matched
+tags by a loose `O2_`-prefix pattern rather than "AOI instances of a
+type with a valid UDT" — kept here for history, not the current spec.)*
+
 ---
 
-*Last updated: September 7, 2026 (4th) — TASK_004's Outputs now points at
+## TASK_006 — Audit Ignition tags for orphaned/unmatched instances
+
+**Status:** Idea (raised 2026-09-08, not yet fully speced)
+
+### Purpose
+
+The reverse problem from TASK_005. TASK_005 fills in Ignition tag
+instances that *should* exist but don't yet. This task finds Ignition
+tag instances that *do* exist but arguably **shouldn't** — leftovers
+from testing, stale references, or anything else that's drifted out of
+sync with the real PLC program. Doug's own framing: *"if they're there,
+they should be in my program. If they're not in my program, then I need
+to know why they're there."*
+
+### Process (as Doug described it 2026-09-08)
+
+1. Take a real export of Doug's existing Ignition tags (e.g. every
+   instance with an `O2_` prefix) — **this export doesn't exist yet**,
+   Doug needs to produce one before this task can be built or run.
+2. Cross-reference each exported Ignition tag against the real, current
+   L5X.
+3. Any Ignition tag with **no matching real tag in the current PLC
+   program** gets flagged for Doug's review.
+4. **Never auto-deletes or auto-resolves anything** — same Hard Scope
+   Boundary philosophy as everywhere else in PLCHelper (see TASK_004's
+   "never add/remove/flag members based on differences" for correcting
+   an existing UDT). This task surfaces a list; Doug decides what each
+   flagged tag actually means and what to do about it.
+
+### Relationship to TASK_005
+
+Opposite direction of data flow. TASK_005 is PLC → Ignition (create
+what's missing); TASK_006 is Ignition → PLC (find what shouldn't be
+there). Both came out of the same 2026-09-08 conversation about what's
+needed once the Blue Sky UDT-regeneration batch is further along — kept
+as two separate tasks rather than one combined one, since they need
+different inputs and run in opposite directions.
+
+### Open Questions — needs a real scoping pass before this becomes Spec Ready
+
+- **The Ignition tag export itself doesn't exist yet** — format and
+  scope (all `O2_`-prefixed tags? something narrower?) need Doug's input
+  once he's ready to produce one.
+- **What counts as "no match"?** Exact tag-name match against the L5X,
+  or something looser (e.g. matching by AOI instance + member path)?
+  Not yet defined.
+- A cheap, immediate first step was offered and **explicitly deferred by
+  Doug (2026-09-08): a plain list of every real `O2_`-prefixed tag in
+  the current L5X**, as a baseline reference to eyeball against Ignition
+  manually in the meantime. Available on request whenever Doug wants it
+  — no need to re-derive this from scratch later.
+
+This task stays at Idea status until these are worked through with Doug,
+per this file's own convention (spec first, build second).
+
+---
+
+*Last updated: September 8, 2026 — re-scoped TASK_005 from a loose
+`O2_`-prefix match into a precise "AOI instances of a type with a valid,
+generated UDT" scope, with `DeviceName` as an explicit parameter,
+`Description` read per-instance from the L5X, and `EngUnit` left blank
+for Doug. Added TASK_006 (Idea stage): the reverse-direction audit,
+flagging Ignition tags with no matching real PLC tag for Doug's review,
+never auto-resolving anything — blocked on Doug producing an example
+Ignition tag export. Both came out of noticing, mid-import, that
+LEVELIN3_AOI (and others) have many existing tag instances that will
+need real follow-up work once all the UDT definitions are solid. Prior
+update, September 7, 2026 (4th) — TASK_004's Outputs now points at
 `CLAUDE.md`'s new "Importing generated UDT definitions into Ignition
 Designer" section for the actual Designer import steps, after a live
 mid-import block: right-click → *Import Tags* showed greyed out because
