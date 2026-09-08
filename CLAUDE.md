@@ -384,6 +384,94 @@ as a known bug since 8.1.5 (Jan 2022), still reproducing on 8.1.45 and
 folder — if that error appears while importing a TASK_004 output, check
 for empty folders before believing the message.
 
+## Replacing a UDT definition that already has instances (verified 2026-09-08)
+
+Extends the import section above. That one covers *getting the JSON in*;
+this covers *what happens to the existing instances* when the definition
+they depend on is replaced — the regenerate-and-reimport loop TASK_004
+creates every time a UDT is regenerated.
+
+**The crux — two different binding mechanisms, and only one is by name.**
+
+1. An instance finds its **definition by name**. The docs define the
+   instance's `typeId` property as "The name of the UDT Definition this
+   UDT is an instance of." There is no UUID or internal handle tying an
+   instance to a *particular* definition object — just the type's name
+   string. This is why structure changes reach instances at all, and why
+   dropping a new definition in under the original name works.
+2. An instance's **per-member overrides are keyed to member IDs**, not
+   names. Inductive Automation staff, on the override-loss bug thread:
+   overrides are "based on IDs of the members from the UDT Definition."
+   Destroying the definition object destroys those IDs. A freshly
+   imported definition carries new ones, and any override that pointed at
+   an old ID is silently dropped.
+
+**Consequence — rename-first and delete-first are NOT meaningfully
+different for instance overrides.** Both destroy the name→definition
+association and hand the instances a definition object they have never
+seen. Renaming does not preserve overrides; it preserves a *copy of the
+old definition* you can still look at. Do not treat the rename procedure
+as the safe one and delete as the risky one — for overrides they are the
+same operation with different cleanup. Rename's real and only advantages
+are recoverability (the old definition is still there to diff or roll
+back to) and that it is reversible mid-session; delete is not.
+
+**Preferred procedure — replace in place, never delete or rename
+first.** Import the new JSON straight over the existing definition of the
+same name and set **Collision Policy = `MergeOverwrite`**, documented as
+"Overwrites the tag with the exception of any properties that aren't
+defined in the import folder. Those properties will be merged." The
+definition object is never destroyed, so member IDs — and therefore
+instance overrides — stay intact. This is strictly better than either of
+the delete/rename variants and is the standing recommendation.
+
+Two traps on that same operation:
+- **`Overwrite` is not `MergeOverwrite`.** As of 8.1.8, `Overwrite`
+  *completely* replaces a UDT definition, deleting any member not present
+  in the import file. Regenerated JSON that is missing a hand-added
+  member will silently remove it.
+- **There is no selective-merge option for members.** Confirmed by staff
+  on the forum — "keep existing members not included in the import file"
+  is a feature request, not a setting. If the generated JSON must not be
+  authoritative for the whole member list, the definition cannot be
+  updated by import alone.
+
+**Where the config lives decides the exposure.** Read this before
+worrying about override loss at all:
+- Config set **on the definition** (History enabled on definition
+  members, OPC Item Path templates on the definition) propagates to all
+  instances automatically and is not at risk from any of this — but it
+  *must be present in the regenerated JSON*, or the import removes it.
+  That makes TASK_004's output completeness the real exposure, not the
+  import procedure.
+- Config **overridden per instance** is what the override-loss behavior
+  destroys. UDT *parameter* values on instances survive; other tag
+  property overrides do not.
+- Practical rule: keep configuration on the definition wherever possible
+  and treat per-instance overrides as fragile across any definition
+  replacement. This also lines up with the History conventions earlier in
+  this file, which are defined at the definition level.
+
+**Pre-flight, every time (cheap, and the only real safety net).** Export
+the current definition from the UDT Definitions tab *and* separately
+export the instances — an instance export does **not** include the
+definition, so one export is not a backup of both. For a production
+gateway take a Gateway backup as well. There is no undo for a definition
+replacement once instances have re-bound.
+
+**Version notes.** Behavior above is 8.1.x. Override loss on
+delete-and-re-add is long-standing and staff-described as intended
+("always had that behavior"), reported from 8.1.0 through 8.1.25 and
+observed as far back as 7.7.5 — do not expect a fix. Two version-specific
+items: **8.1.6 had a critical UDT-import bug** triggered by exactly this
+kind of `Overwrite`-policy definition modification (including JSON paste
+into the Tag Browser, which uses Overwrite implicitly), fixed in
+**8.1.7+** — historical only, but it is why Overwrite-policy definition
+edits have a bad reputation. And **8.3.1 fixed** an issue where renaming
+UDT instances or definition members "would flag existing values as
+overrides on Memory tags" — so an 8.3 upgrade improves rename behavior
+specifically, while the delete-and-re-add override loss is unchanged.
+
 ## Editing L5X files
 
 - Ladder logic rungs are in `<Text><![CDATA[...]]></Text>` blocks
