@@ -425,6 +425,16 @@ definition object is never destroyed, so member IDs — and therefore
 instance overrides — stay intact. This is strictly better than either of
 the delete/rename variants and is the standing recommendation.
 
+**⚠ Do NOT apply Doug's usual "zz delete" habit here (confirmed
+2026-09-08).** Doug's normal practice elsewhere is to rename something to
+a `zz delete ...` prefix before replacing it, as a safety margin. For a
+UDT definition specifically, that habit is actively counterproductive:
+renaming the old definition out of the way is the exact "rename-first"
+procedure shown above to be no safer than deleting it outright. Every
+future task that involves importing an updated UDT definition should
+carry this reminder — overwrite the existing definition directly with
+`MergeOverwrite`, don't rename or `zz delete` it first.
+
 Two traps on that same operation:
 - **`Overwrite` is not `MergeOverwrite`.** As of 8.1.8, `Overwrite`
   *completely* replaces a UDT definition, deleting any member not present
