@@ -13,12 +13,16 @@ are "needed for SCADA/HMI." See PLCHelper_Tasks.md TASK_004 for why this
 is a deliberate exception to the Hard scope boundary that governs
 *correcting an existing* UDT.
 
-HISTORIZATION RULE (Doug-supplied, 2026-09-04): members whose names match
-an explicit suffix rule get History enabled with fixed settings chosen by
-signal type. This is a supplied rule, not a guess -- see PLCHelper_Tasks.md
-TASK_004 "Historization rule" and CLAUDE.md's "Ignition tag History"
-section. Members that do not match get no history keys at all, exactly as
-before.
+HISTORIZATION RULE (Doug-supplied, 2026-09-04; extended 2026-09-08):
+members whose names match an explicit name rule get History enabled with
+fixed settings chosen by signal type. A name matches either by ENDING WITH
+a signal-type suffix ("_hwdi", "_scao", "_alm", ...) or by BEING EXACTLY a
+bare signal-type word with no underscore prefix ("Hwdi", "Alarm", ...).
+The bare-word form was added 2026-09-08 after Doug found ALARM_AOI's real
+PLC parameters use it instead of the suffixed convention. This is a
+supplied rule, not a guess -- see PLCHelper_Tasks.md TASK_004
+"Historization rule" and CLAUDE.md's "Ignition tag History" section.
+Members that do not match get no history keys at all, exactly as before.
 
 The reference UDT is read to learn CONVENTIONS ONLY (OPC Server value,
 OPC Item Path template shape, member JSON key set and constant values,
@@ -108,14 +112,30 @@ OPTIONAL_MEMBER_KEYS = {
 MEMBER_PLACEHOLDER = "\x00MEMBER\x00"
 
 # --------------------------------------------------------------------------
-# Historization rule -- Doug-supplied and confirmed 2026-09-04.
+# Historization rule -- Doug-supplied and confirmed 2026-09-04, extended
+# 2026-09-08.
 #
-# A member gets History enabled if its name (case-insensitive) ends with
-# one of the signal-type suffixes below, or is an alarm bit ending in
-# exactly "_alm" / "_alarm". Compound alarm names (_alm_dis, _alm_ack,
-# _alm_res, and anything else _alm_*) are deliberately EXCLUDED -- they are
-# alarm *controls*, not the alarm itself. Nothing else is historized; no
-# other suffix or pattern is inferred.
+# A member gets History enabled if its name (case-insensitive) either:
+#   (a) ends with one of the signal-type suffixes below, or is an alarm bit
+#       ending in exactly "_alm" / "_alarm"; or
+#   (b) IS exactly one of the bare signal-type words below, with no
+#       underscore prefix at all -- a member literally named "Hwdi", "Alarm",
+#       "Scai", and so on.
+#
+# Case (b) was added 2026-09-08, supplied by Doug after he found that
+# ALARM_AOI's real PLC parameters are named with the bare signal-type word
+# (members literally named "Alarm" and "Hwdi") rather than the
+# underscore-suffixed convention every other AOI follows. Under the
+# original suffix-only rule those members correctly received no History --
+# that was not a bug, just a naming convention the rule had never seen.
+# The bare form is matched EXACTLY, never as a suffix or substring: a
+# member named "Alarm" matches, while "Hi_Alarm" already matched via case
+# (a) and "AlarmEnable" or "PreAlarm" match neither, which is the intent.
+#
+# Compound alarm names (_alm_dis, _alm_ack, _alm_res, and anything else
+# _alm_*) remain deliberately EXCLUDED -- they are alarm *controls*, not
+# the alarm itself. Nothing else is historized; no other suffix, bare word,
+# or pattern is inferred.
 #
 # The suffix meanings come from CLAUDE.md's "Naming conventions" table and
 # are not re-derived here.
@@ -125,6 +145,14 @@ DIGITAL_SUFFIXES = ("_hwdi", "_hwdo", "_scdi", "_scdo")
 # Alarms are always Boolean at Casne (confirmed by Doug), regardless of how
 # the AOI names or types the alarm parameter -- so these classify as digital.
 ALARM_EXACT_SUFFIXES = ("_alm", "_alarm")
+
+# Bare (no-underscore) forms of the same signal-type words, matched as an
+# EXACT whole-name comparison rather than with str.endswith. Each bare word
+# classifies identically to its underscore-suffixed counterpart above. The
+# three sets are disjoint, so exact-match order never matters.
+ANALOG_BARE = ("hwai", "hwao", "scai", "scao")
+DIGITAL_BARE = ("hwdi", "hwdo", "scdi", "scdo")
+ALARM_BARE = ("alm", "alarm")
 
 # Ignition data types that agree with each signal class. Used only to raise
 # a review warning when the name's suffix and the PLC data type disagree --
@@ -204,18 +232,31 @@ HISTORY_CONTEXT_KEYS = ("historyProvider", "historyTagGroup", "includeMetadata")
 def classify_history(name):
     """Return 'analog', 'digital', or None for a member name.
 
-    Implements the Doug-supplied historization rule verbatim. Matching is
-    case-insensitive; the member's own name is never altered.
+    Implements the Doug-supplied historization rule verbatim, including the
+    2026-09-08 bare-word extension. Two independent ways to match:
+
+      * suffix   -- the name ENDS WITH "_hwdi", "_scao", "_alm", etc.
+                    (original rule, unchanged)
+      * bare word -- the name IS EXACTLY "Hwdi", "Alarm", "Scai", etc., with
+                    no underscore prefix (added 2026-09-08 for ALARM_AOI)
+
+    Matching is case-insensitive in both cases; the member's own name is
+    never altered.
     """
     lowered = name.lower()
-    if lowered.endswith(ANALOG_SUFFIXES):
+    # Suffix checks first, then the bare exact-match checks. Both are kept
+    # for each signal class -- the bare form is an ADDITION to the suffix
+    # rule, never a replacement for it.
+    if lowered.endswith(ANALOG_SUFFIXES) or lowered in ANALOG_BARE:
         return "analog"
-    if lowered.endswith(DIGITAL_SUFFIXES):
+    if lowered.endswith(DIGITAL_SUFFIXES) or lowered in DIGITAL_BARE:
         return "digital"
-    # Exactly "_alm" / "_alarm" only. str.endswith already excludes every
-    # compound form (_alm_dis, _alm_ack, _alm_res, _Alm_Enable, ...) because
-    # those end with the trailing token, not with "_alm".
-    if lowered.endswith(ALARM_EXACT_SUFFIXES):
+    # Exactly "_alm" / "_alarm" as a suffix, or exactly "alm" / "alarm" as
+    # the whole name. str.endswith already excludes every compound form
+    # (_alm_dis, _alm_ack, _alm_res, _Alm_Enable, ...) because those end
+    # with the trailing token, not with "_alm"; the bare check is a whole-
+    # name equality test, so it cannot pick up "AlarmEnable" or "PreAlarm".
+    if lowered.endswith(ALARM_EXACT_SUFFIXES) or lowered in ALARM_BARE:
         return "digital"
     return None
 
@@ -508,7 +549,8 @@ def build_member(parameter, conventions, warnings):
         )
         if ignition_type not in expected:
             warnings.append(
-                f"{name}: name classifies as {signal} by suffix, but its "
+                f"{name}: name classifies as {signal} by the naming rule, "
+                f"but its "
                 f"data type is '{ignition_type}' ({plc_type} in the PLC). "
                 f"History was still applied per the naming rule -- the rule "
                 f"is name-based -- but this disagreement is worth a look."

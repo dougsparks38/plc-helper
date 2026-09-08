@@ -349,28 +349,50 @@ reference — learning it per-member would faithfully reproduce the bugs.
 Any PLC data type the script has no confirmed mapping for is reported as
 a warning rather than guessed.
 
-### Historization rule (Doug-supplied and confirmed 2026-09-04, implemented)
+### Historization rule (Doug-supplied and confirmed 2026-09-04, implemented; extended 2026-09-08)
 
 A generated member gets History enabled **only** if its name
 (case-insensitive) matches one of these. Nothing else is historized, and
-no other suffix or pattern is inferred:
+no other suffix, bare word, or pattern is inferred:
 
 | Match | Signal type |
 |---|---|
-| ends with `_hwai`, `_hwao`, `_scai`, `_scao` | **analog** |
-| ends with `_hwdi`, `_hwdo`, `_scdi`, `_scdo` | **digital** |
-| ends with exactly `_alm` or `_alarm` | **digital** |
+| **ends with** `_hwai`, `_hwao`, `_scai`, `_scao` | **analog** |
+| **ends with** `_hwdi`, `_hwdo`, `_scdi`, `_scdo` | **digital** |
+| **ends with** exactly `_alm` or `_alarm` | **digital** |
+| **is exactly** `hwai`, `hwao`, `scai`, `scao` | **analog** |
+| **is exactly** `hwdi`, `hwdo`, `scdi`, `scdo` | **digital** |
+| **is exactly** `alm` or `alarm` | **digital** |
 
 The eight suffixes are the ones already in `CLAUDE.md`'s "Naming
 conventions" table; that table is the single source of truth for what
 they mean and is not restated here.
 
+**The bare-word rows (bottom three) were added 2026-09-08**, supplied by
+Doug after he found that `ALARM_AOI`'s real PLC parameters use the bare
+signal-type word — members literally named `Alarm` and `Hwdi` — instead
+of the underscore-suffixed convention every other AOI follows. Under the
+original suffix-only rule those two members correctly received **no**
+History; that was not a bug, just a naming convention the rule had never
+anticipated. A bare word classifies exactly the same as its
+underscore-suffixed counterpart.
+
+**The bare form is matched as an exact whole-name comparison**, never as
+a suffix or substring. So a member named `Alarm` matches, `Hi_Alarm`
+already matched via the suffix rows, and `AlarmEnable`, `PreAlarm`, and
+`Alarms` match nothing — which is the intent. The suffix rows are
+unchanged; bare-word matching is purely additive and does not alter the
+result for any AOI already using the suffixed convention (verified by a
+regression run against `FLOWIN3_AOI`, whose output was byte-identical
+before and after the change).
+
 **Compound alarm names are deliberately excluded** — `_alm_dis`,
-`_alm_ack`, `_alm_res`, and any other `_alm_*` form. Those are alarm
-*controls*, not the alarm itself. Only the bare `_alm` / `_alarm` ending
-matches. **Alarms are always Boolean at Casne** (confirmed by Doug), so
-they classify as digital regardless of how the AOI names or types the
-alarm parameter.
+`_alm_ack`, `_alm_res`, `Alarm_Ack`, and any other `_alm_*` /
+`alarm_*` form. Those are alarm *controls*, not the alarm itself. Only
+the bare `_alm` / `_alarm` ending, or the whole name being exactly `alm`
+/ `alarm`, matches. **Alarms are always Boolean at Casne** (confirmed by
+Doug), so they classify as digital regardless of how the AOI names or
+types the alarm parameter.
 
 Members that match nothing get **no history keys at all** — the same as
 the script's original behavior.
@@ -668,7 +690,18 @@ per this file's own convention (spec first, build second).
 
 ---
 
-*Last updated: September 8, 2026 — re-scoped TASK_005 from a loose
+*Last updated: September 8, 2026 — extended TASK_004's Historization rule
+to also match the **bare (no-underscore) form** of each signal-type word
+(`hwai`/`hwao`/`scai`/`scao` analog, `hwdi`/`hwdo`/`scdi`/`scdo` and
+`alm`/`alarm` digital) as an exact whole-name match, in addition to the
+existing suffix behavior which is unchanged. Supplied by Doug after he
+found `ALARM_AOI`'s real PLC parameters are named `Alarm` and `Hwdi`
+rather than following the underscore-suffixed convention — those members
+had correctly gotten no History under the suffix-only rule. Implemented in
+`generate_ignition_udt.py` via new `ANALOG_BARE` / `DIGITAL_BARE` /
+`ALARM_BARE` constants; `FLOWIN3_AOI` regression output was byte-identical
+before and after, and `ALARM_AOI` was regenerated with `Alarm` and `Hwdi`
+now historized as digital. Prior update, same day — re-scoped TASK_005 from a loose
 `O2_`-prefix match into a precise "AOI instances of a type with a valid,
 generated UDT" scope, with `DeviceName` as an explicit parameter,
 `Description` read per-instance from the L5X, and `EngUnit` left blank
