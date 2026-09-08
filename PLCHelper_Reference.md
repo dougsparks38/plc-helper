@@ -462,11 +462,19 @@ Revision 1.0. [No description in source — needs to be written]
 ## MODVLV
 
 **Source:** Casne (confirmed by Doug, 2026-09-03) — Blue Sky O2 program (job 261183-001), BOP_O2_CombinedTest_v35_Emulate.L5X
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-08
 
 UDT — Modulating Valve (MODVLV). User-Defined Data Type for a PID-controlled proportional valve.
 Bundles all setpoints, PID controller, mode bits, position I/O, and fault alarms into one tag structure.
 Source file: MODVLV_DataType.L5X
+
+**Four structured sub-elements are dead code (confirmed by Doug, 2026-09-08):** `.PID`,
+`.DLYTMR`, `.FTO_TMR`, and `.FTC_TMR` are all unused in the real program — see each one's
+own line below for the specifics. They are excluded from generated Ignition UDT definitions
+via `generate_ignition_udt.py`'s `MEMBER_EXCLUSIONS` table (PLCHelper TASK_008); the
+exclusion is opt-in and prints itself on every run, so nothing disappears quietly. They are
+still documented here because they do exist in the PLC type — this reference describes the
+UDT as it is, not as Ignition sees it.
 
 .MANPOS_scao - Manual Position Setpoint (SCADA to PLC); operator-entered position when in manual mode
 .SETPOINT_scao - Loop setpoint scaled in engineering units (SCADA to PLC)
@@ -509,10 +517,10 @@ Source file: MODVLV_DataType.L5X
 .PID_Auto - PID auto bit; true when PID controller is in automatic mode
 .AutoToManualOS - One-shot bit set on transition from Auto to Manual mode
 .ManualToAutoOS - One-shot bit set on transition from Manual to Auto mode
-.DLYTMR - PID delay timer (TIMER structured sub-object)
-.PID - PID control block for valve position (PID structured sub-object)
-.FTO_TMR - Fail-to-open alarm timer (TIMER structured sub-object)
-.FTC_TMR - Fail-to-close alarm timer (TIMER structured sub-object)
+.DLYTMR - PID delay timer (TIMER structured sub-object). CONFIRMED UNUSED / LEGACY (Doug, 2026-09-08) — leftover example/template code, not referenced anywhere in the current program. Excluded from generated Ignition UDTs.
+.PID - PID control block for valve position (PID structured sub-object). CONFIRMED UNUSED / OBSOLETE (Doug, 2026-09-08) — this valve's real PID control is a **separately defined PIDE-type tag**, not this embedded block. A live bug was found and fixed where PLC code referenced this obsolete embedded PID instead of the correct separate PIDE tag. If you find yourself wiring or referencing this sub-element, that's the sign you're doing it wrong — it should be a separate PIDE tag instead (same sub-elements, e.g. .PV/.CV), not this embedded one. Excluded from generated Ignition UDTs.
+.FTO_TMR - Fail-to-open alarm timer (TIMER structured sub-object). CONFIRMED UNUSED / LEGACY (Doug, 2026-09-08) — leftover example/template code, not referenced anywhere in the current program. Excluded from generated Ignition UDTs.
+.FTC_TMR - Fail-to-close alarm timer (TIMER structured sub-object). CONFIRMED UNUSED / LEGACY (Doug, 2026-09-08) — leftover example/template code, not referenced anywhere in the current program. Excluded from generated Ignition UDTs.
 
 ---
 

@@ -39,6 +39,7 @@ once the spec is solid.
 | TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | Idea | Given a fresh L5X export, find every AOI *instance* whose type already has a valid, generated UDT definition, and emit a folder of importable Ignition tag *instance* JSONs — `DeviceName` supplied as a parameter, `Description` read from that instance's own PLC description, `EngUnit` left blank for Doug to fill in. Auto-populates missing tag instances instead of building each by hand in Designer. |
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
+| TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
 
 ---
 
@@ -335,10 +336,20 @@ task.
 | PLC (L5X) | Ignition | How confirmed |
 |---|---|---|
 | `BOOL` | `Boolean` | 24 of 25 BOOL members in the real reference UDT |
+| `BIT` | `Boolean` | 21 of 21 (added 2026-09-08 for TASK_008 — see below) |
 | `DINT` | `Int4` | 3 of 4 DINT members |
 | `REAL` | `Float4` | consistent, no counterexample |
 | `SINT` / `INT` | `Int4` | inferred from the DINT integer mapping — flagged in the report when hit, not silently assumed |
 | `STRING` | `String` | observed in the real instance exports |
+
+`BIT` only ever appears in a **native UDT** (TASK_008), never in an AOI
+parameter list — it is the data type Studio 5000 gives a single aliased
+bit of a hidden integer backing member. Confirmed the same empirical way
+as the rest of this table rather than assumed: of MODVLV's 24 visible
+`BIT` members, the 21 that also exist in the real MODVLV Ignition UDT
+export are `Boolean` in all 21 cases, with **zero counterexamples** — a
+cleaner agreement than the original `BOOL` confirmation. It is also the
+only type that *could* be correct for a single bit.
 
 **The reference UDT contains its own data-type errors** — found while
 deriving this mapping: `AutoCall_INTRLK_scdi` is `BOOL` in the PLC but
@@ -699,9 +710,13 @@ per this file's own convention (spec first, build second).
 
 TASK_004 already derives conventions like `opcServer` as **one value**
 from the reference and stamps it uniformly across every generated
-member (verified 2026-09-08: `generate_ignition_udt.py` lines 376-378
-and 536 — one derived value, no per-member variation, confirmed against
-Doug's own stated vision for how this should work). But there's no way
+member (verified 2026-09-08: `generate_ignition_udt.py` —
+`derive_conventions()`'s single `opc_server` derivation, stamped onto
+every member by `build_member()` — one derived value, no per-member
+variation, confirmed against Doug's own stated vision for how this
+should work. Cited by function rather than by line number on purpose:
+the original citation gave line numbers, which went stale the moment the
+file grew). But there's no way
 yet to update that single value across an **existing** UDT definition's
 members after the fact — e.g. if a different client/site uses a
 different OPC Server connection name than the one baked into Blue Sky's
@@ -723,7 +738,275 @@ generation time, applied to something already generated.
 
 ---
 
-*Last updated: September 8, 2026 (2nd) — verified the OPC Server
+## TASK_008 — Generate Ignition UDT definition from a native PLC UDT
+
+**Status:** Implemented (2026-09-08) — same script as TASK_004:
+`generate_ignition_udt.py`, via `--datatype` instead of `--aoi`
+
+### Purpose
+
+Not everything on a job's Ignition-handoff checklist is an AOI. `MODVLV`
+sat on Blue Sky's per-AOI checklist in `BLUE_SKY_STATUS.md` and turned
+out not to be an AOI at all — it is a **native Rockwell UDT**, a
+`<DataType Class="User">` element with its own `<Members>` block, not an
+`<AddOnInstructionDefinition>`. TASK_004 could not read it, and there is
+no reason a type's *source element* should decide whether Doug gets a
+generated UDT or has to hand-build one in Designer.
+
+This task closes that gap. It is deliberately **not** a second tool:
+`--datatype NAME` selects a different parser for the member list, and
+everything downstream is TASK_004's existing code path, unmodified.
+
+### Relationship to TASK_004 — what is shared, what differs
+
+**Shared, verbatim and by construction** (see TASK_004 for the full
+detail of each — deliberately not restated here, per Lesson 9):
+
+- the reference-UDT **convention derivation** (OPC Server value, OPC
+  Item Path template shape, `bindType`, member JSON key set and constant
+  values, top-level type shape, parameter blanking, history context)
+- the **Historization rule**, including the suffix and bare-word forms
+  and the `_alm_*` compound-control exclusion
+- the **data type mapping** table and its report-never-guess behavior
+  for unmapped types
+- the **output shape**, the console report, and the
+  analog-deadband REVIEW REQUIRED block
+- `--udt-name`, which still never infers a name
+
+This is possible because both parsers return the same member dict shape,
+so the conventions and the historization rule operate on the derived
+member list — not on anything AOI-specific.
+
+**Only two things differ:**
+
+| | TASK_004 (`--aoi`) | TASK_008 (`--datatype`) |
+|---|---|---|
+| Source element | `<AddOnInstructionDefinition>` → `<Parameters>` → `<Parameter>` | `<DataType Class="User">` → `<Members>` → `<Member>` |
+| Member filtering | none — every parameter becomes a member | every **visible** member becomes a member; `Hidden="true"` backing members are excluded (below) |
+
+The confirmed-dead **member-exclusion mechanism** added 2026-09-08 (see
+Open Questions) is *not* one of the differences — it is shared, and works
+the same way in both modes.
+
+A native UDT member has no `Usage` (Input/Output/InOut) the way an AOI
+parameter does, so the console report omits the by-usage line for this
+mode and prints the hidden-member exclusion instead. Per-member
+`<Description>` elements **do** exist on native UDT members (36 of
+MODVLV's 49 carry one), same as AOI parameters — so nothing is lost
+there.
+
+### Hidden backing members are excluded (Doug-confirmed, 2026-09-08)
+
+When a native UDT contains boolean members, Studio 5000 does not store
+them as individual BOOLs. It **packs them into auto-generated integer
+storage members** named `ZZZZZZZZZZ<TypeName><n>` and marked
+`Hidden="true"`, then exposes each real bit as its own visible member
+with `DataType="BIT"`, a `Target` naming the backing member, and a
+`BitNumber`. MODVLV: 4 hidden `SINT` backers holding 24 visible `BIT`
+members.
+
+| Member kind | Treatment | Why |
+|---|---|---|
+| `Hidden="true"` backing member (`ZZZZZZZZZZMODVLV13`, …) | **Excluded** | Studio 5000's own bit-packing storage, not an independent data point. Doug confirmed these should not appear; they are absent from his Ignition tag list view, and independently absent from the real MODVLV UDT export used as the reference — 35 members, zero `ZZZ` members |
+| `Hidden="false"`, `DataType="BIT"` bit-alias member (`FAILCLS_alm_dis`, …) | **Included**, as its own `Boolean` member | A real, independently addressable data point. Which hidden integer happens to store it is a PLC storage detail with no meaning on the Ignition side, so the generated member carries no trace of the packing |
+| Every other `Hidden="false"` member | **Included**, exactly as TASK_004 would | no change |
+
+**The exclusion reports itself rather than acting silently.** Every run
+prints each excluded backing member, its PLC type, and the visible bits
+aliased onto it. And a hidden member that backs **no** visible `BIT`
+member raises a warning — that is not the bit-packing pattern this
+exclusion was written for, so it gets a human look instead of being
+assumed droppable.
+
+### Inputs
+
+Identical to TASK_004's inputs, with one substitution:
+
+| Input | Format | Notes |
+|-------|--------|-------|
+| DataType name | string | e.g. `MODVLV`. Must match the `Name` attribute of a `<DataType>` in the L5X exactly, and that DataType must be `Class="User"` — a non-User class is refused rather than parsed |
+| L5X export | `.L5X` (XML) | Same file and same cross-folder read pattern as TASK_004 |
+| Reference UDT JSON | `.json` | Same requirement as TASK_004 — an Ignition **UDT Definitions** tab export, read for conventions only |
+
+`--list-datatypes` lists every `Class="User"` DataType with its visible
+and hidden member counts, the counterpart to `--list-aois`.
+
+`--exclude NAME[=reason]` (repeatable) drops one member for a single run —
+see the general member-exclusion mechanism in Open Questions below. It is
+available in both `--aoi` and `--datatype` mode.
+
+### Process
+
+1. **Parse the L5X** for the named `<DataType Class="User">` and read its
+   `<Members>` block in document order, dropping `Hidden="true"` members
+   and recording which visible `BIT` members aliased onto each one.
+2. **Apply confirmed-dead member exclusions**, if any are configured for
+   this type — shared with the `--aoi` path, running on the parsed member
+   list rather than inside either parser.
+3. **Steps 3 onward are TASK_004's, unchanged** — derive conventions
+   from the reference, map data types, apply the historization rule,
+   build members, write the output JSON into the job's own folder.
+
+### Outputs
+
+1. A new Ignition UDT definition JSON in the job's folder, importable via
+   Designer's **UDT Definitions** tab — same format and same import
+   procedure as TASK_004's output.
+2. The same console report as TASK_004, plus the hidden-member exclusion
+   block described above.
+
+**First real run (2026-09-08):** `MODVLV` →
+`BlueSky\MODVLV UDT definition generated 2026-09-08.json`. 45 visible
+members generated, 4 hidden backing members excluded, 17 members
+historized by the naming rule (13 digital, 4 analog).
+
+**Regenerated later the same day**, after Doug confirmed `.PID`,
+`.DLYTMR`, `.FTO_TMR`, and `.FTC_TMR` are dead code (see Open Questions):
+**41 members**, 4 hidden backing members excluded *plus* those 4
+confirmed-dead members excluded, the same 17 historized members
+(13 digital, 4 analog). The four `String`/NEEDS REVIEW placeholder
+warnings are gone; the only remaining warning is the pre-existing `LBIAS`
+(`INT` → `Int4`) inference note. Nothing else in the file changed —
+verified member-by-member against the previous output, with document order
+preserved.
+
+### Open Questions / Notes
+
+- **RESOLVED 2026-09-08 — MODVLV's `TIMER` and `PID` members are
+  confirmed dead code and are now excluded.** MODVLV's three `TIMER`
+  members (`DLYTMR`, `FTO_TMR`, `FTC_TMR`) and its one `PID` member are
+  Rockwell *structured* predefined types, so no single Ignition atomic
+  member can represent them, and until now they hit the unmapped-type
+  path: a `String` placeholder plus a NEEDS REVIEW warning every run.
+  That was the correct behavior while the question was open — the earlier
+  note here recorded that Doug's own MODVLV reference UDT omits all four,
+  and that dropping them on the script's own initiative would have been
+  exactly the guessing the warning exists to prevent.
+
+  **Doug has now confirmed all four are genuinely unused/dead in the real
+  PLC program** — a stronger statement than "unmappable." `.PID` is an
+  obsolete embedded PID block; this valve's real PID control is a
+  separately defined **PIDE**-type tag, and Doug found and fixed a live
+  bug where PLC code referenced the embedded block instead of the correct
+  separate PIDE tag. The three `TIMER` members are leftover
+  example/template code that was never cleaned up and are referenced
+  nowhere in the current program. Full detail lives on each member's own
+  line in `PLCHelper_Reference.md`'s MODVLV entry — including the standing
+  warning that *referencing* `.PID` at all is the symptom of doing it
+  wrong. All four are now dropped from generated output via the general
+  mechanism below; the four NEEDS REVIEW warnings are gone and MODVLV
+  generates 41 members instead of 45.
+
+  The question this note originally left open for *future* native UDTs is
+  still open, and is unchanged by the above: whether a structured type
+  should be expanded into per-field members, omitted outright, or keep
+  being flagged. Nothing here decides that in general — it only records
+  Doug's decision about four specific MODVLV members.
+
+- **General member-exclusion mechanism (added 2026-09-08) — opt-in, and
+  it reports itself.** The MODVLV resolution above is not MODVLV-specific
+  code. `generate_ignition_udt.py` gained a general exclusion mechanism
+  any AOI or native UDT can use the same way, and it works identically in
+  `--aoi` and `--datatype` mode because the filtering runs on the
+  **derived member list, downstream of both parsers** — the same
+  construction that already lets the conventions and the historization
+  rule be shared code rather than duplicated per mode.
+
+  Two ways in, deliberately asymmetric:
+
+  | Route | Scope | Use it for |
+  |---|---|---|
+  | `MEMBER_EXCLUSIONS` table in the script, keyed by source type name | every future run | a **settled** decision. This is the persistent record, and it is where the MODVLV four live |
+  | `--exclude NAME[=reason]`, repeatable | one run | an ad-hoc/exploratory drop. Additive to the table and **cannot cancel** a table entry — a documented decision is not overridable by a command-line typo |
+
+  Design points worth not re-litigating later:
+
+  - **Keyed by type name, not by member name alone.** `PID` and `DLYTMR`
+    are dead *in MODVLV*; a member of the same name in some other type is
+    a different member with a different history. Excluding by bare name
+    collision would be the script making a judgment call it is not
+    entitled to make.
+  - **Names match case-insensitively; the report prints the L5X's own
+    verbatim spelling.** Case-exactness matters functionally for a
+    generated member name (bug pattern #2), not for looking one up in a
+    config table.
+  - **Nothing is ever dropped silently.** Every run prints each excluded
+    member with its PLC data type, the reason, and which route it came
+    from, at step 1 *and* again after the "Generated N members" line — the
+    report is long and a dropped member must not be something a reader has
+    to scroll back for. Same reports-itself principle as the hidden
+    `ZZZZZZZZZZ*` backing-member exclusion.
+  - **A configured exclusion that matches no member raises a warning.**
+    A typo, or a member renamed in the PLC since the exclusion was
+    written, would otherwise look exactly like a successful run. Same
+    defensive shape as the "hidden member that backs no visible BIT"
+    warning.
+  - **The 2026-09-04 scope decision still stands.** The script does not
+    get an opinion about which members are "needed for SCADA." An entry in
+    `MEMBER_EXCLUSIONS` is a record of Doug's decision, never the
+    script's, and the table's own comment says what does *not* belong in
+    it: merely-unmappable data types (already correctly handled by the
+    NEEDS REVIEW warning) and members that just "look unnecessary."
+  - **Rule 37 pairing.** A member excluded here must also be marked
+    dead in `PLCHelper_Reference.md`'s entry for that type. A member noted
+    dead in the script and still described as live in the reference is
+    exactly the two-places-one-fact drift Lesson 9 exists to prevent.
+- **`LBIAS` (`INT`) mapped to `Int4` by inference,** flagged in the
+  report as TASK_004 already does for `SINT`/`INT` — unchanged behavior,
+  noted here only because MODVLV is the first type to actually hit it.
+- **The reference and the current PLC UDT disagree on membership**, which
+  is expected and not this task's problem: the real MODVLV Ignition UDT
+  has 35 members, of which 3 (`MANCLOSE_scdo`, `MANOPEN_scdo`,
+  `AUTO_hwdi`) no longer exist in the PLC type at all, while 13 current
+  PLC members are missing from it. The generated file is built from the
+  L5X, so it reflects the PLC as it is now. Reconciling the existing
+  Ignition UDT against it is a TASK_006-flavored question, not part of
+  generation.
+- **The AOI path is provably untouched.** `FLOWIN3_AOI` and `ALARM_AOI`
+  were both regenerated before and after this change with identical
+  inputs and produced **byte-identical** JSON, and `--list-aois` output
+  was unchanged. **Re-verified the same way for the 2026-09-08 exclusion
+  mechanism**: both AOIs byte-identical before and after, `--list-aois`
+  and `--list-datatypes` both unchanged, and the console report identical
+  apart from the output filename. Neither AOI has an entry in
+  `MEMBER_EXCLUSIONS`, so the exclusion code path is a no-op for them —
+  which is exactly what "opt-in" has to mean to be worth anything.
+
+---
+
+*Last updated: September 8, 2026 (4th) — added a **general, opt-in
+member-exclusion mechanism** to `generate_ignition_udt.py`, shared by both
+`--aoi` and `--datatype` mode: a `MEMBER_EXCLUSIONS` table keyed by source
+type name for settled decisions, plus a repeatable `--exclude
+NAME[=reason]` for one-off runs (additive; it cannot cancel a table
+entry). Nothing is ever dropped silently — every exclusion prints with its
+PLC type, reason, and origin, twice per run, and an exclusion matching no
+member raises a warning. Applied to MODVLV's `.PID`, `.DLYTMR`,
+`.FTO_TMR`, and `.FTC_TMR`, which Doug confirmed are genuinely dead code
+(the `.PID` block is obsolete — this valve's real PID control is a
+separate PIDE-type tag, and a live bug referencing the embedded block was
+found and fixed). This closes the TASK_008 Open Question that had those
+four emitting `String`/NEEDS REVIEW placeholders; MODVLV regenerated at 41
+members instead of 45, with nothing else in the file changed. The AOI path
+was re-verified byte-identical. Prior update, same day (3rd) — added
+**TASK_008** (Implemented):
+generate an Ignition UDT definition from a **native PLC UDT**
+(`<DataType Class="User">`) rather than an AOI, via a new `--datatype`
+option on the existing `generate_ignition_udt.py`, plus
+`--list-datatypes`. Prompted by `MODVLV` — an item on Blue Sky's per-AOI
+handoff checklist that turned out not to be an AOI at all. Studio 5000's
+hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded
+(Doug-confirmed; independently absent from the real MODVLV Ignition
+export) while the visible `DataType="BIT"` bit-alias members are included
+as Booleans; the exclusion reports every dropped member and warns on any
+hidden member that backs no visible bit. Everything downstream of the
+member list — conventions, historization, data-type mapping, output shape
+— is TASK_004's code path unchanged, and that path is provably untouched
+(`FLOWIN3_AOI` and `ALARM_AOI` byte-identical before and after). Also
+added `BIT` → `Boolean` to TASK_004's data-type mapping table (21 of 21
+agreement, zero counterexamples) and replaced TASK_007's line-number
+citation of the script with a function-name citation, since the line
+numbers went stale the moment the file grew. Prior update, same day (2nd) — verified the OPC Server
 convention mechanism against the actual code at Doug's request (one
 derived value, stamped uniformly on every member — matches Doug's own
 stated vision exactly, not a per-member issue) and logged TASK_007

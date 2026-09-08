@@ -1,17 +1,59 @@
 #!/usr/bin/env python3
 """
 TASK_004 — Generate an Ignition UDT definition JSON from a PLC AOI.
+TASK_008 — ...or from a native PLC UDT (`<DataType Class="User">`).
 
 Given an AOI type name, an L5X export containing that AOI's
 AddOnInstructionDefinition, and a reference Ignition UDT definition
 export, emit a brand-new Ignition UDT definition JSON with one member
 per AOI parameter.
 
+NATIVE UDT SOURCE (TASK_008, added 2026-09-08): not every type on a job's
+Ignition-handoff checklist is an AOI. MODVLV, for example, is a native
+Rockwell UDT — a `<DataType Class="User">` element with a `<Members>`
+block — not an `<AddOnInstructionDefinition>`. Pass `--datatype NAME`
+instead of `--aoi NAME` to read one of those. Everything downstream of
+the member list is shared verbatim with the AOI path: the same
+convention derivation, the same fixed data-type mapping, the same
+historization rule, the same output shape. Only the source element and
+the hidden-member exclusion below differ.
+
+HIDDEN BACKING MEMBERS ARE EXCLUDED (Doug-confirmed, 2026-09-08): when a
+native UDT contains boolean members, Studio 5000 packs them into
+auto-generated integer storage members named `ZZZZZZZZZZ<Type><n>` and
+marked `Hidden="true"`, then exposes each real bit as its own visible
+`DataType="BIT"` member carrying `Target` (the backing member) and
+`BitNumber`. The hidden backing members are Studio 5000's own bit-packing
+storage, not independent data points -- they do not appear in Doug's
+Ignition tag list, and they are confirmed absent from the real MODVLV
+reference UDT export. They are therefore dropped. The visible `BIT`
+alias members ARE included, each as its own Boolean member, exactly like
+any other real member.
+
 SCOPE DECISION (Doug-approved, 2026-09-04): every AOI parameter becomes a
 member. No exclusions, no filtering, no judgment about which parameters
 are "needed for SCADA/HMI." See PLCHelper_Tasks.md TASK_004 for why this
 is a deliberate exception to the Hard scope boundary that governs
 *correcting an existing* UDT.
+
+CONFIRMED-DEAD MEMBERS ARE EXCLUDED, BY EXPLICIT OPT-IN ONLY (added
+2026-09-08): the scope decision above stands -- this script still never
+decides on its own that a member is unwanted. But once Doug has
+*confirmed* a specific member is genuinely dead code in the real PLC
+program, continuing to emit it as a NEEDS REVIEW placeholder is no longer
+"reporting instead of guessing," it is re-asking a settled question every
+run. MEMBER_EXCLUSIONS below is the record of those settled answers, keyed
+by source type name; --exclude adds one ad-hoc for a single run. It works
+identically in --aoi and --datatype mode because the filtering happens on
+the derived member list, downstream of both parsers -- the same reason the
+conventions and the historization rule are shared code.
+
+An exclusion is never silent. Every run prints each excluded member, its
+PLC data type, the reason, and where the exclusion came from; and a
+configured exclusion that matches NO member in the source raises a
+warning rather than passing unnoticed, so a typo or a since-renamed
+member surfaces instead of quietly doing nothing. Same
+reports-itself-always principle as the hidden-backing-member exclusion.
 
 HISTORIZATION RULE (Doug-supplied, 2026-09-04; extended 2026-09-08):
 members whose names match an explicit name rule get History enabled with
@@ -44,13 +86,28 @@ Usage:
         --reference "<path to job folder>/reference UDT tags.json" \
         --output "<path to job folder>/FLOWIN3_AOI UDT.json"
 
+    python generate_ignition_udt.py \
+        --datatype MODVLV \
+        --l5x "<path to job folder>/program.L5X" \
+        --reference "<path to job folder>/reference UDT tags.json" \
+        --output "<path to job folder>/MODVLV UDT.json"
+
 Optional:
     --udt-name NAME   Name for the generated UDT type. Defaults to the
-                      AOI type name. Supplied explicitly because Ignition
-                      UDT names do NOT track PLC AOI version numbers --
-                      a UDT named CONSPD2_AOI legitimately corresponds to
-                      PLC type CONSPD4_AOI. Never inferred by name.
+                      source AOI or DataType name. Supplied explicitly
+                      because Ignition UDT names do NOT track PLC AOI
+                      version numbers -- a UDT named CONSPD2_AOI
+                      legitimately corresponds to PLC type CONSPD4_AOI.
+                      Never inferred by name.
     --list-aois       List every AOI type in the L5X and exit.
+    --list-datatypes  List every native user DataType in the L5X and exit.
+    --exclude NAME[=reason]
+                      Drop one member from the generated UDT for this run
+                      only. Repeatable. Additive to MEMBER_EXCLUSIONS
+                      below -- it can add an exclusion but never cancel
+                      one. For an exclusion that should apply on every
+                      future run, put it in MEMBER_EXCLUSIONS instead of
+                      relying on someone remembering the flag.
 """
 
 import argparse
@@ -68,8 +125,16 @@ import xml.etree.ElementTree as ET
 # with no counterexample. The minority disagreements were traced to
 # hand-entry mistakes in the reference UDT, NOT to a convention -- which is
 # precisely why this mapping is fixed here rather than learned per-member.
+# BIT->Boolean was added 2026-09-08 for the native-UDT path (TASK_008) and is
+# confirmed the same empirical way, not assumed: of MODVLV's 24 visible BIT
+# members, the 21 that also exist in the real MODVLV Ignition UDT export are
+# "Boolean" in all 21 cases, with zero counterexamples -- a cleaner agreement
+# than the original BOOL confirmation. A BIT member is a single aliased bit of
+# a hidden integer backing member, so Boolean is also the only type that could
+# be correct.
 DATA_TYPE_MAP = {
     "BOOL": "Boolean",
+    "BIT": "Boolean",
     "SINT": "Int4",
     "INT": "Int4",
     "DINT": "Int4",
@@ -81,7 +146,80 @@ DATA_TYPE_MAP = {
 
 # Mapping entries confirmed directly against the real files. Anything mapped
 # but not in this set is reported as an inference so it gets a human look.
-CONFIRMED_TYPES = {"BOOL", "DINT", "REAL", "STRING"}
+CONFIRMED_TYPES = {"BOOL", "BIT", "DINT", "REAL", "STRING"}
+
+# --------------------------------------------------------------------------
+# Confirmed-dead member exclusions -- OPT-IN ONLY (added 2026-09-08).
+#
+# Keyed by the SOURCE type name as it appears in the L5X (the AOI name for
+# --aoi, the DataType name for --datatype), matched case-insensitively.
+# Value: {member name: why it is excluded}. Member names are matched
+# case-insensitively too, and the report always prints the L5X's own
+# verbatim spelling, not the spelling written here.
+#
+# WHAT BELONGS IN HERE, AND WHAT DOES NOT. Only a member Doug has
+# explicitly confirmed is dead in the real PLC program. This table is NOT
+# for:
+#   * members whose PLC data type merely has no Ignition mapping -- those
+#     already have a correct behavior (String placeholder + NEEDS REVIEW
+#     warning) and that warning is the whole point; and
+#   * members that "look unnecessary for SCADA." The 2026-09-04 scope
+#     decision in the module docstring settles that: the script does not
+#     get an opinion. An entry here is a record of Doug's decision, never
+#     the script's.
+#
+# Adding an entry is therefore a documentation act as much as a code
+# change -- write the reason as if the next reader has no memory of the
+# conversation, because they won't. The same fact must also be recorded in
+# PLCHelper_Reference.md's entry for that type (Rule 37): a member noted
+# dead here and still described as live there is exactly the two-places-
+# one-fact drift Lesson 9 exists to prevent.
+#
+# Deliberately NOT keyed by member name alone. `PID` and `DLYTMR` are dead
+# in MODVLV; a member of the same name in some other type is a different
+# member with a different history, and excluding it by name collision
+# would be the script making a judgment call it is not entitled to make.
+MEMBER_EXCLUSIONS = {
+    # MODVLV -- all four confirmed dead by Doug, 2026-09-08. Each is a
+    # Rockwell *structured* predefined type (PID, TIMER) that no single
+    # Ignition atomic member can represent, so before confirmation they
+    # were correctly emitted as String NEEDS REVIEW placeholders. Now
+    # confirmed dead in the program itself, which is a stronger statement
+    # than "unmappable": there is nothing to map, not merely no way to.
+    "MODVLV": {
+        "PID": (
+            "Confirmed unused/obsolete (Doug, 2026-09-08). This valve's "
+            "real PID control is a SEPARATELY DEFINED PIDE-type tag, not "
+            "this embedded PID block. Doug found and fixed a live bug "
+            "where PLC code referenced this obsolete embedded block "
+            "instead of the correct separate PIDE tag -- so referencing "
+            "this sub-element at all is the symptom, not the fix."
+        ),
+        "DLYTMR": (
+            "Confirmed unused/legacy (Doug, 2026-09-08). TIMER member, "
+            "not referenced anywhere in the current program -- leftover "
+            "from example/template code that was never cleaned up."
+        ),
+        "FTO_TMR": (
+            "Confirmed unused/legacy (Doug, 2026-09-08). TIMER member, "
+            "not referenced anywhere in the current program -- leftover "
+            "from example/template code that was never cleaned up."
+        ),
+        "FTC_TMR": (
+            "Confirmed unused/legacy (Doug, 2026-09-08). TIMER member, "
+            "not referenced anywhere in the current program -- leftover "
+            "from example/template code that was never cleaned up."
+        ),
+    },
+}
+
+# Where a resolved exclusion came from, for the report. A run should make
+# it obvious whether a dropped member is a standing, documented decision or
+# a one-off someone typed on the command line.
+EXCLUSION_ORIGIN_TABLE = "MEMBER_EXCLUSIONS"
+EXCLUSION_ORIGIN_CLI = "--exclude"
+
+CLI_EXCLUSION_DEFAULT_REASON = "no reason given on the command line"
 
 # Keys computed per-member rather than copied as a convention constant.
 COMPUTED_KEYS = {"name", "dataType", "opcItemPath"}
@@ -341,6 +479,245 @@ def list_aois(l5x_path):
     print(f"\n{len(rows)} AOI definitions in {l5x_path}")
 
 
+def parse_udt_members(l5x_path, datatype_name):
+    """Read a native UDT's usable member list from an L5X, in document order.
+
+    TASK_008. The native-UDT counterpart to parse_aoi_parameters, returning
+    the same dict shape so every downstream step (convention application,
+    data-type mapping, historization, output) is shared code rather than a
+    parallel implementation.
+
+    Returns (members, datatype_attributes, hidden). `hidden` is the list of
+    excluded Hidden="true" backing members, each as
+    (name, plc_type, [names of visible BIT members aliased onto it]), kept
+    so the run can report exactly what was dropped and why instead of
+    dropping it silently.
+    """
+    try:
+        root = ET.parse(l5x_path).getroot()
+    except ET.ParseError as exc:
+        raise SystemExit(f"ERROR: could not parse L5X as XML: {exc}")
+
+    for datatype in root.iter("DataType"):
+        if datatype.get("Name") != datatype_name:
+            continue
+
+        # Class="User" is the user-defined UDT. Predefined/module-defined
+        # types are a different animal and are not in scope here.
+        if datatype.get("Class") != "User":
+            raise SystemExit(
+                f"ERROR: DataType '{datatype_name}' has Class="
+                f"'{datatype.get('Class')}', not 'User'. Only user-defined "
+                f"UDTs are supported."
+            )
+
+        members_el = datatype.find("Members")
+        if members_el is None:
+            raise SystemExit(
+                f"ERROR: DataType '{datatype_name}' has no <Members> block "
+                f"in this L5X."
+            )
+
+        all_members = members_el.findall("Member")
+
+        # Which visible BIT members alias onto which backing member. Built
+        # first so an excluded hidden member can be reported together with
+        # the real members it stores -- and so a hidden member that backs
+        # NOTHING can be flagged rather than assumed to be bit-packing.
+        aliases = collections.defaultdict(list)
+        for member in all_members:
+            target = member.get("Target")
+            if target:
+                aliases[target].append(member.get("Name"))
+
+        members = []
+        hidden = []
+        for member in all_members:
+            name = member.get("Name")
+
+            # --- The exclusion. Hidden="true" members are Studio 5000's own
+            # auto-generated bit-packing storage, not independent data
+            # points (see the module docstring). Compared case-insensitively
+            # because the attribute is a serialized boolean, not a keyword.
+            if (member.get("Hidden") or "").strip().lower() == "true":
+                hidden.append(
+                    (name, member.get("DataType"), aliases.get(name, []))
+                )
+                continue
+
+            desc_el = member.find("Description")
+            description = ""
+            if desc_el is not None and desc_el.text:
+                description = desc_el.text.strip()
+
+            members.append(
+                {
+                    # Verbatim, case preserved -- same functional requirement
+                    # as the AOI path (bug pattern #2).
+                    "Name": name,
+                    "DataType": member.get("DataType"),
+                    # A native UDT member has no Input/Output/InOut usage the
+                    # way an AOI parameter does. Carried as None so the shared
+                    # member dict shape stays identical.
+                    "Usage": None,
+                    "Required": None,
+                    "Visible": None,
+                    "ExternalAccess": member.get("ExternalAccess"),
+                    "Dimension": member.get("Dimension"),
+                    "Description": description,
+                    # Bit-alias detail, kept for reporting only. Nothing
+                    # downstream consumes these -- a BIT member becomes a
+                    # plain Boolean Ignition member with no trace of which
+                    # hidden integer happened to store it, which is correct:
+                    # the packing is a PLC storage detail and has no meaning
+                    # on the Ignition side.
+                    "Radix": member.get("Radix"),
+                    "Target": member.get("Target"),
+                    "BitNumber": member.get("BitNumber"),
+                }
+            )
+
+        return members, dict(datatype.attrib), hidden
+
+    available = sorted(
+        d.get("Name") for d in root.iter("DataType")
+        if d.get("Class") == "User"
+    )
+    raise SystemExit(
+        f"ERROR: user DataType '{datatype_name}' not found in {l5x_path}.\n"
+        f"User DataTypes present ({len(available)}): {', '.join(available)}"
+    )
+
+
+def list_datatypes(l5x_path):
+    """List every Class="User" DataType in the L5X. TASK_008."""
+    rows = []
+    for datatype in ET.parse(l5x_path).getroot().iter("DataType"):
+        if datatype.get("Class") != "User":
+            continue
+        members_el = datatype.find("Members")
+        all_members = (
+            members_el.findall("Member") if members_el is not None else []
+        )
+        hidden = sum(
+            1 for m in all_members
+            if (m.get("Hidden") or "").strip().lower() == "true"
+        )
+        rows.append(
+            (datatype.get("Name"), len(all_members) - hidden, hidden,
+             datatype.get("Family") or "NoFamily")
+        )
+    for name, visible, hidden, family in sorted(rows):
+        print(f"  {name:28} {visible:3} members "
+              f"({hidden} hidden, excluded)   [{family}]")
+    print(f"\n{len(rows)} user-defined DataTypes in {l5x_path}")
+
+
+def resolve_exclusions(source_name, cli_excludes):
+    """Build this run's exclusion set for one source type.
+
+    Merges the standing MEMBER_EXCLUSIONS entry for `source_name` (matched
+    case-insensitively) with any --exclude values given on the command
+    line. Returns a dict keyed by LOWERCASED member name, each value a
+    dict of {name, reason, origin} -- `name` being the spelling the
+    exclusion was configured with, kept only for reporting an exclusion
+    that matched nothing.
+
+    --exclude is deliberately ADDITIVE and cannot cancel a table entry: a
+    standing, documented decision should not be overridable by a
+    command-line typo. A CLI value naming a member the table already
+    covers keeps the table's reason, since that reason is the one someone
+    took the trouble to write down.
+    """
+    resolved = {}
+
+    for type_name, members in MEMBER_EXCLUSIONS.items():
+        if type_name.lower() != source_name.lower():
+            continue
+        for member_name, reason in members.items():
+            resolved[member_name.lower()] = {
+                "name": member_name,
+                "reason": reason,
+                "origin": EXCLUSION_ORIGIN_TABLE,
+            }
+
+    for raw in cli_excludes or []:
+        # NAME=reason, with the reason optional. Split on the first "=" only,
+        # so a reason may itself contain "=".
+        member_name, _, reason = raw.partition("=")
+        member_name = member_name.strip()
+        reason = reason.strip() or CLI_EXCLUSION_DEFAULT_REASON
+        if not member_name:
+            raise SystemExit(
+                f"ERROR: --exclude {raw!r} has no member name. Expected "
+                f"--exclude NAME or --exclude NAME=reason."
+            )
+        key = member_name.lower()
+        if key in resolved:
+            # Already a standing decision. Say so rather than silently
+            # appearing to honor the command line's own wording.
+            continue
+        resolved[key] = {
+            "name": member_name,
+            "reason": reason,
+            "origin": EXCLUSION_ORIGIN_CLI,
+        }
+
+    return resolved
+
+
+def apply_exclusions(parameters, exclusions, warnings):
+    """Drop excluded members from a parsed member list.
+
+    Runs on the derived member list, downstream of BOTH parsers, so an
+    exclusion behaves identically in --aoi and --datatype mode -- the same
+    construction that lets the conventions and the historization rule be
+    shared code rather than duplicated per mode.
+
+    Returns (kept, dropped). `dropped` carries the L5X's own verbatim name
+    and PLC data type alongside the configured reason and origin, so the
+    report describes what was actually removed rather than what someone
+    intended to remove.
+
+    Appends a warning for any configured exclusion that matched no member
+    at all. That is the failure mode worth catching: a typo, or a member
+    renamed in the PLC since the exclusion was written, would otherwise
+    look exactly like a successful run.
+    """
+    if not exclusions:
+        return list(parameters), []
+
+    kept = []
+    dropped = []
+    for parameter in parameters:
+        entry = exclusions.get((parameter["Name"] or "").lower())
+        if entry is None:
+            kept.append(parameter)
+            continue
+        dropped.append(
+            {
+                "name": parameter["Name"],
+                "plc_type": parameter["DataType"],
+                "reason": entry["reason"],
+                "origin": entry["origin"],
+            }
+        )
+
+    matched = {d["name"].lower() for d in dropped}
+    for key, entry in exclusions.items():
+        if key in matched:
+            continue
+        warnings.append(
+            f"{entry['name']}: configured for exclusion ({entry['origin']}) "
+            f"but NO member of this name exists in the source -- nothing was "
+            f"dropped for it. Either the name is misspelled or the member was "
+            f"renamed/removed in the PLC. Confirm which, rather than assuming "
+            f"the exclusion worked."
+        )
+
+    return kept, dropped
+
+
 def derive_conventions(reference_path):
     """Learn UDT conventions from a real Ignition UDT definition export.
 
@@ -562,52 +939,134 @@ def build_member(parameter, conventions, warnings):
 def main():
     parser = argparse.ArgumentParser(
         description="Generate an Ignition UDT definition JSON from a PLC AOI "
-                    "(TASK_004). Includes EVERY AOI parameter as a member.",
+                    "(TASK_004) or a native PLC UDT (TASK_008). Includes "
+                    "EVERY AOI parameter / every visible UDT member as a "
+                    "member, except any member explicitly opted out via the "
+                    "MEMBER_EXCLUSIONS table or --exclude -- every exclusion "
+                    "is printed in the report, never applied silently.",
     )
-    parser.add_argument("--aoi", help="AOI type name, e.g. FLOWIN3_AOI")
+    # --aoi and --datatype are the two mutually exclusive source modes. Every
+    # step after the member list is read is shared between them.
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--aoi", help="AOI type name, e.g. FLOWIN3_AOI")
+    source.add_argument("--datatype", help="Native user DataType (UDT) name, "
+                                          "e.g. MODVLV")
     parser.add_argument("--l5x", required=True, help="Path to the L5X export")
     parser.add_argument("--reference", help="Path to a reference Ignition UDT "
                                            "definition JSON export")
     parser.add_argument("--output", help="Path for the generated UDT JSON")
     parser.add_argument("--udt-name", help="Name for the generated UDT type "
-                                          "(defaults to the AOI type name)")
+                                          "(defaults to the AOI or DataType "
+                                          "name)")
     parser.add_argument("--list-aois", action="store_true",
                         help="List every AOI type in the L5X and exit")
+    parser.add_argument("--list-datatypes", action="store_true",
+                        help="List every native user DataType in the L5X "
+                             "and exit")
+    # Repeatable, per argparse's documented 'append' action. Additive to
+    # MEMBER_EXCLUSIONS and unable to cancel it -- see resolve_exclusions.
+    parser.add_argument("--exclude", action="append", metavar="NAME[=reason]",
+                        help="Drop one member from the generated UDT for "
+                             "this run only. Repeatable. Additive to the "
+                             "standing MEMBER_EXCLUSIONS table; it cannot "
+                             "cancel a standing exclusion. Every exclusion "
+                             "is printed in the report.")
     args = parser.parse_args()
 
     if args.list_aois:
         list_aois(args.l5x)
         return 0
 
+    if args.list_datatypes:
+        list_datatypes(args.l5x)
+        return 0
+
+    if not args.aoi and not args.datatype:
+        parser.error("missing required argument: --aoi or --datatype")
+
     missing = [
         flag for flag, value in
-        (("--aoi", args.aoi), ("--reference", args.reference),
-         ("--output", args.output))
+        (("--reference", args.reference), ("--output", args.output))
         if not value
     ]
     if missing:
         parser.error(f"missing required argument(s): {', '.join(missing)}")
 
-    udt_name = args.udt_name or args.aoi
+    source_name = args.aoi or args.datatype
+    udt_name = args.udt_name or source_name
+    hidden = []
+    # Collected from step 1 onward now, because the exclusion mechanism can
+    # raise a warning (a configured exclusion that matched nothing) before
+    # any member is built.
+    warnings = []
 
-    print(f"TASK_004 -- Generate Ignition UDT definition")
-    print(f"{'=' * 68}")
-    print(f"AOI type    : {args.aoi}")
+    if args.aoi:
+        print(f"TASK_004 -- Generate Ignition UDT definition")
+        print(f"{'=' * 68}")
+        print(f"AOI type    : {args.aoi}")
+    else:
+        print(f"TASK_008 -- Generate Ignition UDT definition "
+              f"(native PLC UDT source)")
+        print(f"{'=' * 68}")
+        print(f"DataType    : {args.datatype}")
     print(f"L5X         : {args.l5x}")
     print(f"Reference   : {args.reference}")
     print(f"Output UDT  : {udt_name}")
     print()
 
-    # --- Step 1: the AOI's real parameter list, straight from the L5X.
-    parameters, aoi_attrs = parse_aoi_parameters(args.l5x, args.aoi)
-    print(f"AOI found: revision {aoi_attrs.get('Revision')}, "
-          f"{len(parameters)} parameters (ALL will become members)")
-    usage_counts = collections.Counter(p["Usage"] for p in parameters)
-    print(f"  by usage: " + ", ".join(
-        f"{u}={c}" for u, c in sorted(usage_counts.items())))
+    # --- Step 1: the source's real member list, straight from the L5X.
+    #
+    # Resolved before parsing only so the header line can state honestly
+    # whether "ALL" members are becoming members on this run. Nothing is
+    # filtered until after the parse, and the filtering itself is shared
+    # between both modes below.
+    exclusions = resolve_exclusions(source_name, args.exclude)
+    all_claim = ("ALL will become members" if not exclusions
+                 else "before exclusions -- see below")
+
+    if args.aoi:
+        parameters, aoi_attrs = parse_aoi_parameters(args.l5x, args.aoi)
+        print(f"AOI found: revision {aoi_attrs.get('Revision')}, "
+              f"{len(parameters)} parameters ({all_claim})")
+    else:
+        parameters, dt_attrs, hidden = parse_udt_members(
+            args.l5x, args.datatype)
+        print(f"User DataType found: family "
+              f"{dt_attrs.get('Family')}, {len(parameters)} visible members "
+              f"({all_claim})")
+        if hidden:
+            print(f"  excluded {len(hidden)} hidden backing member(s) -- "
+                  f"Studio 5000 bit-packing storage, not data points:")
+            for name, plc_type, backed in hidden:
+                print(f"    {name} ({plc_type}) stores "
+                      f"{len(backed)} visible bit(s)"
+                      + (f": {', '.join(backed)}" if backed else ""))
+        else:
+            print(f"  no hidden backing members present -- nothing excluded")
+
+    # --- Confirmed-dead member exclusions. Shared by both modes on purpose:
+    # this runs on the parsed member list, not inside either parser.
+    parameters, dropped = apply_exclusions(parameters, exclusions, warnings)
+    if dropped:
+        print(f"  excluded {len(dropped)} confirmed-dead member(s) by "
+              f"explicit opt-in -- NOT a judgment call by this script:")
+        for entry in dropped:
+            print(f"    {entry['name']} ({entry['plc_type']}) "
+                  f"[{entry['origin']}]")
+            print(f"      reason: {entry['reason']}")
+    elif exclusions:
+        print(f"  {len(exclusions)} exclusion(s) configured but none matched "
+              f"a member of this type -- see warnings below")
+
+    if args.aoi:
+        usage_counts = collections.Counter(p["Usage"] for p in parameters)
+        print(f"  by usage: " + ", ".join(
+            f"{u}={c}" for u, c in sorted(usage_counts.items())))
     type_counts = collections.Counter(p["DataType"] for p in parameters)
     print(f"  by type : " + ", ".join(
         f"{t}={c}" for t, c in sorted(type_counts.items())))
+    if dropped:
+        print(f"  final   : {len(parameters)} member(s) will be generated")
     print()
 
     # --- Step 2: conventions from the reference (conventions only).
@@ -652,8 +1111,25 @@ def main():
               f"applied -- review whether they should be.")
     print()
 
-    # --- Step 3/4: build one member per parameter. Every parameter.
-    warnings = []
+    # --- Step 3/4: build one member per parameter. Every parameter that
+    # survived the exclusions above (which is all of them unless a member
+    # was explicitly opted out).
+    #
+    # `warnings` was opened before step 1 -- the exclusion mechanism can
+    # already have added to it.
+
+    # A hidden member that backs no visible BIT member is not the bit-packing
+    # pattern the exclusion was written for. Surface it instead of assuming
+    # every Hidden="true" member is safely droppable storage.
+    for name, plc_type, backed in hidden:
+        if not backed:
+            warnings.append(
+                f"{name}: hidden member ({plc_type}) was excluded, but no "
+                f"visible BIT member aliases onto it -- so it is NOT the "
+                f"bit-packing storage pattern this exclusion targets. "
+                f"Confirm it is genuinely not a needed data point."
+            )
+
     built = [build_member(p, conventions, warnings) for p in parameters]
     members = [m for m, _ in built]
     historized = [(m["name"], signal) for m, signal in built if signal]
@@ -670,6 +1146,12 @@ def main():
         handle.write("\n")
 
     print(f"Generated {len(members)} members -> {args.output}")
+    # Repeated at the end as well as at step 1: this report is long, and a
+    # dropped member must not be something a reader has to scroll back for.
+    if dropped:
+        print(f"  {len(dropped)} member(s) deliberately excluded and NOT in "
+              f"this file: "
+              f"{', '.join(entry['name'] for entry in dropped)}")
 
     # --- Historization report. Printed in full every run: which members got
     # History and why, so the rule's effect is reviewable at a glance rather
