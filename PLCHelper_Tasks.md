@@ -38,6 +38,7 @@ once the spec is solid.
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
 | TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | Idea | Given a fresh L5X export, find every AOI *instance* whose type already has a valid, generated UDT definition, and emit a folder of importable Ignition tag *instance* JSONs — `DeviceName` supplied as a parameter, `Description` read from that instance's own PLC description, `EngUnit` left blank for Doug to fill in. Auto-populates missing tag instances instead of building each by hand in Designer. |
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
+| TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 
 ---
 
@@ -690,7 +691,45 @@ per this file's own convention (spec first, build second).
 
 ---
 
-*Last updated: September 8, 2026 — extended TASK_004's Historization rule
+## TASK_007 — Bulk-update a derived convention across an existing UDT's members
+
+**Status:** Idea (raised 2026-09-08, not urgent)
+
+### Purpose
+
+TASK_004 already derives conventions like `opcServer` as **one value**
+from the reference and stamps it uniformly across every generated
+member (verified 2026-09-08: `generate_ignition_udt.py` lines 376-378
+and 536 — one derived value, no per-member variation, confirmed against
+Doug's own stated vision for how this should work). But there's no way
+yet to update that single value across an **existing** UDT definition's
+members after the fact — e.g. if a different client/site uses a
+different OPC Server connection name than the one baked into Blue Sky's
+references.
+
+### Process (rough idea, not yet speced)
+
+Given an existing UDT definition JSON and a target field (e.g.
+`opcServer`) plus a new value, rewrite that field across every member in
+one pass — the update-equivalent of what TASK_004 already does at
+generation time, applied to something already generated.
+
+### Open Questions
+
+- Not urgent — no second client/site has come up yet. Revisit when one
+  does, or if Doug wants it sooner.
+- Whether this generalizes to any convention field, or is scoped
+  specifically to `opcServer`.
+
+---
+
+*Last updated: September 8, 2026 (2nd) — verified the OPC Server
+convention mechanism against the actual code at Doug's request (one
+derived value, stamped uniformly on every member — matches Doug's own
+stated vision exactly, not a per-member issue) and logged TASK_007
+(Idea, not urgent): a future bulk-update tool for this and similar
+derived conventions across an existing UDT. Prior update, same day —
+extended TASK_004's Historization rule
 to also match the **bare (no-underscore) form** of each signal-type word
 (`hwai`/`hwao`/`scai`/`scao` analog, `hwdi`/`hwdo`/`scdi`/`scdo` and
 `alm`/`alarm` digital) as an exact whole-name match, in addition to the
