@@ -1022,7 +1022,15 @@ For every alarm tag found in the export, check:
    Doug's confirmed fix direction, every alarm (including test tags — no
    exemptions) should leave both blank.
 4. **`enabled` is `true`.**
-5. **`priority` is present and non-blank.**
+5. **`priority` must exactly match a folder-based rule, not just be
+   present.** Doug's confirmed standing rule (2026-09-09), for all
+   alarms on this Ignition system: a tag in the `500` folder must be
+   `Medium`; a tag in the `800` folder must be `High`. This overrides
+   any existing value, not just fills in a missing one — confirmed
+   explicitly against the one real exception found, `CP_6000_PLC_Comm_Loss_Alm`
+   (currently `Critical`, in the `800` folder): Doug's own words, "they
+   need to match the rule... it is wrong." No other priority values are
+   valid on this system per this rule.
 6. **`tagGroup` and `historyTagGroup` match the site being audited** —
    catches copy-paste artifacts like a Weston alarm carrying `tagGroup:
    "MasonCity"`.
@@ -1233,7 +1241,13 @@ apply those fixes.
 
 ---
 
-*Last updated: September 9, 2026 (3rd) — TASK_009 moved from Spec Ready
+*Last updated: September 9, 2026 (4th) — tightened TASK_009's rule 5
+(priority) from "present and non-blank" to a strict folder-based match
+(500→Medium, 800→High, no exceptions), per Doug's explicit confirmation
+that this overrides existing values too — including downgrading
+`CP_6000_PLC_Comm_Loss_Alm` from Critical to High. `audit_alarm_tags.py`
+(built under the looser rule) needs a small patch to actually enforce
+this; not yet done. Prior update, September 9, 2026 (3rd) — TASK_009 moved from Spec Ready
 to **Implemented**: built `audit_alarm_tags.py` (stdlib-only, read-only,
 `--input` + `--site`) and ran it against Weston's real 143-tag export.
 All 143 tags fail at least one of the 8 rules, in four distinct problem
