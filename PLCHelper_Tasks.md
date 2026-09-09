@@ -40,7 +40,7 @@ once the spec is solid.
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
-| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented | Given an export of one site's alarm tags (Weston first), check every alarm against 8 correctness rules (pipeline validity, blank email overrides, enabled, priority, tagGroup, name/displayPath consistency) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first real run flagged all 143 Weston tags. |
+| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented (script needs a patch — rules 5 and 9 tightened after implementation) | Given an export of one site's alarm tags (Weston first), check every alarm against 9 correctness rules (pipeline validity, blank email overrides, enabled, folder-based priority match, tagGroup, name/displayPath consistency, historian config) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first real run flagged all 143 Weston tags (under the original 8-rule/looser-priority version). Rules 5 and 9 were tightened after that run, going through the findings with Doug line by line — script not yet re-run against the updated spec. |
 | TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable (TASK_009's scanner now exists as `audit_alarm_tags.py`, implemented 2026-09-09). Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
 
 ---
@@ -978,7 +978,12 @@ preserved.
 
 ## TASK_009 — Audit Ignition alarm tag configuration for formatting problems
 
-**Status:** Implemented (2026-09-09) — script: `audit_alarm_tags.py`
+**Status:** Implemented (2026-09-09) — script: `audit_alarm_tags.py` —
+**needs a patch, not yet re-run.** Rules 5 (priority) and 9 (historian
+config) were tightened after the first real run, going through the
+findings with Doug line by line (see the two rules' own text for exact
+detail). The script still reflects the original looser rule 5
+("present and non-blank") and does not implement rule 9 at all yet.
 
 ### Purpose
 
@@ -1045,8 +1050,25 @@ For every alarm tag found in the export, check:
    `[default]` provider-prefix inconsistency found on `_Test500`,
    `_Test800`, and `CP_6000_PLC_Comm_Loss_Alm`, since only the trailing
    segment was being checked).
+9. **Historian configuration must match the site-wide convention.**
+   Added 2026-09-09, confirmed with Doug after his own Designer
+   screenshot showed the real convention: `historyEnabled: true`,
+   `historyProvider: "Hist_IW"`, `historicalDeadbandStyle: "Discrete"`.
+   Note that Ignition's tag JSON export omits a History property
+   entirely when it matches Ignition's own default — so "Deadband Mode:
+   Absolute," "Sample Mode: On Change," etc. shown in Designer are
+   defaults being displayed, not actual overrides in the file. This
+   rule is therefore two-sided: (a) the three properties above must be
+   present with those exact values, and (b) **no tag should carry an
+   explicit `sampleMode`, `historyMaxAge`, or `historyMaxAgeUnits` at
+   all** — every compliant tag omits these and relies on the defaults;
+   an explicit value is itself the violation. Found on
+   `CP_6000_PLC_Comm_Loss_Alm` (the only tag with `sampleMode:
+   "TagGroup"` plus its own `historyMaxAge`/`historyMaxAgeUnits`) —
+   Doug confirmed 2026-09-09 this should be normalized to match every
+   other tag, not preserved as a deliberate exception.
 
-Rules 1–8 apply uniformly to every tag in the export, including tags
+Rules 1–9 apply uniformly to every tag in the export, including tags
 named `_Test*`/`Test*` — no special-casing or exemptions (confirmed with
 Doug 2026-09-09; test tags should reflect the same corrected
 configuration as real alarms, since they're used to validate real
@@ -1241,7 +1263,18 @@ apply those fixes.
 
 ---
 
-*Last updated: September 9, 2026 (4th) — tightened TASK_009's rule 5
+*Last updated: September 9, 2026 (5th) — added TASK_009's rule 9
+(historian configuration must match the site-wide convention:
+`historyEnabled: true`, `historyProvider: "Hist_IW"`,
+`historicalDeadbandStyle: "Discrete"`, and no tag may carry an explicit
+`sampleMode`/`historyMaxAge`/`historyMaxAgeUnits` at all). Raised after
+Doug's own Designer screenshot revealed the real site-wide Sample Mode
+convention (On Change, not Tag Group) and confirmed
+`CP_6000_PLC_Comm_Loss_Alm`'s unique history settings should be
+normalized like every other tagGroup/name/displayPath issue on that
+tag, not preserved as deliberate. `audit_alarm_tags.py` implements
+neither this new rule nor the tightened rule 5 yet — both a
+still-pending patch. Prior update, September 9, 2026 (4th) — tightened TASK_009's rule 5
 (priority) from "present and non-blank" to a strict folder-based match
 (500→Medium, 800→High, no exceptions), per Doug's explicit confirmation
 that this overrides existing values too — including downgrading
