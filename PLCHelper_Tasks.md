@@ -40,6 +40,8 @@ once the spec is solid.
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
+| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Idea | Given an export of one site's alarm tags (e.g. Weston), check every alarm against a correctness spec and produce a report of problems — read-only, no fixes. Genuinely blocked, not just unscoped: nobody has yet determined what "correctly configured" means, pending Doug's manual investigation of the `AlmLIT107_HiHi_Alm` issue (get the real notification email from Andrew, diagnose, fix, verify). |
+| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable. Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
 
 ---
 
@@ -974,7 +976,97 @@ preserved.
 
 ---
 
-*Last updated: September 8, 2026 (4th) — added a **general, opt-in
+## TASK_009 — Audit Ignition alarm tag configuration for formatting problems
+
+**Status:** Idea (raised 2026-09-09, genuinely blocked — not just unscoped)
+
+### Purpose
+
+CPKCR-Weston's ticket history (see `CPKCR-Weston/CPKCR_WESTON_STATUS.md`)
+shows a recurring pattern: alarms with formatting/configuration problems
+that only surface when the alarm actually fires and displays wrong — a
+missing "name" field, a notes field starting with `-` that fails
+silently, a "#NAME?" value, wrong folder/priority placement. Doug's
+vision: a report tool that checks every alarm tag in an export against a
+correctness spec and flags problems, before they cause a real
+notification failure.
+
+### Process (planned, not yet speced)
+
+Given an export of one site's alarm tags (e.g. Weston's `Alarms` folder,
+per the real Ignition tag tree structure Doug shared — sites like Dates,
+Golden, MasonCity, MooseJaw, Nahant, PoCo, StLuc, StPaul, Weston each
+have their own `Alarms\<folder number>\` structure with individual
+`Alm_*` tags), check each alarm against whatever "correctly configured"
+turns out to mean, and produce a report — read-only, no fixes applied.
+
+### Genuinely blocked, not just unscoped
+
+Nobody has yet determined what "correctly configured" actually means.
+Doug's own plan before this can be speced:
+1. Get the real notification email that was sent for `AlmLIT107_HiHi_Alm`
+   (from Andrew) — see what it actually displayed when it fired.
+2. Diagnose exactly what's misconfigured that caused it to display wrong.
+3. Fix that one alarm, re-trigger it, confirm the email now displays
+   correctly.
+4. Only once Doug knows from direct experience what "right" looks like
+   does this task become speccable.
+
+### Open Questions
+
+- Export format/source: an Ignition Tag Export of the `Alarms` folder
+  presumably, but not yet confirmed.
+- The actual correctness spec — entirely pending steps 1-4 above.
+- Sites are **not assumed uniform** — Doug's own caution: "each site
+  might have its own alarm pipeline... we'll probably have to check them
+  out one at a time." Even once this works well for Weston, it's not
+  trusted against another site without separate verification.
+
+---
+
+## TASK_010 — Fix flagged Ignition alarm tag configuration problems
+
+**Status:** Idea (raised 2026-09-09, blocked on TASK_009)
+
+### Purpose
+
+The companion tool to TASK_009 — once the scanner reliably finds real
+problems, this applies the actual fixes. Deliberately kept as a
+**separate tool**, not merged into TASK_009's scan-and-report behavior —
+Doug's explicit design: "there will be one scanning tool that just gives
+me a report of problems with alarms, and then another tool that will fix
+those problems."
+
+### Relationship to TASK_009
+
+Strictly sequential, not parallel work:
+1. TASK_009 must exist and be proven reliable first.
+2. Only then does building TASK_010 make sense.
+3. Same site-by-site verification caution as TASK_009 applies here too —
+   a fix that's correct for Weston's alarm pipeline isn't assumed correct
+   for a different site's pipeline without checking.
+
+### Open Questions
+
+- Everything, pending TASK_009 existing first. Not worth speccing further
+  until that task's own correctness spec is nailed down.
+
+---
+
+*Last updated: September 9, 2026 — logged TASK_009 (alarm-config audit,
+read-only) and TASK_010 (the separate fix tool, blocked on TASK_009)
+after CPKCR-Weston's ticket history revealed a recurring pattern of
+alarm formatting/configuration bugs. Both are genuinely blocked, not
+just unscoped: Doug's own plan is to manually diagnose and fix the
+current `AlmLIT107_HiHi_Alm` issue first (get the real notification
+email from Andrew, find the misconfiguration, fix it, verify the email
+now displays correctly) before either tool can be speced, since nobody
+yet knows what "correctly configured" means. Doug's explicit caution
+carried into both tasks: alarm pipelines are not assumed uniform across
+sites (Dates, Golden, MasonCity, MooseJaw, Nahant, PoCo, StLuc, StPaul,
+Weston per the real Ignition tag tree) — each gets verified
+independently, never blanket-applied. Prior update, September 8, 2026
+(4th) — added a **general, opt-in
 member-exclusion mechanism** to `generate_ignition_udt.py`, shared by both
 `--aoi` and `--datatype` mode: a `MEMBER_EXCLUSIONS` table keyed by source
 type name for settled decisions, plus a repeatable `--exclude
