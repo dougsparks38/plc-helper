@@ -41,7 +41,7 @@ once the spec is solid.
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
 | TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented, patched, and re-run (all 9 rules live) | Given an export of one site's alarm tags (Weston first), check every alarm against 9 correctness rules (pipeline validity, blank email overrides, enabled, folder-based priority match, tagGroup, name/displayPath consistency, historian config) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first run flagged all 143 Weston tags with 356 problems under the original 8-rule/looser-priority version. Rules 5 and 9 were then tightened going through those findings with Doug line by line, and the script was patched and re-run the same day: **143 tags, 0 OK, 367 problems** (+1 priority override, +10 historian config). |
-| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable (TASK_009's scanner now exists as `audit_alarm_tags.py`, implemented 2026-09-09). Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
+| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Implemented | The companion tool to TASK_009 — applies the corrections the audit flags, for rules 2–9 only (rule 1 `notes` is never auto-fixed, only flagged for Doug). Implemented 2026-09-09 as `fix_alarm_tags.py`; it emits a brand-new corrected export JSON and never writes to its input. Correctness is not restated — it `import`s `audit_alarm_tags` and uses that module's own tables, so the two tools cannot disagree about what "correct" means. First real run on Weston: **143 tags, 367 fields changed** (matching the audit's 367 problems exactly), and re-auditing the corrected output reports **0 problems / 143 OK**. ⚠ Import the output with Collision Policy **`Overwrite`**, not `MergeOverwrite` — rule 9 works by *removing* keys, and MergeOverwrite treats a missing key as "leave alone." Each site's pipelines are still verified independently: an unconfirmed site leaves `activePipeline` untouched rather than guessing. |
 
 ---
 
@@ -1265,10 +1265,7 @@ finding as current.
 
 ## TASK_010 — Fix flagged Ignition alarm tag configuration problems
 
-**Status:** Idea (raised 2026-09-09 — TASK_009's scanner now exists
-(`audit_alarm_tags.py`, implemented 2026-09-09) and has been run against
-Weston's real export, so the "TASK_009 must exist first" prerequisite below
-is met; still an Idea because this tool's own spec has not been written)
+**Status:** Implemented (2026-09-09) — script: `fix_alarm_tags.py`
 
 ### Purpose
 
@@ -1278,6 +1275,13 @@ problems, this applies the actual fixes. Deliberately kept as a
 Doug's explicit design: "there will be one scanning tool that just gives
 me a report of problems with alarms, and then another tool that will fix
 those problems."
+
+Scope is exactly TASK_009's rules **2–9**. **Rule 1 (`notes` non-blank)
+is never auto-fixed** — a blank `notes` needs a human-written
+description of what that alarm actually means, and inventing text would
+be worse than the blank it replaced. A blank `notes` is instead flagged
+in the report as needing Doug's manual attention, and the field is left
+exactly as found.
 
 ### Relationship to TASK_009
 
@@ -1294,27 +1298,285 @@ built and has produced a real report — not before, and not as a
 prerequisite for TASK_009's own spec. TASK_010 is what will eventually
 apply those fixes.
 
+**The two tools share one definition of "correct," in code, not in
+prose.** `fix_alarm_tags.py` does not restate TASK_009's rules — it
+`import`s `audit_alarm_tags` and reads `SITE_PIPELINES`,
+`FOLDER_PRIORITIES`, `REQUIRED_HISTORY_PROPERTIES`,
+`EXTRANEOUS_HISTORY_KEYS`, `CUSTOM_EMAIL_KEYS`, `is_blank()` and
+`collect_tags()` straight off that module. This is deliberate and is the
+single most important design constraint on this task: a second copy of
+those tables in a second file could drift, and the failure mode of that
+drift is silent — a fix tool that "corrects" tags to a value the audit
+then flags, or worse, agrees with a stale rule nobody remembers changing.
+The audit and the fix tool must never be able to quietly disagree about
+what correct means. Adding a site to `SITE_PIPELINES` or changing a
+folder's required priority is therefore a one-file edit that both tools
+pick up at once.
+
+### Inputs
+
+Identical to TASK_009 — same file, same site argument.
+
+| Input | Format | Notes |
+|---|---|---|
+| Ignition alarm tag export | JSON (Ignition Tag Export of a site's `Alarms` folder) | e.g. `CPKCR-Weston/Weston Alarms tags.json`. **Read-only — never written to.** |
+| Site name | String, e.g. `Weston` | Selects the confirmed pipeline list from `audit_alarm_tags.SITE_PIPELINES`, and is the correct value for `tagGroup`/`historyTagGroup` and the leading segment of every `displayPath` |
+
+### Process
+
+For every tag in the export, compute the correct value for each field
+named below and write it. Fields are grouped by the TASK_009 rule they
+satisfy; the rule numbering is TASK_009's, not a second scheme.
+
+| Rule | Field(s) written | Corrected value |
+|---|---|---|
+| 1 | *(none — never auto-fixed)* | A blank `notes` is left exactly as-is and flagged for Doug |
+| 2 | `activePipeline` (alarm) | The confirmed pipeline for the tag's own folder |
+| 3 | `CustomEmailSubject`, `CustomEmailMessage` (alarm) | `""` (both) |
+| 4 | `enabled` (alarm) | `true` |
+| 5 | `priority` (alarm) | The folder's required value (`500` → `Medium`, `800` → `High`) — **always written, regardless of the current value** |
+| 6 | `tagGroup`, `historyTagGroup` (tag) | The site name |
+| 7 | `name` (alarm) | The parent tag's own `name` |
+| 8 | `displayPath` (alarm) | The reconstructed `<Site>/<folders…>/<tagname>` |
+| 9a | `historyEnabled`, `historyProvider`, `historicalDeadbandStyle` (tag) | `true`, `"Hist_IW"`, `"Discrete"` |
+| 9b | `sampleMode`, `historyMaxAge`, `historyMaxAgeUnits` (tag) | **The keys are removed entirely**, not set to a value |
+
+Three properties of that table matter as much as its contents:
+
+**Nothing outside it is ever written.** Every other key on every tag and
+every alarm — `opcItemPath`, `opcServer`, `valueSource`, `dataType`,
+`value`, `label`, `mode`, `setpointA`, `timeOnDelaySeconds`,
+`voip.customMessage`, `CustomSmsMessage`, `notes` — comes through
+untouched, and so does every tag that had no violations at all. The
+script proves this rather than asserting it: it keeps a deep copy of the
+parsed input, structurally diffs it against the corrected tree at the
+end, and **aborts with a non-zero exit code if that diff contains a
+single field it did not deliberately record as a change**. A silent
+extra edit is not a possible outcome.
+
+**Rewriting a field to the value it already holds is not a change.** The
+correct value is computed unconditionally for every field (which is what
+"rule 5 always overwrites" means), but the change report and the change
+count only record a field whose value actually moved, whose key was
+absent, or whose key was removed. This is what makes the change count
+directly comparable to TASK_009's problem count — see Outputs.
+
+**An unverifiable field is left alone, never guessed.** If the site is
+absent from `SITE_PIPELINES`, or the tag's folder is absent from that
+site's entry, `activePipeline` is **not** written — the script reports
+`CANNOT VERIFY` and leaves the existing value in place, mirroring
+TASK_009's own handling. Same for `priority` when the folder is absent
+from `FOLDER_PRIORITIES`. Writing a guessed pipeline name would point a
+live alarm at a pipeline nobody confirmed exists, which is the exact
+class of fault this pair of tools was built to find.
+
+`notes` is the only rule-1 field and the only deliberate no-op.
+Rules 1–5 and 7–8 are alarm-level (applied to every alarm on the tag);
+rules 6 and 9 are tag-level (applied once per tag). Rule 4's `enabled`
+is the **alarm's** `enabled`, not the tag's — matching TASK_009, which
+checks it at the alarm level; a tag-level `enabled` is left untouched
+even when absent.
+
+No tag is exempt, `_Test500`/`_Test800` included — same no-exemptions
+rule as TASK_009, for the same reason (a test tag configured unlike the
+alarms it stands in for validates the wrong thing).
+
+### Outputs
+
+**(a) A brand-new corrected JSON file.** Same structure as the input,
+written to a new path. The input file is never opened for writing, and
+the script refuses to run at all if the resolved output path is the same
+file as the input. Default output path when `--output` is not given:
+`<input filename without extension> - CORRECTED.json`, in the same
+directory as the input — so Weston's export produces
+`Weston Alarms tags - CORRECTED.json` beside it, inside the job folder,
+never inside PLCHelper.
+
+Formatting matches `generate_ignition_udt.py`: `json.dump(...,
+indent=2, sort_keys=True)`. Note the consequence — **key order in the
+output is canonical (sorted), not the input's original order.** The
+*data* outside the corrected fields is identical, which is what the
+structural diff above verifies; the byte layout is deliberately
+normalized rather than preserved, and Ignition's importer does not care
+about key order.
+
+**(b) A console change report.** Every field actually changed, grouped
+by tag name, alphabetically, one change per line, `old -> new` — same
+shape and sort order as TASK_009's report so the two can be read side by
+side. Absent keys are reported as `(absent)` and removals as
+`(removed)` rather than as values, for the same reason TASK_009 words
+them that way. Ends with a summary count of tags changed and fields
+changed, a `Changes by kind` tally, and any manual-attention flags
+(blank `notes`, `CANNOT VERIFY` fields).
+
+**The change count is the cross-check on the whole tool.** Each TASK_009
+problem line is one field-level violation, and every rule 2–9 violation
+has exactly one corresponding field write — so for any export with no
+rule-1 findings, *fields changed* must equal TASK_009's *problems
+total*. On Weston that is **367 = 367**, verified. The real correctness
+test is stronger still and is the one that matters: re-running
+`audit_alarm_tags.py` against the corrected output file must report
+**0 problems, 143 OK**.
+
+### ⚠ Importing the corrected file — Collision Policy must be `Overwrite`
+
+Verified 2026-09-09 against the official docs and an Inductive Automation
+staff post (three-part search; sources logged in
+`claude-workflow/TRUSTED_SOURCES.md`). This is not a detail — get it
+wrong and rule 9b silently does nothing.
+
+Rule 9b works by **removing** `sampleMode`, `historyMaxAge` and
+`historyMaxAgeUnits` from the JSON, because an Ignition tag export omits
+any property sitting at Ignition's default ("the tag export feature only
+exports the configuration properties that have been edited in at least
+one of the tags in the selected export folder"). Absence in the file is
+how "use the default" is expressed.
+
+But **`MergeOverwrite` treats a missing key as "leave that property
+alone"** — IA staff (Paul Griffith): "MergeOverwrite means keep the
+existing values in the property set, *unless* there's a conflict."
+Importing this tool's output under `MergeOverwrite` would apply all the
+value changes and silently keep the three overridden history properties
+on `CP_6000_PLC_Comm_Loss_Alm`. Only **`Overwrite`** ("a complete
+overwrite of the tag") actually clears them. The script prints this
+instruction in its own report every run.
+
+**This is the opposite of CLAUDE.md's UDT-definition guidance, and both
+are correct** — do not "fix" either one to match the other. That
+guidance (`MergeOverwrite`, never delete or rename first) is about
+replacing a **UDT definition that has live instances**, where the risk
+is destroying member IDs and losing per-instance overrides. This is a
+folder of **plain alarm tags** with no definition and no instances, where
+the goal is precisely to remove overrides. Different operation,
+different correct policy.
+
 ### Open Questions
 
-- Everything except the input side. TASK_009's report format and rule set
-  are now proven against real Weston data (`audit_alarm_tags.py`,
-  2026-09-09 — all 143 tags scanned, four distinct problem signatures
-  found), so this tool's *input* is settled: it consumes what
-  `audit_alarm_tags.py` reports. What is still unspeced is everything
-  about how fixes get applied — whether it rewrites the export JSON for
-  re-import, drives the gateway directly, or emits a corrected file for
-  Doug to import by hand; and how it handles the `_Test800` case below.
-- **Concrete item already known for whenever this gets built (noted
-  2026-09-09):** `_Test800` was found still carrying the uncorrected
-  `CustomEmailSubject`/`CustomEmailMessage` override — unlike
-  `_Test500`, it was never manually corrected via a one-off JSON import;
-  Doug is fixing it by hand in Designer for now. When TASK_010's fix
-  tool exists, it must include `_Test800` in its normal scope like any
-  other tag, not skip it as "already handled."
+- **Resolved:** how fixes get applied. It emits a corrected export JSON
+  for Doug to import by hand — it does not drive the gateway, and no
+  scripting API / `system.tag.configure` route is used. Reason: the same
+  one that made TASK_009 read-only. A file Doug reviews and imports
+  deliberately is inspectable before it touches a live gateway; a script
+  writing directly to the gateway is not.
+- **Resolved:** `_Test800`. It is in normal scope like any other tag, not
+  skipped as "already handled" — it was found still carrying the
+  uncorrected `CustomEmailSubject`/`CustomEmailMessage` override (unlike
+  `_Test500`, it was never corrected via a one-off JSON import). Both
+  test tags are corrected by this tool in the normal course.
+- **Still open — the export is stale relative to the live gateway.** The
+  file still shows `_Test500`'s pre-correction email override, because
+  Doug fixed that tag live in Designer after this export was taken.
+  Re-export from the gateway before importing a corrected file, or the
+  import will carry other since-changed values backwards too. This is a
+  property of the export, not of either tool, and it applies to every
+  run: **the corrected file is only as current as the export it was
+  built from.**
+- **Still open — only Weston is confirmed.** Same site-by-site caution as
+  TASK_009, and it is enforced in code by the shared `SITE_PIPELINES`
+  table rather than left to memory. Running against another site warns
+  and leaves `activePipeline` untouched rather than applying Weston's
+  naming.
+
+### Implementation notes (`fix_alarm_tags.py`, 2026-09-09)
+
+**CLI:** `--input` and `--site` required (identical meaning to
+TASK_009's), `--output` optional with the default filename above.
+Stdlib only. `main()` returns an int under `sys.exit(main())`; it returns
+non-zero on a refusal (output path equal to input) or on a failed
+fidelity check.
+
+**First real run — Weston, 143 tags.** 143 tags changed, **367 fields
+changed**, matching TASK_009's 367 problems exactly. Re-running
+`audit_alarm_tags.py` against the corrected output reports **0 problems,
+143 OK**. The original input file was confirmed byte-identical
+afterwards (SHA-256 compared before and after the run). Change
+distribution, by kind:
+
+| Fields | Kind |
+|---|---|
+| 142 | `alarm.CustomEmailMessage` → `""` |
+| 142 | `alarm.CustomEmailSubject` → `""` |
+| 56 | `alarm.activePipeline` — `"Site Pipelines/Weston"` → `"WWHMPWWT1/Weston_800"` |
+| 3 | `alarm.displayPath` |
+| 3 | `alarm.name` |
+| 3 | `alarm.priority` (2 absent, 1 `Critical` → `High`) |
+| 3 | `tag.historicalDeadbandStyle` (absent → `"Discrete"`) |
+| 3 | `tag.historyTagGroup` (2 absent, 1 `MasonCity` → `Weston`) |
+| 3 | `tag.tagGroup` (2 absent, 1 `MasonCity` → `Weston`) |
+| 2 | `alarm.enabled` (absent → `true`) |
+| 2 | `tag.historyEnabled` (absent → `true`) |
+| 2 | `tag.historyProvider` (absent → `"Hist_IW"`) |
+| 1 each | `tag.sampleMode`, `tag.historyMaxAge`, `tag.historyMaxAgeUnits` — **removed** |
+
+Every line of that tally reconciles against TASK_009's own
+`Problems by kind` output, which is why the two reports are printed in
+the same shape.
+
+**One bug found by the change-count cross-check, worth recording because
+the check is the only thing that caught it.** The first run reported
+**361** changes, not 367. The six missing were rule 6 — `tagGroup` and
+`historyTagGroup` — which the first version of the script simply never
+implemented: rules 2-5 and 7-9 were all present, and nothing errored,
+warned, or looked wrong. The audit's own per-kind tally is what localized
+it in seconds (`tagGroup`/`historyTagGroup` absent from the fix tool's
+tally entirely, 3 + 3 = the exact shortfall). An "it ran and produced a
+corrected file" test would have passed this bug straight through, and so
+would a re-audit run *only* on the tags that happened to be fixed. This
+is the concrete argument for keeping the count cross-check in the task's
+own test procedure permanently, not just as a one-time sanity check.
+
+**Zero rule-1 findings on Weston** — every one of the 143 tags already
+has non-blank `notes`. That is why the change count equals the problem
+count exactly on this export, and it is a data fact about Weston, not a
+property of the tool: an export with blank `notes` would show *fewer*
+changes than problems, by exactly the number of blank-`notes` findings,
+and the report says so.
+
+**Branches the real data does not exercise were tested synthetically**
+(Rule 5 — no "done" without a passed test): an unconfirmed site
+(`--site StLuc`) leaves all 143 `activePipeline` values untouched and
+reports them `CANNOT VERIFY` rather than rewriting them to Weston's
+pipelines; a tag in an unrecognized folder (`900`) has neither
+`activePipeline` nor `priority` written; a blank `notes` is left
+untouched and flagged; refusing to overwrite the input was confirmed by
+passing `--output` equal to `--input` (non-zero exit, no write); and the
+fidelity check was confirmed to actually fail when deliberately fed an
+undeclared edit, rather than passing vacuously.
 
 ---
 
-*Last updated: September 9, 2026 (6th) — patched `audit_alarm_tags.py`
+*Last updated: September 9, 2026 (7th) — **TASK_010 speced and
+implemented** as `fix_alarm_tags.py`, moving it from Idea to Implemented
+and closing the last of its Open Questions except the two that belong to
+the data rather than the tool (the export being stale relative to the
+gateway, and only Weston being a confirmed site). Spec written first,
+per this file's own convention, then built. The design constraint worth
+carrying forward: the fix tool declares **none** of TASK_009's
+correctness tables — it imports `audit_alarm_tags` and reads
+`SITE_PIPELINES`, `FOLDER_PRIORITIES`, `REQUIRED_HISTORY_PROPERTIES`,
+`EXTRANEOUS_HISTORY_KEYS` and `is_blank()` off that module, so the audit
+and the fix can never quietly disagree, and adding a site is a one-file
+edit both pick up. Rule 1 (`notes`) is deliberately never auto-fixed;
+blank ones are flagged for Doug instead of being invented. Unverifiable
+fields are left alone, never guessed: an unconfirmed site or folder
+leaves `activePipeline`/`priority` exactly as found (verified with
+`--site StLuc`, which rewrites nothing). First real run on Weston: 143
+tags, **367 fields changed — equal to the audit's 367 problems** — and
+re-auditing the corrected output gives **0 problems / 143 OK**, with the
+input file confirmed byte-identical by SHA-256 afterwards. The change
+count is not decoration: the first version silently omitted rule 6
+entirely and reported 361, and the 6-field shortfall against the audit's
+tally is the only thing that caught it — see the Implementation notes.
+The three-part search turned up one finding that changed the design
+rather than confirming it: rule 9 works by *removing* keys, and Ignition's
+`MergeOverwrite` collision policy treats a missing key as "leave that
+property alone" (IA staff, confirmed against the official
+export/import docs), so the corrected file must be imported under
+**`Overwrite`** or rule 9 silently does nothing — the tool now prints
+that instruction every run. That is the opposite of CLAUDE.md's
+UDT-definition guidance and both are correct; the spec says so
+explicitly so neither gets "fixed" to match the other. Prior update,
+September 9, 2026 (6th) — patched `audit_alarm_tags.py`
 to implement TASK_009's current 9-rule spec and re-ran it against
 Weston's real export: **143 tags, 0 OK, 367 problems**, up from 356.
 Rule 5 became a folder-based exact match (`500` → `Medium`, `800` →

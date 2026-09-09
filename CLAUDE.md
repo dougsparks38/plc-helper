@@ -449,6 +449,28 @@ Two traps on that same operation:
   authoritative for the whole member list, the definition cannot be
   updated by import alone.
 
+**⚠ Scope limit — `MergeOverwrite` is the right policy for THIS operation
+only, not for every Ignition import (added 2026-09-09).** Everything above
+is about replacing a **UDT definition that has live instances**, where the
+risk being managed is destroying member IDs and losing per-instance
+overrides. `MergeOverwrite` wins there precisely *because* it leaves
+alone anything the import file doesn't mention.
+
+That same property makes it the **wrong** choice when the goal is to
+*remove* a property. `MergeOverwrite` treats a key absent from the import
+file as "leave that property unchanged," so an import that deliberately
+omits a key does not clear it — only plain `Overwrite` does. This matters
+for TASK_010 (`fix_alarm_tags.py`), whose rule-9 fix works by removing
+`sampleMode`/`historyMaxAge`/`historyMaxAgeUnits` from a plain alarm-tag
+export: that file must be imported under **`Overwrite`**, and under
+`MergeOverwrite` the removals silently do nothing. See
+`PLCHelper_Tasks.md` TASK_010 for the full detail and sources — not
+duplicated here (Lesson 9).
+
+Rule of thumb: **changing or adding values → `MergeOverwrite` is safe;
+removing a property or resetting one to its default → `Overwrite` is
+required.**
+
 **Where the config lives decides the exposure.** Read this before
 worrying about override loss at all:
 - Config set **on the definition** (History enabled on definition
