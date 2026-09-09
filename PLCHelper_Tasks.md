@@ -1060,12 +1060,16 @@ compared byte-for-byte against the tag's `CustomEmailMessage` template
 sites, 921 alarms): **every single non-blank `CustomEmailSubject` in the
 entire export belongs to Weston** — confirming the diagnosis is systemic,
 not one alarm. Doug decided this evidence is sufficient to proceed to
-Spec Ready without waiting on step 3 in its original form. Step 3 is
-instead being done via a safer substitute: updating the existing
-`_Test500` memory tag (not the real `AlmLIT107` alarm) to the corrected
-configuration, importing it into the live gateway, and manually
-triggering it to confirm with Andrew what he actually receives — live
-confirmation without touching a real production alarm.
+Spec Ready without waiting on step 3 in its original form. Step 3 was completed via a safer substitute: the existing `_Test500`
+memory tag (not the real `AlmLIT107` alarm) was updated to the corrected
+configuration, imported into the live gateway, and manually triggered.
+**Result, confirmed 2026-09-09:** the received email matched the
+predicted corrected format exactly — subject "Weston IW: Ignition Alarm
+Notification" (site name present), body leading with the bolded notes
+text ("Notes Test 500"). The fix is proven live, without touching a real
+production alarm. Not yet applied to Weston's other ~140 alarm tags
+(including the real `AlmLIT107_HiHi_Alm`) — that's TASK_010's job once
+this task's script exists.
 
 ### Open Questions
 
