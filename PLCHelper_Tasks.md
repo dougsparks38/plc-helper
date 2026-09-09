@@ -1071,6 +1071,14 @@ production alarm. Not yet applied to Weston's other ~140 alarm tags
 (including the real `AlmLIT107_HiHi_Alm`) — that's TASK_010's job once
 this task's script exists.
 
+**Follow-up same day:** Doug added `{displayPath}` to the `Weston_500`
+pipeline's own Message template directly in Designer (a pipeline-level
+change, applies automatically to every real 500-series alarm), and
+re-confirmed the email now also states the full alarm path. This is a
+pipeline-template detail, not a tag-level field this task's audit rules
+check — noted here for completeness, no change to the 8-rule spec above.
+`Weston_800`'s pipeline has not been given the same addition.
+
 ### Open Questions
 
 - Export format/source confirmed: an Ignition Tag Export of the `Alarms`
