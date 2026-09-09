@@ -1141,6 +1141,13 @@ apply those fixes.
 - Everything, pending TASK_009 being implemented first. Not worth
   speccing further until TASK_009's own report format and rule set are
   proven against real Weston data.
+- **Concrete item already known for whenever this gets built (noted
+  2026-09-09):** `_Test800` was found still carrying the uncorrected
+  `CustomEmailSubject`/`CustomEmailMessage` override — unlike
+  `_Test500`, it was never manually corrected via a one-off JSON import;
+  Doug is fixing it by hand in Designer for now. When TASK_010's fix
+  tool exists, it must include `_Test800` in its normal scope like any
+  other tag, not skip it as "already handled."
 
 ---
 
