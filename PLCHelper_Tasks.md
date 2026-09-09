@@ -40,8 +40,8 @@ once the spec is solid.
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
-| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Idea | Given an export of one site's alarm tags (e.g. Weston), check every alarm against a correctness spec and produce a report of problems — read-only, no fixes. Genuinely blocked, not just unscoped: nobody has yet determined what "correctly configured" means, pending Doug's manual investigation of the `AlmLIT107_HiHi_Alm` issue (get the real notification email from Andrew, diagnose, fix, verify). |
-| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable. Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
+| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Spec Ready | Given an export of one site's alarm tags (Weston first), check every alarm against 8 correctness rules (pipeline validity, blank email overrides, enabled, priority, tagGroup, name/displayPath consistency) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. |
+| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable (now Spec Ready, not yet Implemented). Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
 
 ---
 
@@ -978,55 +978,127 @@ preserved.
 
 ## TASK_009 — Audit Ignition alarm tag configuration for formatting problems
 
-**Status:** Idea (raised 2026-09-09, genuinely blocked — not just unscoped)
+**Status:** Spec Ready (2026-09-09) — read-only report tool, not yet implemented
 
 ### Purpose
 
 CPKCR-Weston's ticket history (see `CPKCR-Weston/CPKCR_WESTON_STATUS.md`)
 shows a recurring pattern: alarms with formatting/configuration problems
-that only surface when the alarm actually fires and displays wrong — a
-missing "name" field, a notes field starting with `-` that fails
-silently, a "#NAME?" value, wrong folder/priority placement. Doug's
-vision: a report tool that checks every alarm tag in an export against a
-correctness spec and flags problems, before they cause a real
-notification failure.
+that only surface when the alarm actually fires and displays wrong.
+Confirmed root cause this session for ticket CS0175981
+(`AlmLIT107_HiHi_Alm`): Weston's alarm tags carry a
+`CustomEmailSubject`/`CustomEmailMessage` override that every other site
+on the shared Ignition alarm-notification system leaves blank — Weston's
+override caused Andrew to receive a generic, site-less email instead of
+the pipeline's own better default. A second, more serious issue was found
+in the same investigation: 56 of Weston's 800-series alarms
+(`AUTO_DIALER_CH_01`–`CH_56`) reference `activePipeline:
+"Site Pipelines/Weston"`, a pipeline Doug confirmed does not exist — these
+alarms likely send no notification at all. This tool checks every alarm
+tag in a site's export against the correctness rules below and reports
+problems — read-only, no fixes applied.
 
-### Process (planned, not yet speced)
+### Inputs
 
-Given an export of one site's alarm tags (e.g. Weston's `Alarms` folder,
-per the real Ignition tag tree structure Doug shared — sites like Dates,
-Golden, MasonCity, MooseJaw, Nahant, PoCo, StLuc, StPaul, Weston each
-have their own `Alarms\<folder number>\` structure with individual
-`Alm_*` tags), check each alarm against whatever "correctly configured"
-turns out to mean, and produce a report — read-only, no fixes applied.
+| Input | Format | Notes |
+|---|---|---|
+| Ignition alarm tag export | JSON (Ignition Tag Export of a site's `Alarms` folder) | e.g. `CPKCR-Weston/Weston Alarms tags.json` — a folder tree of `AtomicTag`s, each with an `alarms` array |
+| List of valid pipeline names for the site being audited | Known ahead of time per site, not derivable from the tag export alone | For Weston: `WWHMPWWT1/Weston_500`, `WWHMPWWT1/Weston_800` |
 
-### Genuinely blocked, not just unscoped
+### Process
 
-Nobody has yet determined what "correctly configured" actually means.
-Doug's own plan before this can be speced:
-1. Get the real notification email that was sent for `AlmLIT107_HiHi_Alm`
-   (from Andrew) — see what it actually displayed when it fired.
-2. Diagnose exactly what's misconfigured that caused it to display wrong.
-3. Fix that one alarm, re-trigger it, confirm the email now displays
-   correctly.
-4. Only once Doug knows from direct experience what "right" looks like
-   does this task become speccable.
+For every alarm tag found in the export, check:
+
+1. **`notes` non-blank** — every alarm needs a real, human-readable
+   description; this is what the pipeline's default template surfaces.
+2. **`activePipeline` matches the tag's own site/folder** — must equal a
+   known-valid pipeline name for that site, specifically the pipeline
+   matching the tag's folder (a tag under `.../500/` must reference the
+   site's `_500` pipeline, not `_800` or vice versa). Flag the exact
+   invalid value by name (not just "invalid") so a known-bad value like
+   `"Site Pipelines/Weston"` is immediately recognizable in the report.
+3. **`CustomEmailSubject` and `CustomEmailMessage` both blank** — these
+   override the pipeline's own default template when non-blank; per
+   Doug's confirmed fix direction, every alarm (including test tags — no
+   exemptions) should leave both blank.
+4. **`enabled` is `true`.**
+5. **`priority` is present and non-blank.**
+6. **`tagGroup` and `historyTagGroup` match the site being audited** —
+   catches copy-paste artifacts like a Weston alarm carrying `tagGroup:
+   "MasonCity"`.
+7. **The alarm's own `name` field matches its parent tag's `name`.**
+8. **The last segment of `displayPath` matches the tag's `name`.**
+
+Rules 1–8 apply uniformly to every tag in the export, including tags
+named `_Test*`/`Test*` — no special-casing or exemptions (confirmed with
+Doug 2026-09-09; test tags should reflect the same corrected
+configuration as real alarms, since they're used to validate real
+notification behavior by being manually triggered).
+
+### Outputs
+
+A report, in this shape (exact wording TBD at implementation, structure
+is fixed):
+- A summary line: total tags scanned, count OK, count with problems.
+- Every tag with at least one problem, **sorted alphabetically by tag
+  name**, with **one problem description per line** (a tag with multiple
+  problems gets multiple lines, grouped under that tag).
+- No fixes are applied — report-only, per TASK_010 being a deliberately
+  separate tool.
+
+### Genuinely blocked → unblocked (2026-09-09)
+
+Originally blocked because "nobody has yet determined what 'correctly
+configured' actually means," with Doug's own planned path to unblock it:
+(1) get the real notification email for `AlmLIT107_HiHi_Alm` from
+Andrew, (2) diagnose the misconfiguration, (3) fix that one alarm and
+re-trigger it to confirm, (4) only then spec the task.
+
+Steps 1–2 happened this session — Andrew's actual received email was
+compared byte-for-byte against the tag's `CustomEmailMessage` template
+(exact match), and cross-referenced against `All Alarms tags.json` (8
+sites, 921 alarms): **every single non-blank `CustomEmailSubject` in the
+entire export belongs to Weston** — confirming the diagnosis is systemic,
+not one alarm. Doug decided this evidence is sufficient to proceed to
+Spec Ready without waiting on step 3 in its original form. Step 3 is
+instead being done via a safer substitute: updating the existing
+`_Test500` memory tag (not the real `AlmLIT107` alarm) to the corrected
+configuration, importing it into the live gateway, and manually
+triggering it to confirm with Andrew what he actually receives — live
+confirmation without touching a real production alarm.
 
 ### Open Questions
 
-- Export format/source: an Ignition Tag Export of the `Alarms` folder
-  presumably, but not yet confirmed.
-- The actual correctness spec — entirely pending steps 1-4 above.
-- Sites are **not assumed uniform** — Doug's own caution: "each site
-  might have its own alarm pipeline... we'll probably have to check them
-  out one at a time." Even once this works well for Weston, it's not
-  trusted against another site without separate verification.
+- Export format/source confirmed: an Ignition Tag Export of the `Alarms`
+  folder, per `CPKCR-Weston/Weston Alarms tags.json`.
+- **Per-site valid-pipeline list is not derivable from the tag export
+  alone** — must be supplied as a lookup the tool is given, or hardcoded
+  per site with a documented source. For Weston it's confirmed:
+  `WWHMPWWT1/Weston_500` / `WWHMPWWT1/Weston_800`.
+- Sites are **not assumed uniform** — Doug's own caution stands. New
+  finding this session that bears on it: `All Alarms tags.json` shows
+  every other site (Golden, MasonCity, MooseJaw, Nahant, PoCo, StLuc,
+  StPaul) already leaves `CustomEmailSubject`/`CustomEmailMessage` blank
+  — Weston is the outlier there. But StLuc has its own separate open
+  question (3 alarms with a hardcoded `activePipeline:
+  "WWHMPWTP2/StLuc"` — Gateway 2, confirmed to be a genuinely separate,
+  unsynchronized Ignition installation from Gateway 1 `WWHMPWWT1` — not
+  yet confirmed whether this is legitimate or a bug; see
+  `CPKCR-Weston/CPKCR_WESTON_STATUS.md` Open Questions/Gaps #3). **This
+  tool's first implementation targets Weston only** — do not assume the
+  same valid-pipeline list applies elsewhere without checking each site
+  individually.
+- Scope of rules 6–8 (tagGroup/name/displayPath consistency) was
+  confirmed in-scope for v1 by Doug 2026-09-09, expanding beyond the
+  originally-planned notification-path-only checks, after those exact
+  issues were found on a real tag (`CP_6000_PLC_Comm_Loss_Alm`).
 
 ---
 
 ## TASK_010 — Fix flagged Ignition alarm tag configuration problems
 
-**Status:** Idea (raised 2026-09-09, blocked on TASK_009)
+**Status:** Idea (raised 2026-09-09, blocked on TASK_009 — TASK_009 is now
+Spec Ready but not yet Implemented)
 
 ### Purpose
 
@@ -1046,14 +1118,37 @@ Strictly sequential, not parallel work:
    a fix that's correct for Weston's alarm pipeline isn't assumed correct
    for a different site's pipeline without checking.
 
+**Resequencing confirmed 2026-09-09:** the real `AlmLIT107_HiHi_Alm` fix
+(and any other alarms TASK_009 flags) will be applied *after* TASK_009 is
+built and has produced a real report — not before, and not as a
+prerequisite for TASK_009's own spec. TASK_010 is what will eventually
+apply those fixes.
+
 ### Open Questions
 
-- Everything, pending TASK_009 existing first. Not worth speccing further
-  until that task's own correctness spec is nailed down.
+- Everything, pending TASK_009 being implemented first. Not worth
+  speccing further until TASK_009's own report format and rule set are
+  proven against real Weston data.
 
 ---
 
-*Last updated: September 9, 2026 — logged TASK_009 (alarm-config audit,
+*Last updated: September 9, 2026 (2nd) — moved TASK_009 from Idea
+(genuinely blocked) to Spec Ready, with a finalized 8-rule correctness
+spec and full Inputs/Process/Outputs sections. Unblocked via CS0175981's
+real investigation: Andrew's actual received email for `AlmLIT107_HiHi_Alm`
+matched the tag's `CustomEmailSubject`/`CustomEmailMessage` override
+byte-for-byte, and a cross-site comparison (`All Alarms tags.json`, 921
+alarms / 8 sites) confirmed every non-blank override in the whole export
+belongs to Weston alone — plus a second, more serious finding that 56 of
+Weston's 800-series alarms point at a pipeline (`Site Pipelines/Weston`)
+Doug confirmed does not exist. Doug decided this evidence supersedes the
+originally-planned single-alarm live-retrigger prerequisite; that
+confirmation step is instead happening via the existing `_Test500` memory
+tag (not the real alarm) as a live but zero-risk validation, in parallel
+with the tool now moving forward. TASK_010 updated to note TASK_009 is
+Spec Ready (not Implemented) and that the real alarm fixes will follow
+TASK_009's output rather than precede its spec. Prior update, same day —
+logged TASK_009 (alarm-config audit,
 read-only) and TASK_010 (the separate fix tool, blocked on TASK_009)
 after CPKCR-Weston's ticket history revealed a recurring pattern of
 alarm formatting/configuration bugs. Both are genuinely blocked, not
