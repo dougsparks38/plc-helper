@@ -1027,7 +1027,16 @@ For every alarm tag found in the export, check:
    catches copy-paste artifacts like a Weston alarm carrying `tagGroup:
    "MasonCity"`.
 7. **The alarm's own `name` field matches its parent tag's `name`.**
-8. **The last segment of `displayPath` matches the tag's `name`.**
+8. **`displayPath` fully matches the tag's actual path** — reconstruct
+   the expected path from the tag's real position in the tree
+   (`<Site>/Alarms/<folder>/<tagname>`, matching the convention 140 of
+   Weston's 143 tags already use) and compare it against the literal
+   `displayPath` value for an exact match — not just checking whether
+   the tag name appears at the end. Broadened 2026-09-09 (was originally
+   "last segment matches tag name" — too narrow, would miss the
+   `[default]` provider-prefix inconsistency found on `_Test500`,
+   `_Test800`, and `CP_6000_PLC_Comm_Loss_Alm`, since only the trailing
+   segment was being checked).
 
 Rules 1–8 apply uniformly to every tag in the export, including tags
 named `_Test*`/`Test*` — no special-casing or exemptions (confirmed with
