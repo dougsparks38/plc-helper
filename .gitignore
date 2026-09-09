@@ -1,3 +1,6 @@
 # Company-internal reference documents that are fine for Claude to read
 # but should not be committed to this GitHub-pushed repo (2026-09-04).
 Casne Programming Standards for PLC.docx
+
+# Python bytecode caches (created by importing audit_alarm_tags.py, 2026-09-09).
+__pycache__/

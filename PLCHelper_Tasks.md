@@ -40,8 +40,8 @@ once the spec is solid.
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
-| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Spec Ready | Given an export of one site's alarm tags (Weston first), check every alarm against 8 correctness rules (pipeline validity, blank email overrides, enabled, priority, tagGroup, name/displayPath consistency) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. |
-| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable (now Spec Ready, not yet Implemented). Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
+| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented | Given an export of one site's alarm tags (Weston first), check every alarm against 8 correctness rules (pipeline validity, blank email overrides, enabled, priority, tagGroup, name/displayPath consistency) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first real run flagged all 143 Weston tags. |
+| TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable (TASK_009's scanner now exists as `audit_alarm_tags.py`, implemented 2026-09-09). Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
 
 ---
 
@@ -978,7 +978,7 @@ preserved.
 
 ## TASK_009 — Audit Ignition alarm tag configuration for formatting problems
 
-**Status:** Spec Ready (2026-09-09) — read-only report tool, not yet implemented
+**Status:** Implemented (2026-09-09) — script: `audit_alarm_tags.py`
 
 ### Purpose
 
@@ -1114,12 +1114,80 @@ check — noted here for completeness, no change to the 8-rule spec above.
   originally-planned notification-path-only checks, after those exact
   issues were found on a real tag (`CP_6000_PLC_Comm_Loss_Alm`).
 
+### Implementation notes (`audit_alarm_tags.py`, 2026-09-09)
+
+**CLI:** `--input <alarm export JSON>` and `--site <name>`, both required.
+`--site` does triple duty: it selects the confirmed pipeline list, it is
+the expected `tagGroup`/`historyTagGroup` value, and it is the leading
+segment of every expected `displayPath`. Stdlib only, no dependencies.
+
+**How the two Open Questions above are honored in code, not just in
+prose:**
+- The per-site pipeline list is a module-level `SITE_PIPELINES` table with
+  only Weston populated and every other known site listed as an explicit
+  `NOT YET CONFIRMED` comment. A site absent from that table does not fall
+  back to Weston's naming and does not silently pass — the run prints a
+  warning block saying rule 2 cannot be checked for that site, still
+  checks the other seven rules, and marks every rule-2 line
+  `CANNOT VERIFY`. Verified by running `--site StLuc` against Weston's
+  export. Same for a folder that isn't in a known site's table.
+- Nothing about a pipeline is ever inferred from the export itself. An
+  export states which pipeline each alarm *points at*, which is the thing
+  under audit, so it cannot also be the authority on which pipelines
+  exist.
+
+**Two things the docs settled that a naive implementation would have got
+wrong** (from the three-part search — sources logged in
+`claude-workflow/TRUSTED_SOURCES.md`):
+- `priority` is documented as Integer **or** String, with
+  Diagnostic = **0**. A truthiness test on that field would report a
+  legitimately-configured Diagnostic alarm as missing its priority, so
+  rule 5 tests presence and blankness specifically.
+- A **blank** `displayPath` is a documented "use the default" (Ignition
+  then shows the tag's own source path), not a mistyped path. It still
+  fails rule 8 — the rule requires a full match, and 140 of 143 tags use
+  an explicit path — but it gets its own problem wording so nobody hunts
+  for a typo that isn't there. Absent keys generally are reported as
+  "absent" rather than as wrong values, since a tag export omits any
+  property sitting at its default.
+
+**First real run — Weston, 143 tags, 0 OK, 356 problems.** Every tag
+fails at least one rule. Four distinct problem signatures, and they
+account for all 143:
+
+| Count | Tags | Problems |
+|---|---|---|
+| 84 | all of folder `500` | non-blank `CustomEmailSubject` + `CustomEmailMessage` |
+| 56 | `AUTO_DIALER_CH_01`–`CH_56` | the above, plus `activePipeline: "Site Pipelines/Weston"` (nonexistent pipeline) |
+| 2 | `_Test500`, `_Test800` | the email overrides, plus `enabled`/`priority`/`tagGroup`/`historyTagGroup` absent, alarm name `Test500`/`Test800` ≠ tag name, and a `[default]`-prefixed `displayPath` |
+| 1 | `CP_6000_PLC_Comm_Loss_Alm` | `tagGroup`/`historyTagGroup` = `MasonCity`, alarm name missing an underscore (`CP6000_…` vs tag `CP_6000_…`), `[default]`-prefixed `displayPath` |
+
+`0 OK` was checked rather than taken at face value: the only tag that
+passes rule 3 is `CP_6000_PLC_Comm_Loss_Alm` (both email fields are
+literally `""`), and it fails rules 6, 7 and 8 instead. Counts were
+cross-verified against the raw JSON independently of the script.
+
+**One finding beyond what the manual investigation had already spotted:**
+`CP_6000_PLC_Comm_Loss_Alm`'s alarm `name` is `CP6000_PLC_Comm_Loss_Alm`
+while the tag is `CP_6000_PLC_Comm_Loss_Alm` — a missing underscore, rule
+7. Its `displayPath` also carries `_CP_6000_…` with a leading underscore
+the tag name does not have, so that tag disagrees with itself three
+different ways.
+
+**The export predates Doug's live `_Test500` correction.** The file still
+shows `CustomEmailSubject: "Ignition Alarm"` on `_Test500`, so the script
+flags it. Confirmed by reading the file directly — this is the export
+being stale, not a script fault. Re-export before treating a `_Test500`
+finding as current.
+
 ---
 
 ## TASK_010 — Fix flagged Ignition alarm tag configuration problems
 
-**Status:** Idea (raised 2026-09-09, blocked on TASK_009 — TASK_009 is now
-Spec Ready but not yet Implemented)
+**Status:** Idea (raised 2026-09-09 — TASK_009's scanner now exists
+(`audit_alarm_tags.py`, implemented 2026-09-09) and has been run against
+Weston's real export, so the "TASK_009 must exist first" prerequisite below
+is met; still an Idea because this tool's own spec has not been written)
 
 ### Purpose
 
@@ -1147,9 +1215,14 @@ apply those fixes.
 
 ### Open Questions
 
-- Everything, pending TASK_009 being implemented first. Not worth
-  speccing further until TASK_009's own report format and rule set are
-  proven against real Weston data.
+- Everything except the input side. TASK_009's report format and rule set
+  are now proven against real Weston data (`audit_alarm_tags.py`,
+  2026-09-09 — all 143 tags scanned, four distinct problem signatures
+  found), so this tool's *input* is settled: it consumes what
+  `audit_alarm_tags.py` reports. What is still unspeced is everything
+  about how fixes get applied — whether it rewrites the export JSON for
+  re-import, drives the gateway directly, or emits a corrected file for
+  Doug to import by hand; and how it handles the `_Test800` case below.
 - **Concrete item already known for whenever this gets built (noted
   2026-09-09):** `_Test800` was found still carrying the uncorrected
   `CustomEmailSubject`/`CustomEmailMessage` override — unlike
@@ -1160,7 +1233,23 @@ apply those fixes.
 
 ---
 
-*Last updated: September 9, 2026 (2nd) — moved TASK_009 from Idea
+*Last updated: September 9, 2026 (3rd) — TASK_009 moved from Spec Ready
+to **Implemented**: built `audit_alarm_tags.py` (stdlib-only, read-only,
+`--input` + `--site`) and ran it against Weston's real 143-tag export.
+All 143 tags fail at least one of the 8 rules, in four distinct problem
+signatures — the 56 `AUTO_DIALER` tags' nonexistent
+`"Site Pipelines/Weston"` pipeline and the site-wide non-blank
+`CustomEmailSubject`/`CustomEmailMessage` overrides both confirmed at the
+counts the manual investigation predicted, plus one new finding
+(`CP_6000_PLC_Comm_Loss_Alm`'s alarm name is missing an underscore
+relative to its tag). Added an Implementation notes subsection recording
+the CLI, how the unconfirmed-site guard works in code, the two
+docs-settled traps avoided (priority 0 is a real priority; a blank
+`displayPath` is a documented default, not a typo), and the stale-export
+caveat on `_Test500`. TASK_010's status and Open Questions updated to
+match — its "TASK_009 must exist first" prerequisite is now met, but its
+own fix mechanism is still unspeced. Prior update, same day (2nd) —
+moved TASK_009 from Idea
 (genuinely blocked) to Spec Ready, with a finalized 8-rule correctness
 spec and full Inputs/Process/Outputs sections. Unblocked via CS0175981's
 real investigation: Andrew's actual received email for `AlmLIT107_HiHi_Alm`
