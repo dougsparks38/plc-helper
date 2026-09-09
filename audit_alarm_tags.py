@@ -3,7 +3,7 @@
 TASK_009 -- Audit Ignition alarm tag configuration for formatting problems.
 
 Read an Ignition Tag Export of one site's `Alarms` folder and check every
-alarm in it against the eight correctness rules confirmed in
+alarm in it against the nine correctness rules confirmed in
 PLCHelper_Tasks.md TASK_009. Report-only: this script never writes to the
 export, never emits a corrected file, and never touches a gateway.
 Applying the fixes is deliberately a separate tool (TASK_010), so that the
@@ -19,7 +19,7 @@ Doug confirmed does not exist, meaning those alarms likely notify nobody at
 all. Both are configuration-formatting faults that are invisible until an
 alarm actually fires, which is exactly what a static audit can catch first.
 
-THE EIGHT RULES (spec: PLCHelper_Tasks.md TASK_009 "Process"):
+THE NINE RULES (spec: PLCHelper_Tasks.md TASK_009 "Process"):
   1. `notes` non-blank -- this is what the pipeline's default template
      surfaces, so a blank one produces a contentless notification.
   2. `activePipeline` matches the tag's own site/folder, against the
@@ -29,15 +29,23 @@ THE EIGHT RULES (spec: PLCHelper_Tasks.md TASK_009 "Process"):
   3. `CustomEmailSubject` and `CustomEmailMessage` both blank -- non-blank
      overrides the pipeline's own template. Doug's confirmed fix direction.
   4. `enabled` is `true`.
-  5. `priority` present and non-blank.
+  5. `priority` exactly matches the folder-based rule in FOLDER_PRIORITIES
+     below -- `500` must be `Medium`, `800` must be `High`. This is a
+     match, not a presence test: it overrides an existing wrong value, so a
+     tag already set to something else is still flagged.
   6. `tagGroup` and `historyTagGroup` match the site being audited --
      catches copy-paste artifacts like a Weston alarm carrying
      `tagGroup: "MasonCity"`.
   7. The alarm's own `name` matches its parent tag's `name`.
   8. `displayPath` exactly matches the tag's real position in the tree,
      reconstructed as `<Site>/Alarms/<folder>/<tagname>`.
+  9. Historian configuration matches the site-wide convention, two-sided:
+     the three properties in REQUIRED_HISTORY_PROPERTIES must be present
+     with those exact values, AND none of EXTRANEOUS_HISTORY_KEYS may be
+     present at all. Tag-level, not alarm-level, so it is checked once per
+     tag.
 
-NO EXEMPTIONS, INCLUDING TEST TAGS (Doug-confirmed 2026-09-09): rules 1-8
+NO EXEMPTIONS, INCLUDING TEST TAGS (Doug-confirmed 2026-09-09): rules 1-9
 apply uniformly to every tag in the export, `_Test*`/`Test*` included. Test
 tags are triggered manually to validate real notification behavior, so a
 test tag configured differently from the real alarms it stands in for is
@@ -62,11 +70,39 @@ match, and the site's own convention is an explicit path on 140 of 143 tags
 -- but the problem line says so in as many words rather than implying
 someone typed the path wrong.
 
-PRIORITY 0 IS A VALID PRIORITY (verified, same sources): the docs
-document `priority` as Integer or String with Diagnostic = 0, Low = 1,
-Medium = 2, High = 3, Critical = 4. A plain truthiness test on this field
-would flag `priority: 0` -- a legitimately configured Diagnostic alarm --
-as missing, so rule 5 tests for presence and blankness specifically.
+RULE 5 IS A FOLDER-BASED MATCH, NOT A PRESENCE TEST (tightened 2026-09-09):
+the rule originally read "present and non-blank," which passed
+`CP_6000_PLC_Comm_Loss_Alm`'s `priority: "Critical"` in the `800` folder.
+Doug's standing rule for this Ignition system is that the folder decides the
+priority -- `500` is `Medium`, `800` is `High` -- and it overrides an
+existing value rather than merely filling a missing one. His words on that
+one real exception: "they need to match the rule... it is wrong." No other
+priority value is valid on this system.
+
+Ignition itself is looser than this rule, and the report says so rather than
+implying a typo. The docs define `priority` as Integer **or** String, with
+Diagnostic = 0, Low = 1, Medium = 2, High = 3, Critical = 4. So `priority: 3`
+in an `800` folder is a legitimate Ignition configuration meaning High -- it
+still fails rule 5, because the rule is an exact match against this site's
+string convention, but it gets its own problem wording noting it is
+numerically equivalent. Same treatment as a blank `displayPath` above: still
+a failure, worded so nobody hunts for a severity mistake that isn't there.
+None exist in Weston's export -- every priority there is a string.
+
+RULE 9's EXTRANEOUS KEYS ARE A VIOLATION BY THEIR MERE PRESENCE (verified
+against the docs -- sources logged in `claude-workflow/TRUSTED_SOURCES.md`,
+"Ignition Tag Properties -- History section" and "Configuring Tag History"):
+an Ignition tag export omits a History property entirely when it sits at
+Ignition's own default, so "Sample Mode: On Change" and "Deadband Mode:
+Absolute" as seen in Designer are defaults being *displayed*, not overrides
+stored in the file. Every compliant tag therefore has no `sampleMode`,
+`historyMaxAge`, or `historyMaxAgeUnits` key at all, and an explicit value --
+whatever it is -- is itself the non-compliance. Confirmed on Weston: 140 of
+143 tags omit all three; only `CP_6000_PLC_Comm_Loss_Alm` sets them, which is
+also the one tag whose `historyTagGroup` is functional at all (that field is
+inert unless `sampleMode` is `"TagGroup"`). Doug confirmed 2026-09-09 this
+should be normalized to match every other tag, not preserved as a deliberate
+exception.
 
 ABSENT KEYS ARE REPORTED AS ABSENT, NOT AS WRONG VALUES: an Ignition tag
 export omits a property sitting at its default rather than writing the
@@ -120,6 +156,51 @@ SITE_PIPELINES = {
     # "StLuc":     NOT YET CONFIRMED -- see the Gateway 2 note above.
     # "StPaul":    NOT YET CONFIRMED
 }
+
+# Required alarm `priority`, keyed by the tag's own folder name inside the
+# site's `Alarms` tree (rule 5).
+#
+# UNLIKE SITE_PIPELINES, THIS TABLE IS NOT PER-SITE. Doug's rule (confirmed
+# 2026-09-09) is a standing convention for the whole Ignition system, not one
+# site's naming: the folder decides the priority everywhere. That is why it is
+# keyed by folder alone -- if that ever turns out to vary by site, this table
+# has to grow a site level the way SITE_PIPELINES has one, not get quietly
+# special-cased at a call site.
+#
+# THIS IS AN OVERRIDE, NOT A DEFAULT. A tag already carrying some other value
+# is still flagged -- confirmed explicitly against the one real exception,
+# `CP_6000_PLC_Comm_Loss_Alm` (`Critical`, in the `800` folder).
+FOLDER_PRIORITIES = {
+    "500": "Medium",
+    "800": "High",
+}
+
+# Ignition's own documented priority levels, for wording only -- never for
+# deciding compliance. Rule 5 is an exact match against FOLDER_PRIORITIES; this
+# table only lets the report say "3 is numerically High" instead of implying
+# somebody set the wrong severity. See the module docstring.
+PRIORITY_LEVEL_NUMBERS = {
+    "Diagnostic": 0,
+    "Low": 1,
+    "Medium": 2,
+    "High": 3,
+    "Critical": 4,
+}
+
+# Tag-level History properties that must be present with exactly these values
+# (rule 9a), and the site-wide historian convention Doug confirmed 2026-09-09
+# from his own Designer screenshot.
+REQUIRED_HISTORY_PROPERTIES = {
+    "historyEnabled": True,
+    "historyProvider": "Hist_IW",
+    "historicalDeadbandStyle": "Discrete",
+}
+
+# Tag-level History properties that must NOT appear at all (rule 9b). Presence
+# is the violation regardless of value -- a tag export omits any property
+# sitting at Ignition's default, so an explicit value here is by definition an
+# override of a default every other tag on the site relies on.
+EXTRANEOUS_HISTORY_KEYS = ("sampleMode", "historyMaxAge", "historyMaxAgeUnits")
 
 # The two alarm properties that must be blank (rule 3). Named here rather
 # than inline so the pair stays a pair -- the fault is that Weston overrides
@@ -228,15 +309,51 @@ def audit_alarm(tag, alarm, folders, site, pipelines, unverified_site):
             f"alarm is not being evaluated"
         )
 
-    # --- Rule 5: priority present and non-blank. Presence and blankness, not
-    # truthiness -- priority 0 (Diagnostic) is a real priority.
-    if "priority" not in alarm:
-        problems.append("priority key is absent -- expected a priority")
-    elif is_blank(alarm.get("priority")):
+    # --- Rule 5: priority exactly matches the folder-based rule. An override,
+    # not a default -- a wrong existing value fails just as a missing one does.
+    #
+    # A folder absent from FOLDER_PRIORITIES is reported as unverifiable rather
+    # than passed or failed, matching rule 2's handling: the table is a
+    # confirmed convention, and a folder nobody confirmed is not evidence
+    # either way.
+    priority = alarm.get("priority")
+    if folder_name not in FOLDER_PRIORITIES:
         problems.append(
-            f"priority is blank ({alarm.get('priority')!r}) -- expected a "
-            f"priority"
+            f"priority is {priority!r} -- CANNOT VERIFY: folder "
+            f"{folder_name!r} has no confirmed required priority (known "
+            f"folders: {', '.join(sorted(FOLDER_PRIORITIES)) or 'none'})"
         )
+    else:
+        expected_priority = FOLDER_PRIORITIES[folder_name]
+        if "priority" not in alarm:
+            problems.append(
+                f"priority key is absent -- expected {expected_priority!r} "
+                f"for a tag in folder {folder_name!r}"
+            )
+        elif is_blank(priority):
+            problems.append(
+                f"priority is blank ({priority!r}) -- expected "
+                f"{expected_priority!r} for a tag in folder {folder_name!r}"
+            )
+        elif priority != expected_priority:
+            # Ignition accepts the numeric form, so say when a value is the
+            # right severity in the wrong notation -- it is a different fix
+            # from an actually-wrong severity. See the module docstring.
+            if priority == PRIORITY_LEVEL_NUMBERS.get(expected_priority):
+                problems.append(
+                    f"priority is {priority!r} -- numerically the same level "
+                    f"as the expected {expected_priority!r}, but this site "
+                    f"states priority as a string; expected "
+                    f"{expected_priority!r} for a tag in folder "
+                    f"{folder_name!r}"
+                )
+            else:
+                problems.append(
+                    f"priority is {priority!r} -- expected "
+                    f"{expected_priority!r} for a tag in folder "
+                    f"{folder_name!r}; the folder rule overrides whatever is "
+                    f"set here"
+                )
 
     # --- Rule 6: tagGroup and historyTagGroup match the site being audited.
     # Both are tag-level properties, not alarm-level ones.
@@ -281,21 +398,66 @@ def audit_alarm(tag, alarm, folders, site, pipelines, unverified_site):
     return problems
 
 
+def audit_tag_history(tag):
+    """Check rule 9 -- historian configuration. Returns problem strings.
+
+    Tag-level, not alarm-level, so this runs once per tag no matter how many
+    alarms sit on it. Two-sided and reported one problem per line, same as
+    every other rule: each required property missing or wrong is its own line,
+    and each extraneous property present is its own line.
+    """
+    problems = []
+
+    # 9a -- the three required properties, present with exactly these values.
+    for key, expected in REQUIRED_HISTORY_PROPERTIES.items():
+        if key not in tag:
+            problems.append(
+                f"{key} key is absent on the tag -- expected {expected!r}; "
+                f"this tag is not on the site's historian convention"
+            )
+        elif tag.get(key) != expected:
+            problems.append(
+                f"{key} is {tag.get(key)!r} -- expected {expected!r} per the "
+                f"site's historian convention"
+            )
+
+    # 9b -- the three properties that must not be present at all. Presence is
+    # the violation; the value is reported only so the reader can see what was
+    # overridden.
+    for key in EXTRANEOUS_HISTORY_KEYS:
+        if key in tag:
+            problems.append(
+                f"{key} is explicitly set to {tag.get(key)!r} -- expected the "
+                f"key to be absent entirely; a tag export omits this property "
+                f"when it relies on Ignition's default, so any explicit value "
+                f"is itself the non-compliance"
+            )
+
+    return problems
+
+
 def audit_tag(folders, tag, site, pipelines, unverified_site):
-    """Check every alarm on one tag. Returns a list of problem strings."""
+    """Check every alarm on one tag, plus the tag's own historian config.
+
+    Returns a list of problem strings.
+    """
     alarms = tag.get("alarms") or []
 
-    # Not one of the eight rules -- a precondition for them. A tag sitting in
-    # an Alarms folder with no alarm on it cannot be checked at all, and
-    # counting it as OK would be a silent pass. None exist in Weston's export;
-    # this is defensive, and it reports itself if it ever fires.
-    if not alarms:
-        return [
-            "tag has no alarms configured -- none of the eight rules can be "
-            "evaluated; confirm this tag belongs in the Alarms folder"
-        ]
-
     problems = []
+
+    # Not one of the nine rules -- a precondition for the alarm-level ones. A
+    # tag sitting in an Alarms folder with no alarm on it cannot be checked
+    # against rules 1-8 at all, and counting it as OK would be a silent pass.
+    # Rule 9 is tag-level and is still checked below, since a historian
+    # misconfiguration does not need an alarm to be real. None exist in
+    # Weston's export; this is defensive, and it reports itself if it fires.
+    if not alarms:
+        problems.append(
+            "tag has no alarms configured -- none of the alarm-level rules "
+            "(1-8) can be evaluated; confirm this tag belongs in the Alarms "
+            "folder"
+        )
+
     for alarm in alarms:
         found = audit_alarm(
             tag, alarm, folders, site, pipelines, unverified_site)
@@ -303,13 +465,17 @@ def audit_tag(folders, tag, site, pipelines, unverified_site):
             # Only prefix when it is actually ambiguous which alarm is meant.
             found = [f"[alarm {alarm.get('name')!r}] {p}" for p in found]
         problems.extend(found)
+
+    # Rule 9 last, so the per-tag listing reads in rule order, and unprefixed
+    # even on a multi-alarm tag because it belongs to the tag, not an alarm.
+    problems.extend(audit_tag_history(tag))
     return problems
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Audit an Ignition alarm tag export against TASK_009's "
-                    "eight alarm-configuration correctness rules. "
+                    "nine alarm-configuration correctness rules. "
                     "Report-only -- no fixes are applied and the input file "
                     "is never modified. Applying fixes is TASK_010, a "
                     "deliberately separate tool.",
@@ -382,7 +548,7 @@ def main():
                 print(f"  - {problem}")
         print()
     else:
-        print(f"No problems found -- every tag passed all eight rules.")
+        print(f"No problems found -- every tag passed all nine rules.")
         print()
 
     # Per-rule tally. The per-tag listing above is the report Doug asked for;

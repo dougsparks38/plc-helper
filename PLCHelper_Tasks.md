@@ -40,7 +40,7 @@ once the spec is solid.
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
-| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented (script needs a patch — rules 5 and 9 tightened after implementation) | Given an export of one site's alarm tags (Weston first), check every alarm against 9 correctness rules (pipeline validity, blank email overrides, enabled, folder-based priority match, tagGroup, name/displayPath consistency, historian config) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first real run flagged all 143 Weston tags (under the original 8-rule/looser-priority version). Rules 5 and 9 were tightened after that run, going through the findings with Doug line by line — script not yet re-run against the updated spec. |
+| TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented, patched, and re-run (all 9 rules live) | Given an export of one site's alarm tags (Weston first), check every alarm against 9 correctness rules (pipeline validity, blank email overrides, enabled, folder-based priority match, tagGroup, name/displayPath consistency, historian config) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first run flagged all 143 Weston tags with 356 problems under the original 8-rule/looser-priority version. Rules 5 and 9 were then tightened going through those findings with Doug line by line, and the script was patched and re-run the same day: **143 tags, 0 OK, 367 problems** (+1 priority override, +10 historian config). |
 | TASK_010 | Fix flagged Ignition alarm tag configuration problems | Idea | The companion tool to TASK_009 — applies fixes to whatever TASK_009 flags. Deliberately kept as a separate tool, not merged into TASK_009, and only built once TASK_009 is proven reliable (TASK_009's scanner now exists as `audit_alarm_tags.py`, implemented 2026-09-09). Each site's alarm pipeline gets verified independently before either tool is trusted against it — no assumption that sites share the same setup. |
 
 ---
@@ -978,12 +978,17 @@ preserved.
 
 ## TASK_009 — Audit Ignition alarm tag configuration for formatting problems
 
-**Status:** Implemented (2026-09-09) — script: `audit_alarm_tags.py` —
-**needs a patch, not yet re-run.** Rules 5 (priority) and 9 (historian
-config) were tightened after the first real run, going through the
-findings with Doug line by line (see the two rules' own text for exact
-detail). The script still reflects the original looser rule 5
-("present and non-blank") and does not implement rule 9 at all yet.
+**Status:** Implemented, patched, and re-run (2026-09-09) — script:
+`audit_alarm_tags.py`, all 9 rules live. Rules 5 (priority) and 9
+(historian config) were tightened after the first real run, going through
+the findings with Doug line by line (see the two rules' own text for exact
+detail); the script was patched to match the same day and re-run against
+Weston's real export. **Re-run result: 143 tags, 0 OK, 367 problems** —
+up from 356 under the original looser rule 5 ("present and non-blank")
+and no rule 9 at all. The 11 new findings are 1 priority override
+(`CP_6000_PLC_Comm_Loss_Alm`, `Critical` in the `800` folder) and 10
+historian-config problems across 3 tags. See "Re-run after the rule 5/9
+tightening" below.
 
 ### Purpose
 
@@ -1181,7 +1186,8 @@ wrong** (from the three-part search — sources logged in
   "absent" rather than as wrong values, since a tag export omits any
   property sitting at its default.
 
-**First real run — Weston, 143 tags, 0 OK, 356 problems.** Every tag
+**First real run (pre-patch, 8 rules, looser rule 5) — Weston, 143 tags,
+0 OK, 356 problems.** Every tag
 fails at least one rule. Four distinct problem signatures, and they
 account for all 143:
 
@@ -1203,6 +1209,51 @@ while the tag is `CP_6000_PLC_Comm_Loss_Alm` — a missing underscore, rule
 7. Its `displayPath` also carries `_CP_6000_…` with a leading underscore
 the tag name does not have, so that tag disagrees with itself three
 different ways.
+
+### Re-run after the rule 5/9 tightening (2026-09-09)
+
+**Weston, 143 tags, 0 OK, 367 problems** — 356 from the pre-patch run,
+unchanged, plus exactly 11 new ones. Nothing that was flagged before
+stopped being flagged; rules 1-4 and 6-8 were deliberately not touched.
+
+| New problems | Tags | What |
+|---|---|---|
+| 1 | `CP_6000_PLC_Comm_Loss_Alm` | `priority: "Critical"` in the `800` folder — expected `High`. This is the finding the old presence-only rule 5 silently passed. |
+| 6 | `_Test500`, `_Test800` | all three required History properties absent (`historyEnabled`, `historyProvider`, `historicalDeadbandStyle`) — 3 problems each |
+| 4 | `CP_6000_PLC_Comm_Loss_Alm` | `historicalDeadbandStyle` absent, plus all three extraneous keys present: `sampleMode: "TagGroup"`, `historyMaxAge: 20`, `historyMaxAgeUnits: "MIN"` |
+
+**One correction to what was expected going in:** `CP_6000_PLC_Comm_Loss_Alm`
+was predicted to be flagged for all three required History properties
+being missing. It is not, and should not be — the raw export shows it
+carries `historyEnabled: true` and `historyProvider: "Hist_IW"` already,
+both correct. Only `historicalDeadbandStyle` is absent on that tag. Its
+historian problem is therefore 1 missing property plus 3 extraneous ones,
+not 3 missing plus 3 extraneous. Verified by reading the JSON directly,
+independently of the script.
+
+**Rule 9 is tag-level, so it is checked once per tag**, not once per alarm
+— unlike rules 1-5 and 7-8, which are alarm-level. Weston has exactly one
+alarm per tag so this makes no difference to this run's counts, but it
+would on a multi-alarm tag, and it is why rule 9's problem lines are not
+prefixed with an alarm name.
+
+**Distribution of the 6 required-property problems:** 140 of 143 tags are
+already fully compliant with rule 9 (all three properties present and
+correct, all three extraneous keys absent). Only the 2 memory test tags
+and `CP_6000` fail it — this is a narrow finding, not a systemic one, in
+contrast to the email-override problem that hits 142 of 143.
+
+**Branches the real data does not exercise were tested synthetically**
+(Rule 5's "no done without a passed test", since real data cannot reach
+them): a numeric `priority: 2` in a `500` folder correctly reports as
+"numerically the same level as the expected 'Medium'" rather than as a
+wrong severity; a tag in an unrecognized folder (`900`) reports
+`CANNOT VERIFY` for both rule 2 and rule 5 rather than silently passing;
+wrong-valued (as opposed to absent) History properties report the actual
+value against the expected one. Regression re-checked with
+`--site StLuc`, which still warns and marks all 143 rule-2 lines
+`CANNOT VERIFY` while rule 5 still checks by folder — correct, because
+Doug's priority rule is system-wide, not per-site.
 
 **The export predates Doug's live `_Test500` correction.** The file still
 shows `CustomEmailSubject: "Ignition Alarm"` on `_Test500`, so the script
@@ -1263,7 +1314,20 @@ apply those fixes.
 
 ---
 
-*Last updated: September 9, 2026 (5th) — added TASK_009's rule 9
+*Last updated: September 9, 2026 (6th) — patched `audit_alarm_tags.py`
+to implement TASK_009's current 9-rule spec and re-ran it against
+Weston's real export: **143 tags, 0 OK, 367 problems**, up from 356.
+Rule 5 became a folder-based exact match (`500` → `Medium`, `800` →
+`High`) via a new `FOLDER_PRIORITIES` constant table, catching
+`CP_6000_PLC_Comm_Loss_Alm`'s `Critical` that the old presence-only check
+passed; rule 9 (historian config) was implemented from scratch as a
+tag-level check, finding 10 problems across 3 tags. Rules 1-4 and 6-8
+untouched and every pre-patch finding still reproduces. One expectation
+corrected against the raw JSON: `CP_6000` already has `historyEnabled`
+and `historyProvider` set correctly, so only `historicalDeadbandStyle` is
+missing on it — see "Re-run after the rule 5/9 tightening." TASK_009's
+Status line and the catalog row updated to drop the "needs a patch, not
+yet re-run" caveat. Prior update, September 9, 2026 (5th) — added TASK_009's rule 9
 (historian configuration must match the site-wide convention:
 `historyEnabled: true`, `historyProvider: "Hist_IW"`,
 `historicalDeadbandStyle: "Discrete"`, and no tag may carry an explicit
