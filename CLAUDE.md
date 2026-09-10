@@ -614,6 +614,23 @@ Example:
 .EnableIn - Enable Input - System Defined Parameter [exclude]
 ```
 
+## Script + help-file naming convention (established 2026-09-10)
+
+Every Python tool gets a companion help/reference markdown file, named
+with the script's own base name as a prefix plus a short descriptive
+suffix (e.g. `generate_ignition_tags.py`'s AOI-parameter mapping →
+`generate_ignition_tags - AOI parameter help.md`). This makes the pair
+sort together alphabetically in a folder listing. If a tool ever needs
+more than one companion doc, each additional file keeps the same
+script-name prefix so they all cluster together.
+
+This is a lighter, script-adjacent layer distinct from
+`PLCHelper_Tasks.md`'s full task write-ups — that file stays the
+authoritative spec/history for each `TASK_00X`; a script's own help file
+is the quick "how do I actually run this" reference sitting right next
+to the tool itself, without needing to go find and search the big
+catalog file.
+
 ## Tasks
 
 Full task write-ups (purpose, inputs, process, outputs) live in
