@@ -7,7 +7,23 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
 
 ## Open Work Items
 
-*(none active right now)*
+1. ⬜ **TASK_003 — Rung-comment scaling & TODO audit** *(moved here
+   2026-09-10 from `BlueSky/BLUE_SKY_STATUS.md` — it's a PLCHelper
+   capability, not Blue Sky-specific, same reasoning as the
+   AOI-master-source cleanup item below. Not urgent — Doug's own framing:
+   "we'll probably find ourselves taking care of it whenever it's the
+   right time naturally.")*
+   - Finds every `@`-marked TODO comment and every filled-in 4-20mA
+     scaling comment, resolves each to its field-instrument tag via AOI
+     context, cross-checks against a job's Instrument List. First
+     real-world input lined up: Blue Sky's L5X
+     (`BOP_O2_CombinedTest_v35_Emulate.L5X`) and its Instrument List —
+     blocker there was never the input data, it's the PLCHelper agent
+     itself maturing enough to run the task.
+   - Full spec: `PLCHelper_Tasks.md`, TASK_003 (Spec Ready) — reads a
+     job's L5X + Instrument List cross-folder rather than copying the
+     Instrument List into PLCHelper, keeping the tool reusable across
+     jobs.
 
 ## Deferred — Not Active Yet
 
@@ -235,7 +251,12 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 4, 2026 (2nd) — corrected the direction of
+*Last updated: September 10, 2026 — added Open Work Item 1: TASK_003
+(rung-comment scaling & TODO audit), moved here from
+`BlueSky/BLUE_SKY_STATUS.md` since it's a PLCHelper capability rather
+than Blue Sky-specific work — Blue Sky's own L5X/Instrument List remain
+the first real-world input lined up for it once the agent matures enough
+to run it. Prior update, September 4, 2026 (2nd) — corrected the direction of
 Confirmed bug pattern #2's case example (Doug had initially reported it
 backwards; double-checked directly in the PLC and confirmed the real
 member is `Analog_hwai`, Ignition had the wrong `ANALOG_hwai`). Prior
