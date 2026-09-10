@@ -36,7 +36,7 @@ once the spec is solid.
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
-| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | Idea | Given a fresh L5X export, find every AOI *instance* whose type already has a valid, generated UDT definition, and emit a folder of importable Ignition tag *instance* JSONs — `DeviceName` supplied as a parameter, `Description` read from that instance's own PLC description, `EngUnit` left blank for Doug to fill in. Auto-populates missing tag instances instead of building each by hand in Designer. |
+| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | Idea, unblocked 2026-09-10 | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and generate its Ignition tag instance entry — small test runs first, ultimately combined into one consolidated JSON. `DeviceName`/`Description`/`EngUnit` field handling still to be discussed. Auto-populates missing tag instances instead of building each by hand in Designer. |
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
@@ -574,8 +574,12 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** Idea (raised 2026-09-07, refined and re-scoped 2026-09-08 —
-still not fully speced)
+**Status:** Idea (raised 2026-09-07, refined and re-scoped 2026-09-08,
+further scoped 2026-09-10 — still not fully speced)
+
+**Unblocked 2026-09-10** — Blue Sky's O2-scope UDT checklist (the thing
+this task was waiting on) is done: 7 AOI types confirmed working, the
+remaining 4 confirmed genuinely not needed for now (not just paused).
 
 ### Purpose
 
@@ -594,16 +598,37 @@ definitions during the Blue Sky batch, the *instances* in Ignition still
 needed real, manual work — this task exists to automate that instance
 creation, scoped precisely rather than by a loose tag-name prefix.
 
+### Scope — confirmed job-agnostic (2026-09-10)
+
+Like TASK_004/TASK_009/TASK_010, this works against any job's L5X, not
+just Blue Sky's — Blue Sky is just the first real input lined up.
+
+### Output shape — confirmed 2026-09-10
+
+Small test runs first (a handful of instances, to validate the approach)
+— but the end goal is **one consolidated JSON file** covering everything
+in scope, not a separate file per tag instance and not one file per AOI
+type. Supersedes the "emit a folder of ... JSONs" framing in this task's
+one-line catalog description above; that line needs updating once this
+is built.
+
 ### Process (as Doug described it 2026-09-08)
 
 1. Read every **AOI instance** in the L5X (not just type definitions —
    this needs instance-level data TASK_004 doesn't currently parse).
 2. **Only act on instances whose AOI type already has a valid, generated
-   UDT definition** — cross-reference against whatever set of AOI types
-   currently have a confirmed-working UDT (the per-AOI checklist in
-   `BLUE_SKY_STATUS.md` is the live version of that set for Blue Sky).
-   Skip anything else — this task doesn't invent UDTs, TASK_004 does.
-3. For each qualifying instance, emit an Ignition tag instance JSON:
+   UDT definition** — cross-reference against a list of qualifying AOI
+   type names. **Decided 2026-09-10: this list is explicit input, not
+   something the script infers or scans for on its own.** Doug supplies
+   it (starting point: Blue Sky's per-AOI checklist in
+   `BLUE_SKY_STATUS.md` — the 7 confirmed-working types), and it needs
+   its own real home once this gets built (not yet decided whether that's
+   a small JSON/text file per job, or something else — don't invent the
+   format, ask). Skip anything else — this task doesn't invent UDTs,
+   TASK_004 does.
+3. For each qualifying instance, build its Ignition tag instance entry
+   (see Output shape above — these get combined into one file, not
+   emitted individually):
    - `DeviceName` — supplied as an explicit parameter (Doug's "device
      string"), not derived. Open question: one value for the whole run,
      or per-instance? Not yet confirmed.
@@ -626,6 +651,10 @@ as the natural next step once enough of those UDTs are in place.
 
 ### Open Questions — needs a real scoping pass before this becomes Spec Ready
 
+*(Fields/format still to be discussed with Doug directly — 2026-09-10:
+"we will discuss this" — none of the below assumed answered just because
+it's listed.)*
+
 - **`DeviceName` parameterization** — one value for a whole run, or
   supplied per instance? Not yet confirmed.
 - **Naming/instance-path convention** — what determines the emitted
@@ -637,6 +666,9 @@ as the natural next step once enough of those UDTs are in place.
   conventions from a reference. Not yet supplied.
 - **Reuse vs. duplicate parsing logic with TASK_004** — worth deciding
   before implementation, not after.
+- **Where the qualifying-AOI-type list lives** — new, 2026-09-10. It's
+  explicit input now (see Process step 2), not inferred — format and
+  location not yet decided.
 
 This task stays at Idea status until these are worked through with Doug,
 per this file's own convention (spec first, build second).
@@ -1545,7 +1577,15 @@ undeclared edit, rather than passing vacuously.
 
 ---
 
-*Last updated: September 9, 2026 (7th) — **TASK_010 speced and
+*Last updated: September 10, 2026 — TASK_005 unblocked (Blue Sky's
+O2-scope UDT checklist is done) and further scoped with Doug: confirmed
+job-agnostic (like TASK_004/009/010, not Blue-Sky-only); the qualifying-
+AOI-type list is explicit Doug-supplied input, not something the script
+infers on its own; output is small test runs first, then one consolidated
+JSON file rather than a file per instance. Field handling
+(`DeviceName`/`Description`/`EngUnit`) still to be discussed — not
+resolved by this update. Still at Idea status pending that discussion.
+Prior update, September 9, 2026 (7th) — **TASK_010 speced and
 implemented** as `fix_alarm_tags.py`, moving it from Idea to Implemented
 and closing the last of its Open Questions except the two that belong to
 the data rather than the tool (the export being stale relative to the
