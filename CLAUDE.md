@@ -8,6 +8,27 @@ This file provides guidance to Claude Code for the PLCHelper project —
 a growing collection of tools and prompts to assist with common PLC
 engineering tasks for Rockwell Automation RSLogix 5000 / Studio 5000.
 
+## Reference tip — resetting an Ignition gateway without a full PC reboot
+
+Found 2026-09-10: [Schulman Engineering — Ignition Gateway Reset with
+gwcmd.bat](https://schulmanengineering.com/ignition-gateway-reset-with-gwcmd-bat-how-to-unlock-and-restart-your-scada/).
+Not independently verified against Casne's own systems — a starting
+point, not a confirmed procedure. Also saved in `BlueSky/CLAUDE.md` — not
+consolidated into one shared location since there isn't a natural common
+home for both projects the way `CPKCR-Systemwide` serves the CPKCR
+folders.
+
+- Tool location (per source): `C:\Program Files\Inductive Automation\Ignition`
+- Open Command Prompt as Administrator, `cd` into that folder
+- `gwcmd.bat -p` — resets the gateway admin credentials and prompts for a
+  service restart; does not overwrite existing projects
+- `gwcmd.bat -r` — restarts the Ignition service directly from the
+  command line; may require recommissioning via the web interface
+  afterward
+- **Caution (from the source):** a restart halts the system temporarily
+  — notify operators/supervisors, plan for downtime, and confirm no
+  safety/production risk before running this on a live system
+
 ## Confidentiality / PII intake — read before adding any file here
 
 The general PII intake process (the `PII_Review` staging folder, the scan,
