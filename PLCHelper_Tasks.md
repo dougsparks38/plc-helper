@@ -36,7 +36,7 @@ once the spec is solid.
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
-| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | Idea, unblocked 2026-09-10 | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and generate its Ignition tag instance entry — small test runs first, ultimately combined into one consolidated JSON. `DeviceName`/`Description`/`EngUnit` field handling still to be discussed. Auto-populates missing tag instances instead of building each by hand in Designer. |
+| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | **`ALARM_AOI` Implemented (2026-09-10); other 7 AOI types still Idea** | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and emit its Ignition `UdtInstance` entry, all combined into **one consolidated JSON**. `DeviceName` is one value for the whole run; `Description` is looked up per instance from that instance's own L5X description (blank is a valid value); `EngUnit` is created but left blank. Destination folder is always an explicit input, never hardcoded. Implemented 2026-09-10 as `generate_ignition_tags.py`; first run produced **31 `ALARM_AOI` instances**, verified field-by-field against a real Ignition export. The per-AOI parameter mapping is recorded for all 8 types but **only `ALARM_AOI` is verified** — the script warns on the rest. Auto-populates missing tag instances instead of building each by hand in Designer. |
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
@@ -574,8 +574,27 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** Idea (raised 2026-09-07, refined and re-scoped 2026-09-08,
-further scoped 2026-09-10 — still not fully speced)
+**Status:** **Split — `ALARM_AOI` Implemented (2026-09-10), the other 7
+AOI types still Idea.** Script: `generate_ignition_tags.py`.
+
+Why the status is split rather than a single label. The dispatch that
+built this offered a choice between leaving the whole task at "Idea,
+unblocked" and promoting it to "Spec Ready" for the `ALARM_AOI` case.
+Neither fits, and forcing one would misrepresent the state:
+
+- "Idea, unblocked" is now false for `ALARM_AOI`. Working code exists,
+  it has been run against the real L5X, and its output was verified
+  field-by-field against a real Ignition export.
+- "Spec Ready" *understates* `ALARM_AOI` — that label means "speced but
+  not built," and this is built and tested.
+- Promoting the **whole task** would be wrong in the other direction:
+  the remaining 7 types have a recorded parameter mapping but **no
+  verification against any real export**, and this task's two genuinely
+  open questions (below) are still open for all of them.
+
+So the honest state is one type done and seven not. Do not read
+`ALARM_AOI`'s completion as evidence the rest will work — see the
+UNVERIFIED warning the script prints.
 
 **Unblocked 2026-09-10** — Blue Sky's O2-scope UDT checklist (the thing
 this task was waiting on) is done: 7 AOI types confirmed working, the
@@ -611,6 +630,121 @@ in scope, not a separate file per tag instance and not one file per AOI
 type. Supersedes the "emit a folder of ... JSONs" framing in this task's
 one-line catalog description above; that line needs updating once this
 is built.
+
+### Destination folder — always asked, never hardcoded (Doug-decided 2026-09-10)
+
+The folder the generated tags land in is **an explicit input on every
+run**, with no default in the script. Doug's own value today is
+`[default]O2InjectionSystem` — "the same folder the reference export came
+from" — but that is *his* organization for *this* job, not a convention:
+a different engineer may want a different tag-tree layout, so the script
+refuses to guess and requires `--dest-folder`.
+
+**How the value is actually applied — worth understanding before
+importing.** Verified against official Ignition docs 2026-09-10: an
+Ignition tag import file **cannot choose its own destination**. The
+destination is the folder selected in the Tag Browser (Designer) or the
+`basePath` argument (`system.tag.importTags`). So `--dest-folder` is,
+by default, a *stated intent* that the script echoes back in its console
+report and its import instructions — it is not a field inside the JSON,
+because there is no such field. `folderPath` is **not** part of the tag
+JSON format; do not invent one.
+
+Two modes, for that reason:
+
+| `--folder-mode` | Output | When to use |
+|---|---|---|
+| `flat` (default) | `{"tags": [ ...instances... ]}` | Normal case. Select the destination folder in the Tag Browser, then import. Matches how the reference export is shaped. |
+| `wrap` | instances nested inside an explicit `{"tagType": "Folder"}` entry named after `--dest-folder` | When the import should *create* the folder underneath whatever is selected. |
+
+⚠ `wrap` creates a folder **relative to** the import target, so
+importing a wrapped file while already inside `O2InjectionSystem`
+produces `O2InjectionSystem/O2InjectionSystem`. `flat` is the default for
+this reason.
+
+### Per-AOI parameter mapping (Doug's own words, 2026-09-10)
+
+Which top-level Ignition parameters an instance carries depends on its
+AOI type, and **there is no way to derive this from the L5X** — these
+parameters live on the Ignition UDT, not in the PLC program. Doug
+supplied the mapping directly. It is implemented in
+`generate_ignition_tags.py`'s `AOI_PARAMETERS` table.
+
+| PLC AOI type | Ignition UDT name | Parameters | Verified? |
+|---|---|---|---|
+| `ALARM_AOI` | `ALARM_AOI` | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
+| `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ❌ No |
+| `FLOWIN3_AOI` | `FLOWIN3_AOI` | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+| `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ❌ No |
+| `INTERLOCK_AOI` | `INTERLOCK_AOI` | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
+| `LEVELIN3_AOI` | `LEVELIN3_AOI` | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+| `MODVLV` | `MODVLV` | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
+| `VARSPD2_AOI` | **`VARSPD_AOI`** | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+
+Notes on this table:
+
+- **Three UDT names deliberately differ from their PLC AOI type name**
+  (bolded). This is the same already-documented phenomenon as TASK_004's
+  `--udt-name` note — a UDT's name does not track the AOI's version
+  number. The mapping is **never inferred by name**; it is recorded
+  here and can be overridden per run with `--aoi-type NAME=UDT_NAME`.
+- **`EngUnit` is created but left blank** wherever it applies. There is
+  no way to derive an engineering unit automatically — the same
+  conclusion reached everywhere else this has come up. Doug fills it in
+  per instance afterward.
+- **`INTERLOCK_AOI`'s "many other parameters with default values"** are
+  expected to read in correctly with no special handling. They live on
+  the UDT *definition* and are inherited by the instance, so the script
+  emits nothing for them — an instance only carries parameters it
+  actually overrides. Doug flagged `INTERLOCK_AOI` as the natural next
+  first-pass test candidate after `ALARM_AOI`.
+- **Only `ALARM_AOI` is verified.** Every other row records Doug's
+  stated intent and has never been checked against a real Ignition
+  tag-instance export. The script prints an UNVERIFIED warning for them
+  on every run. Verify one instance by hand before importing in bulk.
+- **`Analog_Vlv`'s `Integer` type is unverified in a second way:**
+  Ignition's docs officially document only `String` as a UDT parameter
+  data type. `Integer` is widely used in practice but is not documented
+  anywhere official (checked 2026-09-10, 8.1 and 8.3). Note this is a
+  *parameter* type vocabulary, which is **not** the same list as the
+  *tag* data types (`Int4`, `Float4`, `Boolean`, …) — don't mix them.
+
+### Verified output shape (2026-09-10)
+
+Ground truth is `BlueSky/ALARM_AOI example tags.json`, a real Ignition
+tag-instance export for `O2_AC001_FAILURE`, cross-checked against
+official Inductive Automation documentation.
+
+```json
+{
+  "name": "O2_AC001_FAILURE",
+  "parameters": {
+    "DeviceName":  {"dataType": "String", "value": "BOP_O2_CombinedTest"},
+    "Description": {"dataType": "String", "value": "AC-001 Air Compressor Failure"}
+  },
+  "tagType": "UdtInstance",
+  "tags": [{"name": "Alarm", "tagType": "AtomicTag"}, ...14 members...],
+  "typeId": "BlueSky/AOI/ALARM_AOI"
+}
+```
+
+- **Members carry only `name` + `tagType`.** Everything else — data
+  type, OPC item path, OPC server, permissions — is inherited from the
+  UDT definition TASK_004 generated. Confirmed both by the real export
+  and by the official JSON-format docs. Emitting an OPC path here would
+  create a second, competing source for a value the definition already
+  owns — exactly the drift TASK_004 exists to prevent.
+- **Member *order* differs from the reference and that is fine.** The
+  script emits L5X document order (TASK_004's convention); Ignition's
+  export order is internal. Members bind by name on import.
+- **Keys are written sorted** (`json.dump(..., sort_keys=True)`), which
+  is what real Ignition exports do — same as `generate_ignition_udt.py`.
+- **The consolidated file needs the `{"tags": [...]}` wrapper.** A bare
+  top-level JSON array fails on import with `Not a JSON Object` —
+  confirmed by two Inductive Automation staff on their own forum. Note
+  the reference file itself is a *bare object* with no wrapper, because
+  it came from a single tag rather than a folder export; do not copy
+  that shape for a multi-instance file.
 
 ### Process (as Doug described it 2026-09-08)
 
@@ -649,6 +783,34 @@ is built.
      conclusion as everywhere else it's come up); Doug fills it in per
      instance afterward.
 
+### Inputs
+
+| Input | Flag | Notes |
+|---|---|---|
+| L5X export | `--l5x` | Full program export from Studio 5000. Lives in the **job's own folder**, read cross-folder — never copied into PLCHelper, same rule as TASK_003/004. |
+| Qualifying AOI type(s) | `--aoi-type` (repeatable) | Explicit, Doug-supplied, never inferred. Accepts `NAME=UDT_NAME` to override the UDT name for one run. |
+| Device name | `--device-name` | One value for the whole run. |
+| Destination folder | `--dest-folder` | Always asked; no default. |
+| UDT path prefix | `--udt-path-prefix` | Folder path of the UDT definitions inside the provider, e.g. `BlueSky/AOI`. Combined with the UDT name to form `typeId`. |
+| Output path | `--output` | Write into the **job's own folder**, never PLCHelper. |
+
+Note what is *not* an input: there is no reference-JSON parameter. Unlike
+TASK_004, this task derives no conventions from a reference file at run
+time — instance members carry no OPC paths, servers, or permissions to
+learn. The reference export was used once, during development, to
+confirm the output shape.
+
+### Outputs
+
+1. **One consolidated JSON** containing every generated tag instance,
+   written to the job's folder. Import via the Tag Browser's **More
+   Options (hamburger)** menu → Import Tags — and **import the UDT
+   definitions first**, per Ignition's own docs.
+2. **A console report**: the run's inputs echoed back, per-AOI-type
+   `typeId` and instance/parameter counts, every instance with its
+   looked-up description, an explicit list of any instance whose
+   description came back blank, warnings, and the pre-import checklist.
+
 ### Relationship to TASK_004
 
 Depends on TASK_004's output existing first, now precisely (not loosely
@@ -657,29 +819,115 @@ type already confirmed generated and working. Raised alongside Blue
 Sky's O2-scope UDT regeneration work (`BLUE_SKY_STATUS.md` Open Item 1)
 as the natural next step once enough of those UDTs are in place.
 
-### Open Questions — needs a real scoping pass before this becomes Spec Ready
+### First-pass build — `ALARM_AOI` only (2026-09-10)
 
-*(Fields/format still to be discussed with Doug directly — 2026-09-10:
-"we will discuss this" — none of the below assumed answered just because
-it's listed.)*
+Script: `generate_ignition_tags.py`. The run that produced the first
+real output:
 
-- ~~**`DeviceName` parameterization**~~ — **resolved 2026-09-10**: one
-  value for the whole run (see Process step 3).
-- **Naming/instance-path convention** — what determines the emitted
-  tag's name and folder placement in Ignition's tag tree? Likely needs
-  the same kind of real-file-derived convention TASK_004 uses (learn from
-  an existing example, don't assume).
-- **Example Ignition tag export needed** — to derive the instance-level
-  OPC path/binding convention the same way TASK_004 derives UDT
-  conventions from a reference. Not yet supplied.
-- **Reuse vs. duplicate parsing logic with TASK_004** — worth deciding
-  before implementation, not after.
-- **Where the qualifying-AOI-type list lives** — new, 2026-09-10. It's
-  explicit input now (see Process step 2), not inferred — format and
-  location not yet decided.
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type ALARM_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/ALARM_AOI tag instances generated 2026-09-10.json"
+```
 
-This task stays at Idea status until these are worked through with Doug,
-per this file's own convention (spec first, build second).
+**Result: 31 `ALARM_AOI` instances**, all controller-scoped, each with a
+non-blank description read from its own L5X `<Description>`. Output is
+one consolidated file written to the **job's folder**, never into
+PLCHelper — same rule as TASK_004.
+
+A useful structural confirmation fell out of this run: `ALARM_AOI`'s 14
+L5X parameters and the reference export's 14 members are an **exact
+set match, zero discrepancies either way**. That is independent evidence
+that generating the member list from the L5X reproduces the real UDT.
+
+`--list-aoi-types` was added as a discovery aid: it prints every AOI type
+in the L5X with an instance count and whether it is in the mapping table.
+It is *only* a discovery aid — which types qualify remains Doug's
+explicit decision, never the script's.
+
+### Verification against the real reference (2026-09-10) — PASSED
+
+The generated `O2_AC001_FAILURE` entry was compared field by field
+against `BlueSky/ALARM_AOI example tags.json`:
+
+| Field | Result |
+|---|---|
+| `name` | match |
+| `tagType` | match (`UdtInstance`) |
+| `typeId` | match (`BlueSky/AOI/ALARM_AOI`) |
+| `tags` — member count | match (14 / 14) |
+| `tags` — member names | match (exact set) |
+| `tags` — per-member key shape | match (`name` + `tagType` only) |
+| `parameters.DeviceName` | match (`String` / `BOP_O2_CombinedTest`) |
+| `parameters.Description` | **differs — expected and correct, see below** |
+| `tags` — member order | differs — presentation only, binds by name |
+
+**The `Description` difference is the intended result, not a bug.** The
+reference file has no `Description` key at all; the script emits
+`"AC-001 Air Compressor Failure"`, the real L5X description for that
+instance. Doug confirmed explicitly that pulling the real per-instance
+description is the whole point, and that the script must **not** be
+"fixed" to reproduce the reference's absent value. Every other field
+matches, which is what makes this difference safe to attribute to intent
+rather than to a parsing error.
+
+⚠ **One nuance the research turned up that refines — but does not
+change — this.** The working assumption going in was "the reference has
+no `Description` because that instance's description is blank." Official
+Ignition docs say something slightly different and slightly weaker:
+*"the tag export feature only exports the configuration properties that
+have been **edited**."* An IA staff member confirmed on the forum that
+there is currently no way to export all parameters. So a missing key
+means **"not overridden at the instance level,"** which is *not* quite
+the same claim as "the value is blank" — it could equally be inheriting
+a non-blank default from the UDT definition.
+
+This does not affect the build at all (Doug's decision is that
+`Description` is always created and always filled from the L5X), but it
+does affect how the reference file should be read in future: **absence
+of a key in any Ignition export is evidence about override state, not
+about value.** Worth knowing before using an export to answer "does this
+instance have parameter X?"
+
+### Open Questions — still open for the remaining 7 AOI types
+
+*(2026-09-10: the two questions below are genuinely unanswered. They were
+**not** resolved by the `ALARM_AOI` build and must not be treated as
+settled because code now exists.)*
+
+- **Where the qualifying-AOI-type list lives** — still open. It is
+  explicit input (Process step 2), but its *home* is undecided: a small
+  per-job JSON file, a text file, or something else. Doug's standing
+  instruction is **"don't invent the format, ask,"** so the first-pass
+  build deliberately invented nothing — it takes the list as repeatable
+  `--aoi-type` command-line arguments. When Doug decides, a loader can be
+  added in front of that same argument with no change to anything else.
+- **Reuse vs. duplicate parsing logic with TASK_004** — still open, and
+  now concrete rather than hypothetical. `generate_ignition_tags.py`
+  currently has its own small L5X parsing helpers; it does **not** import
+  from `generate_ignition_udt.py`. That was the right call for a first
+  pass (no risk of destabilizing a working, heavily-used script), but the
+  duplication is real and should be resolved deliberately rather than
+  left to drift.
+
+Resolved, kept for history:
+
+- ~~**`DeviceName` parameterization**~~ — resolved 2026-09-10: one value
+  for the whole run (Process step 3).
+- ~~**Naming/instance-path convention**~~ — resolved 2026-09-10. The tag
+  name is the PLC instance tag name verbatim (confirmed: the reference's
+  `O2_AC001_FAILURE` is exactly the L5X tag name). Folder placement is
+  `--dest-folder`, and is chosen at import time — see the destination
+  folder section above.
+- ~~**Example Ignition tag export needed**~~ — resolved 2026-09-10:
+  `BlueSky/ALARM_AOI example tags.json` supplied and intake-cleared. It
+  also settled the OPC-path question in an unexpected direction: instance
+  members carry **no** OPC path at all, because they inherit it from the
+  definition. There was no instance-level OPC convention to derive.
 
 *(Retired framing, superseded 2026-09-08: the original idea matched
 tags by a loose `O2_`-prefix pattern rather than "AOI instances of a
