@@ -628,18 +628,26 @@ is built.
    TASK_004 does.
 3. For each qualifying instance, build its Ignition tag instance entry
    (see Output shape above — these get combined into one file, not
-   emitted individually):
-   - `DeviceName` — supplied as an explicit parameter (Doug's "device
-     string"), not derived. Open question: one value for the whole run,
-     or per-instance? Not yet confirmed.
-   - `Description` — read directly from **that specific AOI instance's**
+   emitted individually). **Which of the fields below actually apply
+   depends on the AOI type** — e.g. `ALARM_AOI`'s generated UDT only has
+   `DeviceName` and `Description` among these (confirmed 2026-09-10);
+   other AOI types may have more (see `EngUnit` below). Do not assume
+   every AOI type needs every field — check each type's own UDT.
+   - **`DeviceName`** — **resolved 2026-09-10: one single value for the
+     whole task run**, not per-instance (closes the open question below).
+     Supplied as an explicit parameter when the task is run. Today's
+     value: `"BOP_O2_CombinedTest"`.
+   - **`Description`** — **confirmed 2026-09-10.** Looked up automatically
+     per instance: read directly from **that specific AOI instance's**
      own `<Description>` in the L5X (real per-instance data, not the
-     type-level description TASK_004 already reads). This is new: no
-     existing PLCHelper task currently reads instance-level AOI usage
-     data, only type definitions.
-   - `EngUnit` — **left blank.** No way to derive this automatically
-     (same conclusion as everywhere else it's come up); Doug fills it in
-     per instance afterward.
+     type-level description TASK_004 already reads) and used to fill the
+     `Description` parameter's value in the generated tag instance. This
+     is new: no existing PLCHelper task currently reads instance-level
+     AOI usage data, only type definitions.
+   - `EngUnit` — **left blank**, for AOI types that have it (not one of
+     `ALARM_AOI`'s two). No way to derive this automatically (same
+     conclusion as everywhere else it's come up); Doug fills it in per
+     instance afterward.
 
 ### Relationship to TASK_004
 
@@ -655,8 +663,8 @@ as the natural next step once enough of those UDTs are in place.
 "we will discuss this" — none of the below assumed answered just because
 it's listed.)*
 
-- **`DeviceName` parameterization** — one value for a whole run, or
-  supplied per instance? Not yet confirmed.
+- ~~**`DeviceName` parameterization**~~ — **resolved 2026-09-10**: one
+  value for the whole run (see Process step 3).
 - **Naming/instance-path convention** — what determines the emitted
   tag's name and folder placement in Ignition's tag tree? Likely needs
   the same kind of real-file-derived convention TASK_004 uses (learn from
@@ -1577,7 +1585,16 @@ undeclared edit, rather than passing vacuously.
 
 ---
 
-*Last updated: September 10, 2026 — TASK_005 unblocked (Blue Sky's
+*Last updated: September 10, 2026 (2nd) — TASK_005's `DeviceName`/
+`Description` fields resolved: `DeviceName` is one value for the whole
+task run (today's value `"BOP_O2_CombinedTest"`), not per-instance;
+`Description` is auto-looked-up per instance from the AOI instance's own
+L5X `<Description>`. Confirmed which fields actually apply is AOI-type-
+dependent — `ALARM_AOI`'s UDT only has these two. `EngUnit` (for AOI
+types that have it) still left blank, unchanged. Still at Idea status —
+naming/instance-path convention, the qualifying-AOI-list format/location,
+and the TASK_004 parsing-logic-reuse question remain open. Prior update,
+September 10, 2026 — TASK_005 unblocked (Blue Sky's
 O2-scope UDT checklist is done) and further scoped with Doug: confirmed
 job-agnostic (like TASK_004/009/010, not Blue-Sky-only); the qualifying-
 AOI-type list is explicit Doug-supplied input, not something the script
