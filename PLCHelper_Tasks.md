@@ -574,8 +574,17 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **Split — `ALARM_AOI` Implemented (2026-09-10), the other 7
-AOI types still Idea.** Script: `generate_ignition_tags.py`.
+**Status:** **Split — `ALARM_AOI` Implemented and export-verified
+(2026-09-10); `CONSPD4_AOI` generated and structurally verified but not
+export-verified (2026-09-10); the other 6 AOI types still Idea.**
+Script: `generate_ignition_tags.py`.
+
+`CONSPD4_AOI` sits deliberately between the two labels: real output
+exists and passed every structural check available, but there is no
+reference Ignition export for it, so it has **not** been verified the way
+`ALARM_AOI` was. Do not promote it to the same confidence level — see
+"Verification of the `CONSPD4_AOI` run" below for exactly what was and
+was not established.
 
 Why the status is split rather than a single label. The dispatch that
 built this offered a choice between leaving the whole task at "Idea,
@@ -670,24 +679,38 @@ parameters live on the Ignition UDT, not in the PLC program. Doug
 supplied the mapping directly. It is implemented in
 `generate_ignition_tags.py`'s `AOI_PARAMETERS` table.
 
-| PLC AOI type | Ignition UDT name | Parameters | Verified? |
+| PLC AOI type | Ignition UDT name — pass with `--udt-name` | Parameters | Verified? |
 |---|---|---|---|
-| `ALARM_AOI` | `ALARM_AOI` | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
-| `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ❌ No |
-| `FLOWIN3_AOI` | `FLOWIN3_AOI` | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+| `ALARM_AOI` | `ALARM_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
+| `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ⚠ Structurally verified 2026-09-10, no reference export — see below |
+| `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 | `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ❌ No |
-| `INTERLOCK_AOI` | `INTERLOCK_AOI` | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
-| `LEVELIN3_AOI` | `LEVELIN3_AOI` | `DeviceName`, `Description`, `EngUnit` | ❌ No |
-| `MODVLV` | `MODVLV` | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
+| `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
+| `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+| `MODVLV` | `MODVLV` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
 | `VARSPD2_AOI` | **`VARSPD_AOI`** | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 
 Notes on this table:
 
+- ⚠ **This table is now the ONLY home for the UDT-name column — the
+  script no longer carries it (changed 2026-09-10).** `AOI_PARAMETERS` in
+  `generate_ignition_tags.py` used to hold a `udt_name` per row, which
+  quietly made the script the authority on these pairings. That field was
+  removed once Doug confirmed the name drift is a general ongoing
+  convention rather than three fixed exceptions — see "PLC AOI name vs.
+  Ignition UDT name" below. The UDT name is now supplied per run via
+  `--udt-name`, and the column above is what a human reads to decide what
+  to pass. **Consequence to be aware of: a run that omits `--udt-name`
+  for `CONSPD4_AOI`, `FLOWVLV_AOI`, or `VARSPD2_AOI` will now emit a
+  `typeId` built from the PLC AOI name and will not bind on import.** The
+  script prints the name it used on every run so this is visible rather
+  than silent, but it is no longer caught automatically.
 - **Three UDT names deliberately differ from their PLC AOI type name**
   (bolded). This is the same already-documented phenomenon as TASK_004's
   `--udt-name` note — a UDT's name does not track the AOI's version
   number. The mapping is **never inferred by name**; it is recorded
-  here and can be overridden per run with `--aoi-type NAME=UDT_NAME`.
+  here and passed per run with `--udt-name` (single-type runs) or
+  `--aoi-type NAME=UDT_NAME` (multi-type runs).
 - **`EngUnit` is created but left blank** wherever it applies. There is
   no way to derive an engineering unit automatically — the same
   conclusion reached everywhere else this has come up. Doug fills it in
@@ -708,6 +731,93 @@ Notes on this table:
   anywhere official (checked 2026-09-10, 8.1 and 8.3). Note this is a
   *parameter* type vocabulary, which is **not** the same list as the
   *tag* data types (`Int4`, `Float4`, `Boolean`, …) — don't mix them.
+
+### PLC AOI name vs. Ignition UDT name — a general convention, not a set of exceptions (Doug-confirmed 2026-09-10)
+
+**The principle.** A PLC-side AOI type name carries a version number that
+**changes as the AOI is revised** (`CONSPD2_AOI` → `CONSPD4_AOI`). The
+Ignition UDT it maps to **keeps a fixed name deliberately** — so Ignition
+does not have to be re-worked every time the PLC-side AOI is revised.
+The two names are therefore **not assumed identical, ever**, and the fact
+that they happen to be equal for `ALARM_AOI` is a coincidence of that one
+family rather than the rule. This was already documented for this exact
+family in `PLCHelper_Status.md`'s "Handoff to SCADA" section (UDT names
+do not track PLC AOI version numbers); what is new on 2026-09-10 is
+Doug's confirmation that it is a **general, going-forward convention**
+that the tooling must accommodate structurally.
+
+**What that means for this task's tooling.** An AOI-type list alone is
+not enough input — the tool needs an **explicit AOI-name → UDT-name
+mapping**. `--aoi-type` and `--udt-name` are two independent inputs:
+
+| Input | Means |
+|---|---|
+| `--aoi-type NAME` | "match instances of this **PLC** AOI type in the L5X" — also the source of the member list, read from that AOI definition's parameters |
+| `--udt-name NAME` | "build `typeId` from this **Ignition** UDT name" — defaults to the `--aoi-type` value when omitted |
+
+`typeId` is built from `--udt-name`. The instance member list (`tags`
+array) is still built from the L5X's own `--aoi-type` AOI definition's
+parameters, unaffected — those parameters are what the Ignition UDT's
+members were generated from in the first place (TASK_004), so they remain
+the right source.
+
+**The mapping is per-run input, never logic in the script.** Same
+principle the qualifying-AOI-type list already follows (Process step 2).
+There is deliberately **no pattern-matching, no regex, and no built-in
+table of name pairs** in `generate_ignition_tags.py` — encoding a family
+rule would make the script quietly wrong the moment a family broke the
+pattern, and a wrong `typeId` does not surface until import time.
+
+**First real example — the `CONSPD` family (Doug's rule, 2026-09-10):**
+
+> Any PLC AOI type matching **`CONSPD<digits>_AOI`** — currently one
+> digit, may become two later, so match the *pattern*, not a fixed digit
+> count — always maps to Ignition UDT **`CONSPD2_AOI`**, regardless of
+> the actual number in the PLC.
+
+⚠ **That rule is Doug's own reasoning for choosing what value to pass,
+not logic the script implements.** A future `CONSPD5_AOI` or
+`CONSPD12_AOI` is still run as `--aoi-type CONSPD12_AOI --udt-name
+CONSPD2_AOI`; nothing needs changing in the script, and nothing in the
+script will work it out on its own.
+
+**Ignition-side confirmation (three-part search, 2026-09-10).** This
+whole approach depends on `typeId` binding purely by name, which is
+confirmed:
+
+- `typeId` is a plain, **provider-relative, forward-slash-separated path**
+  to the definition (`BlueSky/AOI/CONSPD2_AOI`), with the `_types_`
+  segment **not** part of the value. Already recorded in
+  `TRUSTED_SOURCES.md`'s "Tag JSON Format" entry.
+- The binding carries **no version number, UUID, or internal handle** —
+  official docs describe `typeId` as "the name of the UDT Definition this
+  UDT is an instance of," and renaming a definition *orphans* its
+  instances, which is only possible if the binding is by name. So a UDT
+  whose name deliberately differs from the PLC type name binds correctly
+  as long as the string matches. **This is what makes the convention
+  above safe rather than a workaround.**
+- Officially constrained: `typeId` is **provider-scoped** (parent data
+  types "can only be set from UDT Definitions within the same provider"),
+  so no `[provider]` prefix belongs in the value.
+- ⚠ **A `typeId` naming a definition that does not exist appears to fail
+  SILENTLY on import** — forum report IGN-2712 (8.1.7): "no errors are
+  shown if some tags don't import … if their … UDT instance definitions
+  don't exist." Community-sourced, not staff-confirmed, and it is
+  **unresolved** whether the instance is created-but-broken or not
+  created at all. Practical consequence: **do not rely on the import to
+  report a wrong `--udt-name`.** Import definitions first and eyeball the
+  instances. This is why the script echoes the UDT name it used on every
+  run.
+- **Not documented anywhere, do not assume:** `typeId` case sensitivity
+  and leading/trailing-slash handling. Both were searched for
+  specifically and no official or forum statement exists. Match the
+  definition's name exactly rather than relying on any normalization.
+- Also worth knowing (same search): the official docs are **internally
+  inconsistent** — the UDTs concept page calls `typeId` a "name," both
+  the 8.1 and 8.3 Tag Properties pages call it "a path." No official page
+  shows a folder-qualified example, so the folder-path form is confirmed
+  by Casne's own real export and `TRUSTED_SOURCES.md`, not by Inductive
+  Automation's documentation.
 
 ### Verified output shape (2026-09-10)
 
@@ -788,7 +898,8 @@ official Inductive Automation documentation.
 | Input | Flag | Notes |
 |---|---|---|
 | L5X export | `--l5x` | Full program export from Studio 5000. Lives in the **job's own folder**, read cross-folder — never copied into PLCHelper, same rule as TASK_003/004. |
-| Qualifying AOI type(s) | `--aoi-type` (repeatable) | Explicit, Doug-supplied, never inferred. Accepts `NAME=UDT_NAME` to override the UDT name for one run. |
+| Qualifying **PLC AOI** type(s) | `--aoi-type` (repeatable) | Explicit, Doug-supplied, never inferred. Matches instances in the L5X *and* supplies the member list. Accepts `NAME=UDT_NAME` to set that one type's UDT name — the form to use on multi-type runs. |
+| **Ignition UDT name** | `--udt-name` | Builds `typeId`. **Defaults to the `--aoi-type` value when omitted.** Supply it whenever the UDT name differs from the PLC AOI name — the normal case, see "PLC AOI name vs. Ignition UDT name" above. One value for the whole run, so it is refused alongside more than one `--aoi-type` (use the `NAME=UDT_NAME` form there instead). Giving both forms for the same type is also refused rather than silently resolved. |
 | Device name | `--device-name` | One value for the whole run. |
 | Destination folder | `--dest-folder` | Always asked; no default. |
 | UDT path prefix | `--udt-path-prefix` | Folder path of the UDT definitions inside the provider, e.g. `BlueSky/AOI`. Combined with the UDT name to form `typeId`. |
@@ -892,6 +1003,93 @@ does affect how the reference file should be read in future: **absence
 of a key in any Ignition export is evidence about override state, not
 about value.** Worth knowing before using an export to answer "does this
 instance have parameter X?"
+
+### Second run — `CONSPD4_AOI` → UDT `CONSPD2_AOI` (2026-09-10)
+
+The run that first exercised `--udt-name`, and the first time a generated
+`typeId` deliberately does **not** match the PLC AOI type name:
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type CONSPD4_AOI \
+  --udt-name CONSPD2_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/CONSPD4_AOI tag instances generated 2026-09-10.json"
+```
+
+**Result: 4 `CONSPD4_AOI` instances**, all controller-scoped, each with a
+non-blank description read from its own L5X `<Description>`, each with 68
+members. Kept in its **own file**, not merged with `ALARM_AOI`'s — small
+test scopes first, per Doug's standing instruction. `CONSPD4_AOI` is
+revision 2.4 in this L5X.
+
+| Instance | L5X description |
+|---|---|
+| `BOP_FLR` | Flare control |
+| `O2_AC001` | AC-001 Air Compressor |
+| `O2_AD002` | AD-002 Air Dryer |
+| `O2_OG003` | OG-003 Oxygen (O2) Generator |
+
+⚠ **`BOP_FLR` is a flare tag, not an O2 tag, and this run puts it in the
+O2 destination folder.** It is a genuine `CONSPD4_AOI` instance so the
+script is right to emit it — the qualifying input is an *AOI type*, and
+this task has no notion of job scope within a type. But
+`--dest-folder "[default]O2InjectionSystem"` was chosen for the O2 scope,
+and three of these four instances are `O2_`-prefixed while this one is
+not. **Doug should decide whether `BOP_FLR` belongs in that folder before
+importing.** Flagging rather than filtering it: name-prefix filtering is
+exactly the loose `O2_`-prefix approach this task retired in 2026-09-08's
+re-scope, and re-introducing it silently would undo that decision.
+
+### Verification of the `CONSPD4_AOI` run (2026-09-10) — PASSED, structural only
+
+**No reference export exists for this type** — Doug's explicit call was
+to verify structurally instead of waiting for one. So this is *not* the
+same grade of evidence as `ALARM_AOI`'s field-by-field comparison against
+a real Ignition export, and the mapping table above still shows
+`CONSPD4_AOI` as lacking export verification. What was checked, with the
+output cross-read against the L5X by a separate throwaway script rather
+than by the tool's own helpers:
+
+| Check | Result |
+|---|---|
+| Member count vs. `CONSPD4_AOI`'s own L5X parameter set | **68 / 68** on all 4 instances |
+| Member names — exact set match to the L5X parameters | match, zero missing / zero extra |
+| Member order == L5X document order | match |
+| No duplicate member names | match |
+| `typeId` == `BlueSky/AOI/CONSPD2_AOI` on every instance | match, all 4 |
+| String `CONSPD4` anywhere in the output file | **0 occurrences** — the PLC name leaks nowhere |
+| `DeviceName` == `String` / `BOP_O2_CombinedTest` | match, all 4 |
+| `Description` == that instance's own L5X description, verbatim | match, all 4 |
+| Parameter set == exactly `DeviceName` + `Description` | match |
+| Top-level key shape == the verified `ALARM_AOI` run's | match (`name`, `parameters`, `tagType`, `tags`, `typeId`) |
+| `tagType` == `UdtInstance`; members only `name` + `tagType: AtomicTag` | match |
+| Instance names == L5X tag names verbatim | match |
+
+**What this does and does not establish.** It establishes that the
+`--udt-name` plumbing works, that `typeId` is built from the UDT name and
+not the AOI name, and that the member list still comes from the L5X. It
+does **not** establish that `CONSPD2_AOI`'s real Ignition UDT has exactly
+these 68 members or exactly these two parameters — only a real export or
+a Designer import can show that. The UNVERIFIED warning still prints.
+
+### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
+
+Re-run with **no `--udt-name` given**, output compared to the file
+generated before the change: **byte-for-byte identical** (`cmp`, zero
+differences). That is the real evidence the new parameter changed nothing
+for the one type that was verified against a real export. Console output
+gained one line naming the UDT name in use; the JSON is unchanged.
+
+Two guard rails were also tested negatively, each exiting non-zero and
+writing no file: `--udt-name` alongside more than one `--aoi-type`
+(refused as ambiguous), and both `--udt-name` and `--aoi-type NAME=UDT`
+given for the same type (refused rather than silently picking one). The
+two equivalent forms were also confirmed to produce byte-identical output
+for `CONSPD4_AOI`.
 
 ### Open Questions — still open for the remaining 7 AOI types
 

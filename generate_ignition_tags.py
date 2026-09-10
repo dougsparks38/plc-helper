@@ -65,6 +65,32 @@ below and in PLCHelper_Tasks.md TASK_005. Only ALARM_AOI has been
 verified against a real Ignition export; every other type prints an
 UNVERIFIED warning when used.
 
+THE PLC AOI TYPE NAME AND THE IGNITION UDT NAME ARE TWO DIFFERENT THINGS
+(Doug-confirmed 2026-09-10, general convention going forward): a PLC-side
+AOI type name carries a version number that changes as the AOI is revised
+(`CONSPD2_AOI` -> `CONSPD4_AOI`), but the Ignition UDT it maps to keeps a
+fixed name deliberately, so Ignition does not need re-working every time
+the PLC AOI is revised. The two names being equal — as they happen to be
+for ALARM_AOI — is a coincidence of that one family, not the rule.
+
+  So the two are separate inputs here. `--aoi-type` means "match
+  instances of this PLC AOI type in the L5X"; `--udt-name` means "build
+  typeId from this Ignition UDT name." `--udt-name` defaults to the
+  `--aoi-type` value when not supplied, which is what keeps ALARM_AOI's
+  behavior identical to before this option existed.
+
+  THE MAPPING IS EXPLICIT PER-RUN INPUT, NOT LOGIC IN THIS SCRIPT. There
+  is deliberately no pattern-matching, no regex, and no built-in table of
+  AOI-name -> UDT-name pairs. Doug's own rule for the CONSPD family —
+  "any PLC AOI matching CONSPD<digits>_AOI always maps to Ignition UDT
+  CONSPD2_AOI, whatever the PLC number is" — is *his reasoning for what
+  value to pass*, not something this script infers. Encoding it here
+  would make the script quietly wrong the moment a family broke the
+  pattern, and would contradict the same "explicit input, never inferred"
+  principle the qualifying-AOI-type list already follows. The known
+  per-family mappings are recorded in PLCHelper_Tasks.md TASK_005 for a
+  human to read and pass, and nowhere in this file.
+
 Written 2026-09-10 for PLCHelper (github.com/dougsparks38/plc-helper).
 """
 
@@ -79,10 +105,6 @@ import xml.etree.ElementTree as ET
 # Per-AOI parameter mapping — Doug's own words, 2026-09-10.
 #
 # `params`   : top-level Ignition parameters the instance carries.
-# `udt_name` : the Ignition UDT's name where it differs from the PLC AOI
-#              type name. TASK_004 already documents that these legitimately
-#              disagree (a UDT named CONSPD2_AOI corresponds to PLC type
-#              CONSPD4_AOI) and that the mapping is never inferred by name.
 # `verified` : whether this row has been checked against a real Ignition
 #              tag-instance export. Only ALARM_AOI has.
 #
@@ -90,6 +112,17 @@ import xml.etree.ElementTree as ET
 # A default of None means "look the value up per instance" (Description) or
 # "supplied for the whole run" (DeviceName). A literal means that literal
 # is written for every instance.
+#
+# DELIBERATELY NOT IN THIS TABLE: the Ignition UDT name. Earlier revisions
+# of this file carried a `udt_name` per row, which quietly made the script
+# the authority on AOI-name -> UDT-name pairings. That was removed
+# 2026-09-10 once Doug confirmed the drift is a general, ongoing convention
+# rather than a fixed set of three exceptions: PLC AOI names gain version
+# numbers over time, so any table baked in here starts rotting immediately
+# and would silently emit a stale typeId. The UDT name is now supplied per
+# run via `--udt-name` (see the module docstring), and the known per-family
+# mappings live in PLCHelper_Tasks.md TASK_005 where a human reads them.
+# This table is only about *parameters* now.
 # ---------------------------------------------------------------------------
 
 DEVICE_NAME = ("DeviceName", "String", None)      # one value for the whole run
@@ -99,22 +132,18 @@ ANALOG_VLV = ("Analog_Vlv", "Integer", 0)         # MODVLV only
 
 AOI_PARAMETERS = {
     "ALARM_AOI": {
-        "udt_name": "ALARM_AOI",
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": True,
     },
     "CONSPD4_AOI": {
-        "udt_name": "CONSPD2_AOI",   # UDT name differs from the PLC AOI name
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
     },
     "FLOWIN3_AOI": {
-        "udt_name": "FLOWIN3_AOI",
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
         "verified": False,
     },
     "FLOWVLV_AOI": {
-        "udt_name": "FLOWVLV2_AOI",  # UDT name differs from the PLC AOI name
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
     },
@@ -124,22 +153,18 @@ AOI_PARAMETERS = {
         # Description pair." Those defaulted parameters live on the UDT
         # definition and are inherited by the instance, so nothing is emitted
         # for them here. Flagged as the natural next test candidate.
-        "udt_name": "INTERLOCK_AOI",
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
     },
     "LEVELIN3_AOI": {
-        "udt_name": "LEVELIN3_AOI",
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
         "verified": False,
     },
     "MODVLV": {
-        "udt_name": "MODVLV",
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT, ANALOG_VLV],
         "verified": False,
     },
     "VARSPD2_AOI": {
-        "udt_name": "VARSPD_AOI",    # UDT name differs from the PLC AOI name
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
         "verified": False,
     },
@@ -270,9 +295,14 @@ def build_instance(tag_name, description, member_names, type_id,
 def parse_aoi_type_arg(value):
     """`--aoi-type NAME` or `--aoi-type NAME=UDT_NAME`.
 
-    The optional `=UDT_NAME` overrides the mapping table for one run,
-    because a UDT's name legitimately differs from its PLC AOI type name
-    and the correct pairing is never inferred (TASK_004's standing note).
+    The optional `=UDT_NAME` names the Ignition UDT for that one AOI type.
+    It exists so a run covering several AOI types can still give each one
+    its own UDT name, which the single global `--udt-name` cannot express.
+    For a single-type run `--udt-name` is the clearer form; the two are
+    equivalent and it is an error to give both for the same type.
+
+    A UDT's name legitimately differs from its PLC AOI type name and the
+    correct pairing is never inferred (TASK_004's standing note).
     """
     if "=" in value:
         aoi, udt = value.split("=", 1)
@@ -291,8 +321,22 @@ def main():
                              "folder; never copied into PLCHelper)")
     parser.add_argument("--aoi-type", action="append", required=True,
                         metavar="NAME[=UDT_NAME]",
-                        help="A qualifying AOI type. Repeat once per type. "
-                             "Explicit input - never inferred.")
+                        help="A qualifying PLC AOI type to match instances of "
+                             "in the L5X. Repeat once per type. Explicit input "
+                             "- never inferred. The optional '=UDT_NAME' form "
+                             "sets that type's Ignition UDT name, for runs "
+                             "covering several types at once.")
+    parser.add_argument("--udt-name", default=None, metavar="UDT_NAME",
+                        help="Ignition UDT name to build typeId from. "
+                             "DEFAULTS TO THE --aoi-type VALUE when omitted. "
+                             "Supply it whenever the Ignition UDT name differs "
+                             "from the PLC AOI type name - which is the normal "
+                             "case, because PLC AOI names gain version numbers "
+                             "over time while the Ignition UDT name stays "
+                             "fixed. Applies to the whole run, so it may only "
+                             "be used with a single --aoi-type; use the "
+                             "'--aoi-type NAME=UDT_NAME' form for multi-type "
+                             "runs. Never inferred from the AOI name.")
     parser.add_argument("--device-name", required=True,
                         help="DeviceName parameter value. One value for the "
                              "whole run.")
@@ -347,6 +391,24 @@ def main():
     dest_folder = args.dest_folder.strip()
     prefix = args.udt_path_prefix.strip().strip("/")
 
+    # `--udt-name` is one value for the whole run, so it is only meaningful
+    # when the run covers one AOI type. Refusing here rather than picking a
+    # type to apply it to: silently attaching one UDT name to several AOI
+    # types would emit instances pointing at a definition that is wrong for
+    # most of them, and typeId errors do not surface until import time.
+    # `is not None` rather than a truthiness test, so `--udt-name ""` is
+    # caught as the mistake it is instead of silently defaulting.
+    udt_name_arg = args.udt_name.strip() if args.udt_name is not None else None
+    if udt_name_arg and len(args.aoi_type) > 1:
+        sys.exit(
+            "ERROR: --udt-name applies to the whole run and cannot be used "
+            "with more than one --aoi-type (%d given). Use the per-type form "
+            "instead, e.g. --aoi-type CONSPD4_AOI=CONSPD2_AOI --aoi-type "
+            "VARSPD2_AOI=VARSPD_AOI." % len(args.aoi_type))
+    if udt_name_arg == "":
+        sys.exit("ERROR: --udt-name was given but is empty. Omit it to default "
+                 "to the --aoi-type value.")
+
     print("=" * 72)
     print("TASK_005 - Ignition tag instance generation")
     print("=" * 72)
@@ -354,6 +416,9 @@ def main():
     print("DeviceName     : %s   (one value for the whole run)" % args.device_name)
     print("Destination    : %s   (explicit input - never hardcoded)" % dest_folder)
     print("UDT path prefix: %s" % prefix)
+    print("UDT name       : %s" % (
+        udt_name_arg if udt_name_arg
+        else "(not given - defaults to the --aoi-type value)"))
     print("Folder mode    : %s" % args.folder_mode)
     print()
 
@@ -380,13 +445,33 @@ def main():
                 "real Ignition tag-instance export. Verify one instance by "
                 "hand before importing in bulk." % aoi_type)
 
-        udt_name = udt_override or mapping["udt_name"]
+        # UDT name resolution, in priority order. Nothing is inferred from
+        # the AOI name itself at any step — the last fallback is literally
+        # reusing the AOI name, not deducing a UDT name from it.
+        #   1. `--aoi-type NAME=UDT_NAME` (per-type, wins for that type)
+        #   2. `--udt-name` (one value for the whole run)
+        #   3. the `--aoi-type` name itself (the historical behavior, and
+        #      what keeps ALARM_AOI byte-identical to before this option)
+        if udt_override and udt_name_arg:
+            sys.exit(
+                "ERROR: UDT name for '%s' was given twice - '=%s' on "
+                "--aoi-type and '%s' on --udt-name. They disagree or are "
+                "redundant; give exactly one." % (aoi_type, udt_override,
+                                                  udt_name_arg))
+
         if udt_override:
-            print("NOTE: --aoi-type override in effect: %s -> UDT '%s'"
+            udt_name = udt_override
+            print("NOTE: per-type UDT name in effect: %s -> UDT '%s'"
                   % (aoi_type, udt_name))
-        elif udt_name != aoi_type:
-            print("NOTE: UDT name differs from the PLC AOI type by design: "
-                  "%s -> %s" % (aoi_type, udt_name))
+        elif udt_name_arg:
+            udt_name = udt_name_arg
+            print("NOTE: --udt-name in effect: PLC AOI '%s' -> Ignition UDT "
+                  "'%s'" % (aoi_type, udt_name))
+        else:
+            udt_name = aoi_type
+            print("NOTE: no --udt-name given; using the PLC AOI type name "
+                  "'%s' as the Ignition UDT name. If this job's UDT is named "
+                  "differently, re-run with --udt-name." % udt_name)
 
         member_names = aoi_definition_parameters(root, aoi_type)
         if member_names is None:
