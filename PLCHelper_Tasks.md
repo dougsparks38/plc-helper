@@ -36,7 +36,7 @@ once the spec is solid.
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
-| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | **`ALARM_AOI` Implemented (2026-09-10); other 7 AOI types still Idea** | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and emit its Ignition `UdtInstance` entry, all combined into **one consolidated JSON**. `DeviceName` is one value for the whole run; `Description` is looked up per instance from that instance's own L5X description (blank is a valid value); `EngUnit` is created but left blank. Destination folder is always an explicit input, never hardcoded. Implemented 2026-09-10 as `generate_ignition_tags.py`; first run produced **31 `ALARM_AOI` instances**, verified field-by-field against a real Ignition export. The per-AOI parameter mapping is recorded for all 8 types but **only `ALARM_AOI` is verified** — the script warns on the rest. Auto-populates missing tag instances instead of building each by hand in Designer. |
+| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | **`ALARM_AOI` + `CONSPD4_AOI` Implemented and export-verified; `FLOWIN3_AOI` Implemented, structurally verified only (2026-09-11); other 5 AOI types still Idea** | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and emit its Ignition `UdtInstance` entry, all combined into **one consolidated JSON**. `DeviceName` is one value for the whole run; `Description` is looked up per instance from that instance's own L5X description (blank is a valid value); `EngUnit` is created but left blank. Destination folder is always an explicit input, never hardcoded. Implemented 2026-09-10 as `generate_ignition_tags.py`; first run produced **31 `ALARM_AOI` instances**, verified field-by-field against a real Ignition export. The per-AOI parameter mapping is recorded for all 8 types but **only `ALARM_AOI` is verified** — the script warns on the rest. Auto-populates missing tag instances instead of building each by hand in Designer. |
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
@@ -574,17 +574,29 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **Split — `ALARM_AOI` Implemented and export-verified
-(2026-09-10); `CONSPD4_AOI` generated and structurally verified but not
-export-verified (2026-09-10); the other 6 AOI types still Idea.**
+**Status:** **`ALARM_AOI` and `CONSPD4_AOI` both Implemented and
+export-verified (`ALARM_AOI` 2026-09-10, `CONSPD4_AOI` 2026-09-11).
+`FLOWIN3_AOI` Implemented and STRUCTURALLY VERIFIED ONLY (2026-09-11) —
+awaiting a Designer-import confirmation, which is exactly the state
+`CONSPD4_AOI` held before today. The other 5 AOI types are still Idea.**
 Script: `generate_ignition_tags.py`.
 
-`CONSPD4_AOI` sits deliberately between the two labels: real output
-exists and passed every structural check available, but there is no
-reference Ignition export for it, so it has **not** been verified the way
-`ALARM_AOI` was. Do not promote it to the same confidence level — see
-"Verification of the `CONSPD4_AOI` run" below for exactly what was and
-was not established.
+`FLOWIN3_AOI` is the third type run through the tool and the first to
+exercise the three-parameter mapping (`DeviceName`, `Description`,
+`EngUnit`). Its structural checks all passed — see "Verification of the
+`FLOWIN3_AOI` run" below — but structural is a **lower grade of
+evidence** than `ALARM_AOI`'s and `CONSPD4_AOI`'s Designer confirmation,
+and the script still prints its UNVERIFIED warning for this type. Do not
+promote the row in the mapping table until Doug reports back on the
+import.
+
+`CONSPD4_AOI` reached export verification in two steps: structural
+verification only on 2026-09-10 (no reference export existed yet), then
+**Doug imported the generated JSON into Ignition Designer 2026-09-11 and
+confirmed it looks perfect** — that's the real, same-grade confirmation
+`ALARM_AOI` already had. See "Verification of the `CONSPD4_AOI` run"
+below for the structural checks, and the note appended to that section
+for the 2026-09-11 import confirmation.
 
 Why the status is split rather than a single label. The dispatch that
 built this offered a choice between leaving the whole task at "Idea,
@@ -682,8 +694,8 @@ supplied the mapping directly. It is implemented in
 | PLC AOI type | Ignition UDT name — pass with `--udt-name` | Parameters | Verified? |
 |---|---|---|---|
 | `ALARM_AOI` | `ALARM_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
-| `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ⚠ Structurally verified 2026-09-10, no reference export — see below |
-| `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+| `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed the Designer import 2026-09-11 |
+| `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ⚠ **Structural only** (2026-09-11) — not yet Designer-confirmed |
 | `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ❌ No |
 | `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
@@ -1075,6 +1087,125 @@ not the AOI name, and that the member list still comes from the L5X. It
 does **not** establish that `CONSPD2_AOI`'s real Ignition UDT has exactly
 these 68 members or exactly these two parameters — only a real export or
 a Designer import can show that. The UNVERIFIED warning still prints.
+
+**Update 2026-09-11 — the missing piece is now done.** Doug imported the
+2026-09-10 generated JSON into Ignition Designer and confirmed it "looks
+perfect." That is the Designer-import confirmation this section said was
+still needed — `CONSPD4_AOI` is now export-verified, same confidence
+grade as `ALARM_AOI`. The UNVERIFIED warning in the script itself is
+still generic to every non-`ALARM_AOI` type and hasn't been updated to
+exempt `CONSPD4_AOI` specifically — cosmetic only, doesn't affect output,
+flagged here in case it's confusing on a future run.
+
+### Third run — `FLOWIN3_AOI` (2026-09-11)
+
+Placed here, after the whole `CONSPD4_AOI` write-up rather than between
+that run and its own verification section, so each run stays next to the
+verification that belongs to it.
+
+The third AOI type through the tool, and the first run whose parameter
+mapping is **three** parameters rather than two — `EngUnit` is exercised
+here for the first time. The Ignition UDT name is the same as the PLC AOI
+name for this family, so `--udt-name` is deliberately omitted:
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type FLOWIN3_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/FLOWIN3_AOI tag instances generated 2026-09-11.json"
+```
+
+**Result: 7 `FLOWIN3_AOI` instances**, all controller-scoped, none an
+array, each with 51 members and a non-blank description read from its own
+L5X `<Description>`. Kept in its **own file**, not merged with
+`ALARM_AOI`'s or `CONSPD4_AOI`'s — small test scopes first, per Doug's
+standing instruction. The AOI definition carries `Revision="0.1"` in this
+L5X.
+
+| Instance | L5X description |
+|---|---|
+| `BOP_FIT3001` | O2 Receiver Tank flow |
+| `BOP_FIT3002` | description 3002 |
+| `BOP_FIT3003` | description 3003 |
+| `BOP_FIT3004` | description 3003 |
+| `BOP_FIT3005` | description 3005 |
+| `BOP_FIT3008` | description 3003 |
+| `O2_FM100` | FM-100 Oxygen (O2) Discharge Flow Transmitter |
+
+Three things to look at before importing. All three are **flagged, not
+filtered** — same reasoning as the `BOP_FLR` flag on the `CONSPD4_AOI`
+run: the qualifying input is an *AOI type*, and this task has no notion
+of job scope, description quality, or name prefix within a type. Every
+one of these is a faithful copy of what the PLC program actually says.
+
+1. ⚠ **Five of the seven descriptions are placeholders, not real
+   engineering text.** `BOP_FIT3002`, `3003`, `3004`, `3005` and `3008`
+   all read `description <number>` — clearly unfinished PLC-side text.
+   The script copies descriptions verbatim by design, so these carry
+   straight into Ignition and become the operator-visible description on
+   each tag. **Fixing them belongs in the L5X, not in the generated
+   JSON** — edit the PLC descriptions and re-run, otherwise the next
+   regeneration silently reverts any hand-editing done in Designer.
+2. ⚠ **`description 3003` appears on three different tags** —
+   `BOP_FIT3003`, `BOP_FIT3004` and `BOP_FIT3008`. `BOP_FIT3004` and
+   `BOP_FIT3008` naming `3003` looks like copy-paste that was never
+   updated, so this is likely a real PLC-side error rather than just
+   placeholder text. Worth correcting in the L5X regardless of what
+   happens with item 1.
+3. ⚠ **Six of the seven instances are `BOP_`-prefixed, not `O2_`, and
+   this run puts all of them in `[default]O2InjectionSystem`.** Same
+   class of question as `BOP_FLR` on the `CONSPD4_AOI` run, but at a much
+   larger share — there it was 1 of 4, here it is 6 of 7. Only `O2_FM100`
+   carries the O2 prefix. Doug should decide whether the `BOP_FIT30xx`
+   flow transmitters belong in the O2 folder before importing. Not
+   filtered by name prefix, because prefix filtering is exactly the loose
+   `O2_`-match approach this task retired in the 2026-09-08 re-scope.
+
+### Verification of the `FLOWIN3_AOI` run (2026-09-11) — PASSED, structural only
+
+**No reference export exists for this type either**, so this is the same
+grade of evidence the `CONSPD4_AOI` run had on 2026-09-10 and *not* the
+grade `ALARM_AOI` and `CONSPD4_AOI` now hold. The output was cross-read
+against the L5X by a separate throwaway script that re-parses the L5X
+with its own code and deliberately does **not** import
+`generate_ignition_tags.py` — a bug in the tool's own helpers cannot hide
+itself by being used on both sides of the comparison.
+
+| Check | Result |
+|---|---|
+| Instance count vs. L5X instances of this type | **7 / 7** |
+| Member count vs. `FLOWIN3_AOI`'s own L5X parameter set | **51 / 51** on all 7 instances |
+| Member names — exact set match to the L5X parameters | match, zero missing / zero extra |
+| Member order == L5X document order | match, all 7 |
+| No duplicate member names | match |
+| `typeId` == `BlueSky/AOI/FLOWIN3_AOI` on every instance | match, all 7 |
+| `FLOWIN3_AOI` occurrences in the file == one per instance | **7 / 7** — appears only inside `typeId`, nowhere stray |
+| `DeviceName` == `String` / `BOP_O2_CombinedTest` | match, all 7 |
+| `Description` == that instance's own L5X description, verbatim | match, all 7 |
+| `EngUnit` == `String` / `""` on every instance | match, all 7 — blank by design |
+| Parameter set == exactly `DeviceName` + `Description` + `EngUnit` | match |
+| Top-level key shape == the verified `ALARM_AOI`/`CONSPD4_AOI` runs | match (`name`, `parameters`, `tagType`, `tags`, `typeId`) |
+| `tagType` == `UdtInstance`; members only `name` + `tagType: AtomicTag` | match |
+| Instance names == L5X tag names verbatim | match, all 7, same order |
+| No duplicate instance names | match |
+
+Note on the `typeId` row and its `CONSPD4_AOI` counterpart. That run
+could assert "the string `CONSPD4` appears **0** times," because the PLC
+name and the UDT name differed and the PLC name had to leak nowhere. Here
+the two names are the same, so zero is not the right expectation — the
+equivalent check is that the name appears *exactly once per instance*,
+inside `typeId` and nowhere else. Seven instances, seven occurrences.
+
+**What this does and does not establish.** It establishes that the
+three-parameter mapping emits correctly, that `EngUnit` is created and
+blank rather than omitted, and that the member list comes from the L5X.
+It does **not** establish that the real Ignition `FLOWIN3_AOI` UDT has
+exactly these 51 members or exactly these three parameters — only a real
+export or a Designer import can show that. The UNVERIFIED warning printed
+on this run, as it should have.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
@@ -2031,7 +2162,27 @@ undeclared edit, rather than passing vacuously.
 
 ---
 
-*Last updated: September 10, 2026 (2nd) — TASK_005's `DeviceName`/
+*Last updated: September 11, 2026 (2nd) — TASK_005 third run:
+`FLOWIN3_AOI` generated **7 instances, 51 members each**, into its own
+file `BlueSky/FLOWIN3_AOI tag instances generated 2026-09-11.json`. First
+run to exercise the three-parameter mapping (`EngUnit` created and
+blank). All 16 structural checks passed, cross-read against the L5X by an
+independent throwaway script; **structural only — not yet
+Designer-confirmed**, the same state `CONSPD4_AOI` held before today, and
+the script's UNVERIFIED warning printed as expected. Added the "Third run
+— `FLOWIN3_AOI`" and "Verification of the `FLOWIN3_AOI` run" sections,
+updated the Status line, the per-AOI parameter table's `FLOWIN3_AOI` row,
+and the task-catalog row (which was still stale from before
+`CONSPD4_AOI`'s promotion). Three anomalies flagged rather than filtered:
+five placeholder descriptions carried verbatim from the PLC, `description
+3003` duplicated across three tags, and six of seven instances being
+`BOP_`-prefixed while landing in the O2 destination folder. Prior update,
+September 11, 2026 — `CONSPD4_AOI` promoted to
+export-verified for TASK_005: Doug imported the 2026-09-10 generated JSON
+into Ignition Designer and confirmed it "looks perfect." Status line,
+the per-AOI parameter table, and the "Verification of the `CONSPD4_AOI`
+run" section all updated — `ALARM_AOI` and `CONSPD4_AOI` are now the two
+verified types, 6 remain Idea stage. Prior update, September 10, 2026 (2nd) — TASK_005's `DeviceName`/
 `Description` fields resolved: `DeviceName` is one value for the whole
 task run (today's value `"BOP_O2_CombinedTest"`), not per-instance;
 `Description` is auto-looked-up per instance from the AOI instance's own
