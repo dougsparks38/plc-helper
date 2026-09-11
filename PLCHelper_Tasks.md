@@ -589,14 +589,29 @@ far the fewest members (5) — and it is the first run where **every**
 instance has a blank L5X description. All 15 structural checks passed,
 including the one that matters most for this type: the parameter set is
 exactly `DeviceName` + `Description`, with none of this AOI's many
-UDT-defaulted parameters leaking into the instances. **Structural only —
-no Designer import has been done yet**, so this is the same grade of
-evidence the three types above each held before their imports. One thing
-to watch on that import is flagged in the run section: the two DINT
-bitfield parameters (`Interlocks`, `Visibility`) are emitted as two flat
-members, while the real Ignition UDT has them manually expanded per bit —
-a known observation, not a defect, and unrelated to this run's own
-correctness. See "Fifth run — `INTERLOCK_AOI`" below.
+UDT-defaulted parameters leaking into the instances.
+
+**Blocked 2026-09-11 — real member-name mismatch, confirmed on import.**
+The two flat `Interlocks`/`Visibility` members flagged as "one thing to
+watch" turned out to be the actual failure, not just a cosmetic
+observation: Doug's Designer import errored on every one of the 9
+colliding paths with `Bad_Unsupported(...does not have item 'EnableIn'
+for overrides, and cannot accept children tags.)`. Root cause, confirmed
+directly against Doug's own `INTERLOCK_AOI` definition export: the real
+Ignition UDT declares **64 members** (`Interlock_00`–`_31`,
+`Visibility_00`–`_31`, the per-bit expansion), not the 5 L5X AOI
+parameters this run emitted — **zero name overlap**. This is not a
+Collision Policy or `--folder-mode` problem; a `UdtInstance` simply
+cannot hold a member its definition doesn't declare. Full diagnosis,
+sources, and fix steps are in `CLAUDE.md`'s "Importing tag instances —
+`does not have item 'X' for overrides...`" section — not duplicated here
+(Lesson 9). **This is now believed to be a structural limitation of
+every AOI whose real Ignition UDT was hand-built with more/differently
+named members than its L5X parameter list** (bitfield-expanded UDTs
+like this one being the known case), not an `INTERLOCK_AOI`-specific
+bug — worth watching on any future type with a similar hand-expansion
+history. See "Fifth run — `INTERLOCK_AOI`" below for the original run
+detail.
 
 `FLOWVLV_AOI` was the fourth type run through the tool and the second
 whose Ignition UDT name differs from its PLC AOI name (`FLOWVLV2_AOI`,
@@ -724,7 +739,7 @@ supplied the mapping directly. It is implemented in
 | `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed the Designer import 2026-09-11 |
 | `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ✅ **Yes** — Doug confirmed all test steps passed on Designer import 2026-09-11 |
 | `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed all 7 test steps passed on Designer import 2026-09-11 |
-| `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ⚠️ **Structural only** — all 15 checks passed 2026-09-11, **not yet Designer-confirmed** |
+| `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ **Blocked** — 15/15 structural checks passed 2026-09-11, but the real UDT's 64 hand-expanded members (`Interlock_00`–`_31`/`Visibility_00`–`_31`) share zero names with the 5 emitted here; import fails. See `CLAUDE.md`'s import-troubleshooting section for the fix (strip the `tags` array, re-import with `MergeOverwrite`). |
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 | `MODVLV` | `MODVLV` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
 | `VARSPD2_AOI` | **`VARSPD_AOI`** | `DeviceName`, `Description`, `EngUnit` | ❌ No |
@@ -2549,7 +2564,14 @@ situation."
 
 ---
 
-*Last updated: September 11, 2026 (6th) — TASK_005 fifth run:
+*Last updated: September 11, 2026 (7th) — `INTERLOCK_AOI` moved from
+⚠️ structural-only to ❌ blocked, once Doug's Designer import confirmed
+the predicted member-name mismatch: the real UDT's 64 hand-expanded
+`Interlock_NN`/`Visibility_NN` members share zero names with the 5
+emitted by this run. Root cause, fix, and sources are in `CLAUDE.md`, not
+duplicated here (Lesson 9). Flagged as a possibly general limitation for
+any AOI whose real Ignition UDT was hand-expanded beyond its L5X
+parameter list, not `INTERLOCK_AOI`-specific. Prior update, September 11, 2026 (6th) — TASK_005 fifth run:
 `INTERLOCK_AOI` generated **10 instances, 5 members each**, into its own
 file `BlueSky/INTERLOCK_AOI tag instances generated 2026-09-11.json`.
 Ignition UDT name equals the PLC AOI name for this family, so
