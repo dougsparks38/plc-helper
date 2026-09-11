@@ -575,6 +575,191 @@ until every referenced binding has resolved. That is a different binding
 type from a plain Expression binding — reach for it only for the flicker
 case, never to fix an unresolvable path.
 
+## Perspective — binding scope on an Embedded View component, and the tag-path-in-tooltip convention (verified 2026-09-11)
+
+**The rule, in one sentence: `view.` always means the view the bound
+component physically sits in — never the view it embeds.** A binding
+configured **on** an Embedded View component is a binding on a component
+of the **parent** screen, so its `view.` scope is the parent's. It does
+not reach into the child view at all.
+
+Official confirmation, from the Property Bindings page: *"You cannot have
+a binding refer to a property in another view instance even view
+instances that may be embedded in a view. The only way to pass a property
+across views is by passing a view parameter into an embedded view."* The
+Binding Property Path Reference page reinforces it twice — it defines
+`view` as the *"Containing view object"* and states the hard constraint
+*"Only properties on components in the same view are eligible to be used
+in this way."*
+
+So on a `BOP` screen holding an embedded `Pump_UDTVARSPD_AOI_small`
+instance named `RB010A_0`, a binding on `RB010A_0` written as
+`{view.params.Tag_Path}` asks **`BOP`** for a `Tag_Path` parameter. If
+`BOP` has none, it resolves to nothing. This is a **different failure
+from the `view.custom` / `/root.custom` mix-up above** — that one is
+wrong-object-within-one-view; this one is wrong-view entirely.
+
+### Referencing an embedded view instance's own parameter, from that same component
+
+The Embedded View component stores the parameters it passes down in its
+own `props.params` object. Docs, verbatim: *"`params` — Parameters for
+the view. If passing parameters into the embedded view, the names here
+must match the parameters on that view."* That object is an ordinary
+component property, so it is reachable by the normal self-reference
+keyword `this`.
+
+| Where the binding is configured | Correct reference to `Tag_Path` |
+|---|---|
+| **Inside** the template, on any of its own child components | `{view.params.Tag_Path}` |
+| **On** the Embedded View component itself, from the parent screen | `{this.props.params.Tag_Path}` |
+| On a *sibling* component next to the embedded instance | `{../RB010A_0.props.params.Tag_Path}` |
+
+`this` is documented on the path-reference page with the example
+`this.meta.name`, and the general grammar is *"like a file system path to
+get to the component combined with a dot-referenced object path to get to
+the property."* `props.params.Tag_Path` is exactly that dot-referenced
+half.
+
+**There is no `view.`-style shortcut that reads down into an embedded
+child's params.** Parameters flow **parent → child only**. If the parent
+screen needs the value for its own purposes, the parent must own it
+(bind the instance's `props.params.Tag_Path` *from* a parent-side
+property, rather than trying to read it back out).
+
+### ⚠️ Braces are expression syntax, not path syntax
+
+**Curly braces belong to the expression language.** In an **Expression**
+binding you write `{this.props.params.Tag_Path}`. In a **Property**
+binding's path field you write the bare path —
+`this.props.params.Tag_Path` — with **no braces at all**. Every example
+on the Binding Property Path Reference page is written bare
+(`view.params.paramName`, `this.meta.name`, `../ButtonB.position.x`,
+`/root/LabelA.position.x`); the braces only ever appear wrapped around
+those same paths inside expressions.
+
+Typing `{view.params.Tag_Path}` **into a Property binding** therefore
+makes `{` and `}` literal characters of the path, which the path parser
+cannot accept — and that is a **parse** failure, which is precisely what
+`Error_InvalidPathSyntax` reports. Suspect this first whenever a binding
+that "looks right" returns `Error_InvalidPathSyntax`: check the binding
+**type** before you doubt the path.
+
+### `Error_InvalidPathSyntax` vs `Error_ExpressionEval` — the distinction that identifies the bug
+
+Both are quality codes in the 768–1023 Error band, and they mean
+genuinely different things:
+
+| Code | Official definition | What it actually tells you |
+|---|---|---|
+| `Error_InvalidPathSyntax` (777) | *"A path (i.e., Tag path, property path, etc.,) was not able to be parsed because the syntax is invalid."* | The path **string itself is malformed** — it never got as far as looking anything up |
+| `Error_ExpressionEval` (770) | *"The source expression was unable to be executed."* | The path parsed **fine**, resolved to **null**, and a downstream function (typically `if()`) rejected the null |
+
+**The load-bearing consequence: a syntactically valid path pointing at
+something that does not exist does NOT give 777.** It returns `null`
+quietly. So `Error_InvalidPathSyntax` is *not* evidence that a property
+is missing — it is evidence the path text is unparseable.
+
+Confirmed triggers for 777:
+
+1. **Braces in a Property binding path field** (see above).
+2. **Illegal characters in a component or key name inside the path.**
+   Historically hyphens (BUG-16270, fixed in the 8.0.3 nightly of
+   2019-07-15; users report it resurfacing around 8.1.7). Paul Turmel's
+   framing of the boundary is the durable rule: *"I would not expect
+   hyphens to be allowed. Nor any other math operator…that wouldn't be
+   permitted in a javascript identifier."* Spaces, periods and brackets
+   in key names are blocked by Designer validation for the same reason.
+   **Practical convention: name components like JavaScript identifiers**
+   — letters, digits, underscore. `RB010A_0` is safe; `RB010A-0` is not.
+3. **A path assembled at runtime that comes out malformed.** A property
+   reference that resolves to `null` and is then concatenated into a path
+   string produces garbage that the consuming function rejects. Paul
+   Griffith's forum diagnosis of `property({view.custom.test}+"1")` is the
+   canonical example — the braces evaluated to `null` first, and the
+   `null`-plus-`"1"` string was never a legal path. Same mechanism applies
+   to indirect tag bindings whose indirection reference has not resolved.
+
+Note the tidy symmetry with the earlier section: mechanism 3 is how a
+**null** becomes a **777** instead of a **770** — the null has to be
+spliced into a *path* rather than fed to `if()`.
+
+### The convention: tag path in the tooltip as a self-check
+
+Doug's standing pattern for every equipment template — surface the tag
+path the instance is actually bound to in its own tooltip, so a
+mis-parameterized instance is visible on hover instead of silently
+showing stale or wrong data. **The two placements need different syntax;
+they are not interchangeable.**
+
+**(a) Inside the template**, on any child component (the pump symbol, the
+status label, the container) — Expression binding on `meta.tooltip.text`:
+
+```
+{view.params.Tag_Path}
+```
+
+Already proven working on the Blue Sky pump template. Also enable
+`meta.tooltip.enabled`; `text` alone does nothing if the tooltip is off.
+
+**(b) On the Embedded View component**, from the parent screen —
+Expression binding on `meta.tooltip.text`:
+
+```
+{this.props.params.Tag_Path}
+```
+
+Prefer **(a)**. It lives in the template, so every instance inherits it
+with zero per-instance work — which is the whole point of a template, and
+it is also the placement that survives `dropConfig` instantiation without
+anyone remembering to add anything. Use **(b)** only when the hover
+target genuinely needs to be the outer wrapper (e.g. the child view has
+no hoverable area of its own, or the parent screen adds its own chrome
+around it).
+
+A more useful variant for (a), which labels the value and survives a null
+during load:
+
+```
+"Tag: " + coalesce({view.params.Tag_Path}, "UNBOUND")
+```
+
+`"UNBOUND"` appearing on a live screen is itself the alarm — it means the
+instance was placed without its parameter being set.
+
+### Diagnostic checklist when a tooltip binding on an embedded instance errors
+
+1. **Check the binding type first.** Property binding → bare path.
+   Expression binding → braces. A brace/type mismatch is the most likely
+   cause of a `Error_InvalidPathSyntax` specifically.
+2. **Confirm the component is actually an Embedded View.** Only the
+   Embedded View component (`Perspective - Embedded View`) has
+   `props.params`. A **Flex Container** does not — `this.props.params.X`
+   on a plain container is a path to a property that does not exist and
+   will return null, not a path error. In the Designer, select the
+   component and look for `props.path` + `props.params` in the Property
+   Editor; in an exported `view.json`, check the component's `type`.
+3. **Use the binding editor's property-picker button** rather than
+   hand-typing. It generates the reference from the real tree, with the
+   right braces-or-not for the binding type you chose.
+4. **Verify component names are JavaScript-identifier-safe** anywhere in
+   the path — no hyphens, spaces, or dots.
+
+### Ruled out, so it is not chased again
+
+`[IGN-17677] View with binding - tooltip incorrect` (forum, Aug 2026)
+sounds relevant and is **not**. It is a cosmetic Designer bug: the
+**Project Browser's** hover tooltip renders wrong text for a bound custom
+property placed on the **view node**, because that tooltip uses *"a
+translation bundle key that only exists if you have Vision installed."*
+It has nothing to do with a component's runtime `meta.tooltip.text`.
+
+### Version note
+
+No 8.1 → 8.3 difference was found. The Embedded View `params` property,
+the path grammar (`this` / `parent` / `view` / `../` / `/root`), the
+cross-view restriction, and quality codes 770 and 777 are identical on
+both versions' pages.
+
 ### Why the error message is so unhelpful — the actual failure chain
 
 Worth understanding, because it explains why the Designer shows a generic
