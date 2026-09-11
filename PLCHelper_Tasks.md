@@ -574,21 +574,20 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **`ALARM_AOI` and `CONSPD4_AOI` both Implemented and
-export-verified (`ALARM_AOI` 2026-09-10, `CONSPD4_AOI` 2026-09-11).
-`FLOWIN3_AOI` Implemented and STRUCTURALLY VERIFIED ONLY (2026-09-11) —
-awaiting a Designer-import confirmation, which is exactly the state
-`CONSPD4_AOI` held before today. The other 5 AOI types are still Idea.**
-Script: `generate_ignition_tags.py`.
+**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, and `FLOWIN3_AOI` all
+Implemented and export-verified** (`ALARM_AOI` 2026-09-10, `CONSPD4_AOI`
+and `FLOWIN3_AOI` both 2026-09-11). **The other 5 AOI types are still
+Idea.** Script: `generate_ignition_tags.py`.
 
-`FLOWIN3_AOI` is the third type run through the tool and the first to
+`FLOWIN3_AOI` was the third type run through the tool and the first to
 exercise the three-parameter mapping (`DeviceName`, `Description`,
 `EngUnit`). Its structural checks all passed — see "Verification of the
-`FLOWIN3_AOI` run" below — but structural is a **lower grade of
-evidence** than `ALARM_AOI`'s and `CONSPD4_AOI`'s Designer confirmation,
-and the script still prints its UNVERIFIED warning for this type. Do not
-promote the row in the mapping table until Doug reports back on the
-import.
+`FLOWIN3_AOI` run" below — and **Doug confirmed 2026-09-11 that all test
+steps passed on Designer import**, promoting it to the same
+export-verified grade as `ALARM_AOI` and `CONSPD4_AOI`. The script's
+UNVERIFIED warning for this type is now stale and hasn't been removed
+from the code itself — cosmetic only, same known gap already noted for
+`CONSPD4_AOI` above.
 
 `CONSPD4_AOI` reached export verification in two steps: structural
 verification only on 2026-09-10 (no reference export existed yet), then
@@ -695,7 +694,7 @@ supplied the mapping directly. It is implemented in
 |---|---|---|---|
 | `ALARM_AOI` | `ALARM_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
 | `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed the Designer import 2026-09-11 |
-| `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ⚠ **Structural only** (2026-09-11) — not yet Designer-confirmed |
+| `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ✅ **Yes** — Doug confirmed all test steps passed on Designer import 2026-09-11 |
 | `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ❌ No |
 | `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
@@ -1141,28 +1140,38 @@ run: the qualifying input is an *AOI type*, and this task has no notion
 of job scope, description quality, or name prefix within a type. Every
 one of these is a faithful copy of what the PLC program actually says.
 
-1. ⚠ **Five of the seven descriptions are placeholders, not real
+1. ✅ **Five of the seven descriptions are placeholders, not real
    engineering text.** `BOP_FIT3002`, `3003`, `3004`, `3005` and `3008`
    all read `description <number>` — clearly unfinished PLC-side text.
    The script copies descriptions verbatim by design, so these carry
    straight into Ignition and become the operator-visible description on
-   each tag. **Fixing them belongs in the L5X, not in the generated
-   JSON** — edit the PLC descriptions and re-run, otherwise the next
-   regeneration silently reverts any hand-editing done in Designer.
-2. ⚠ **`description 3003` appears on three different tags** —
+   each tag. Fixing them belonged in the L5X, not in the generated
+   JSON, to survive the next regeneration. **Resolved 2026-09-11 — Doug
+   confirms this is done.** (As with item 2: the L5X on file and this
+   run's already-generated JSON still predate the fix; no re-run of this
+   AOI type has been requested.)
+2. ✅ **`description 3003` appears on three different tags** —
    `BOP_FIT3003`, `BOP_FIT3004` and `BOP_FIT3008`. `BOP_FIT3004` and
    `BOP_FIT3008` naming `3003` looks like copy-paste that was never
    updated, so this is likely a real PLC-side error rather than just
-   placeholder text. Worth correcting in the L5X regardless of what
-   happens with item 1.
-3. ⚠ **Six of the seven instances are `BOP_`-prefixed, not `O2_`, and
+   placeholder text. **Fixed by Doug directly in the PLC code
+   (2026-09-11).** The L5X on file, and therefore this run's generated
+   JSON, still carry the old duplicated text — a fresh L5X export plus a
+   re-run of this AOI type would be needed to pick up the fix. Doug is
+   handling description accuracy by hand during import in the meantime
+   (see item 3's resolution note below), so no re-run has been requested.
+3. ✅ **Six of the seven instances are `BOP_`-prefixed, not `O2_`, and
    this run puts all of them in `[default]O2InjectionSystem`.** Same
    class of question as `BOP_FLR` on the `CONSPD4_AOI` run, but at a much
    larger share — there it was 1 of 4, here it is 6 of 7. Only `O2_FM100`
-   carries the O2 prefix. Doug should decide whether the `BOP_FIT30xx`
-   flow transmitters belong in the O2 folder before importing. Not
-   filtered by name prefix, because prefix filtering is exactly the loose
-   `O2_`-match approach this task retired in the 2026-09-08 re-scope.
+   carries the O2 prefix. Not filtered by name prefix, because prefix
+   filtering is exactly the loose `O2_`-match approach this task retired
+   in the 2026-09-08 re-scope. **Resolved 2026-09-11, per Doug: he is
+   handling folder placement for `BOP_`-prefixed instances by hand,
+   tag-by-tag, during the Designer import itself** — confirmed working
+   well. No script-side filtering change requested or needed; this is
+   Doug's own judgment call per instance, same as the still-open
+   `BOP_FLR` question on the `CONSPD4_AOI` run.
 
 ### Verification of the `FLOWIN3_AOI` run (2026-09-11) — PASSED, structural only
 
@@ -1206,6 +1215,14 @@ It does **not** establish that the real Ignition `FLOWIN3_AOI` UDT has
 exactly these 51 members or exactly these three parameters — only a real
 export or a Designer import can show that. The UNVERIFIED warning printed
 on this run, as it should have.
+
+**Update 2026-09-11 — Designer import done, all test steps passed.**
+Doug ran the full test checklist (import UDT definitions, select the
+destination folder, import via Tag Browser, confirm all 7 instances bind
+with all 51 members, spot-check `EngUnit`/`DeviceName`, resolve the
+`BOP_`-prefix folder-placement question tag-by-tag, note the still-open
+description issues) and confirmed everything passed. `FLOWIN3_AOI` is now
+export-verified, same confidence grade as `ALARM_AOI` and `CONSPD4_AOI`.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
