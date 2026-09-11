@@ -36,7 +36,7 @@ once the spec is solid.
 | TASK_002 | Audit PLC | Spec Ready | Cross-reference IO list, PLC tag database, and PLC code to find discrepancies |
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
-| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | **`ALARM_AOI` + `CONSPD4_AOI` Implemented and export-verified; `FLOWIN3_AOI` Implemented, structurally verified only (2026-09-11); other 5 AOI types still Idea** | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and emit its Ignition `UdtInstance` entry, all combined into **one consolidated JSON**. `DeviceName` is one value for the whole run; `Description` is looked up per instance from that instance's own L5X description (blank is a valid value); `EngUnit` is created but left blank. Destination folder is always an explicit input, never hardcoded. Implemented 2026-09-10 as `generate_ignition_tags.py`; first run produced **31 `ALARM_AOI` instances**, verified field-by-field against a real Ignition export. The per-AOI parameter mapping is recorded for all 8 types but **only `ALARM_AOI` is verified** — the script warns on the rest. Auto-populates missing tag instances instead of building each by hand in Designer. |
+| TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | **`ALARM_AOI` + `CONSPD4_AOI` + `FLOWIN3_AOI` Implemented and export-verified; `FLOWVLV_AOI` Implemented, structurally verified only (2026-09-11), awaiting Designer import; other 4 AOI types still Idea** | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and emit its Ignition `UdtInstance` entry, all combined into **one consolidated JSON**. `DeviceName` is one value for the whole run; `Description` is looked up per instance from that instance's own L5X description (blank is a valid value); `EngUnit` is created but left blank. Destination folder is always an explicit input, never hardcoded. Implemented 2026-09-10 as `generate_ignition_tags.py`; first run produced **31 `ALARM_AOI` instances**, verified field-by-field against a real Ignition export. The per-AOI parameter mapping is recorded for all 8 types but **only `ALARM_AOI` is verified** — the script warns on the rest. Auto-populates missing tag instances instead of building each by hand in Designer. |
 | TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
@@ -576,8 +576,20 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 **Status:** **`ALARM_AOI`, `CONSPD4_AOI`, and `FLOWIN3_AOI` all
 Implemented and export-verified** (`ALARM_AOI` 2026-09-10, `CONSPD4_AOI`
-and `FLOWIN3_AOI` both 2026-09-11). **The other 5 AOI types are still
-Idea.** Script: `generate_ignition_tags.py`.
+and `FLOWIN3_AOI` both 2026-09-11). **`FLOWVLV_AOI` is Implemented and
+structurally verified only (2026-09-11) — awaiting Designer import
+confirmation**, the same intermediate grade `CONSPD4_AOI` and
+`FLOWIN3_AOI` each held before their imports. **The other 4 AOI types are
+still Idea.** Script: `generate_ignition_tags.py`.
+
+`FLOWVLV_AOI` was the fourth type run through the tool and the second
+whose Ignition UDT name differs from its PLC AOI name (`FLOWVLV2_AOI`,
+passed with `--udt-name`). It produced a single instance, `O2_MV112A`,
+with 38 members; all 15 structural checks passed and the anomaly scan was
+completely clean — the first run of the four with nothing to flag. See
+"Fourth run — `FLOWVLV_AOI`" below. Do not read that clean result as
+strong evidence: one instance is the smallest scope yet run, and only a
+Designer import can promote it to export-verified.
 
 `FLOWIN3_AOI` was the third type run through the tool and the first to
 exercise the three-parameter mapping (`DeviceName`, `Description`,
@@ -695,7 +707,7 @@ supplied the mapping directly. It is implemented in
 | `ALARM_AOI` | `ALARM_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
 | `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed the Designer import 2026-09-11 |
 | `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ✅ **Yes** — Doug confirmed all test steps passed on Designer import 2026-09-11 |
-| `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ❌ No |
+| `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ⚠️ **Structural only** — generated and all 15 structural checks passed 2026-09-11, but **not yet confirmed by a Designer import**. Lower grade than the three ✅ rows above. |
 | `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 | `MODVLV` | `MODVLV` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
@@ -1235,6 +1247,116 @@ with all 51 members, spot-check `EngUnit`/`DeviceName`, resolve the
 `BOP_`-prefix folder-placement question tag-by-tag, note the still-open
 description issues) and confirmed everything passed. `FLOWIN3_AOI` is now
 export-verified, same confidence grade as `ALARM_AOI` and `CONSPD4_AOI`.
+
+### Fourth run — `FLOWVLV_AOI` → UDT `FLOWVLV2_AOI` (2026-09-11)
+
+Placed here, after the whole `FLOWIN3_AOI` write-up rather than between
+that run and its own verification section, so each run stays next to the
+verification that belongs to it — same arrangement as the third run.
+
+The fourth AOI type through the tool. Back to the **two**-parameter
+mapping (`DeviceName`, `Description`) — no `EngUnit` for this type — and
+the second family whose Ignition UDT name **differs** from its PLC AOI
+name, so `--udt-name FLOWVLV2_AOI` is required. Omitting it would have
+emitted `typeId BlueSky/AOI/FLOWVLV_AOI`, which does not exist in
+Ignition and would not bind on import:
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type FLOWVLV_AOI \
+  --udt-name FLOWVLV2_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/FLOWVLV_AOI tag instances generated 2026-09-11.json"
+```
+
+**Result: 1 `FLOWVLV_AOI` instance**, controller-scoped, not an array,
+with 38 members and a non-blank description read from its own L5X
+`<Description>`. Kept in its **own file**, not merged with the three
+prior runs — small test scopes first, per Doug's standing instruction.
+
+| Instance | L5X description |
+|---|---|
+| `O2_MV112A` | Blower-A Discharge Control Valve |
+
+**Anomalies: none — this is the first run of the four with a completely
+clean scan.** Worth stating explicitly rather than leaving as silence,
+because the three prior runs each carried at least one flagged item and
+an absent "flagged" list could otherwise read as an omission. All four
+anomaly classes seen on earlier runs were checked for and none are
+present here:
+
+1. ✅ **No placeholder or unfinished descriptions.** The single
+   description is real engineering text, unlike the five `description
+   <number>` placeholders on the `FLOWIN3_AOI` run.
+2. ✅ **No duplicated descriptions across tags** — trivially true with
+   one instance, but checked rather than assumed.
+3. ✅ **No folder-placement question.** `O2_MV112A` is `O2_`-prefixed, so
+   it belongs in `[default]O2InjectionSystem` on its own name. This run
+   raises none of the `BOP_FLR` / `BOP_FIT30xx` placement questions Doug
+   has been resolving by hand during Designer import.
+4. ✅ **No blank descriptions, no array instances, no program-scoped
+   instances, no duplicate instance names.**
+
+⚠ **The small scope is the thing to be aware of on this run, not an
+anomaly in it.** One instance is the smallest scope any of the four runs
+has had, and it exercises the two-parameter mapping that `ALARM_AOI` and
+`CONSPD4_AOI` already proved. What is genuinely new here is only the
+`FLOWVLV_AOI` → `FLOWVLV2_AOI` name mapping and this type's own 38-member
+parameter list. A clean structural pass on one instance is correspondingly
+weaker evidence than a clean pass on seven, and does not generalize to
+any other `FLOWVLV_AOI` instance in a future job's L5X.
+
+### Verification of the `FLOWVLV_AOI` run (2026-09-11) — PASSED, structural only
+
+**No reference export exists for this type**, so this is the same grade
+of evidence the `CONSPD4_AOI` and `FLOWIN3_AOI` runs each had before
+their Designer imports — *not* the export-verified grade all three prior
+types now hold. The output was cross-read against the L5X by a separate
+throwaway script that re-parses the L5X with its own code and
+deliberately does **not** import `generate_ignition_tags.py` — a bug in
+the tool's own helpers cannot hide itself by being used on both sides of
+the comparison.
+
+| Check | Result |
+|---|---|
+| Instance count vs. L5X instances of this type | **1 / 1** |
+| Member count vs. `FLOWVLV_AOI`'s own L5X parameter set | **38 / 38** on the instance |
+| Member names — exact set match to the L5X parameters | match, zero missing / zero extra |
+| Member order == L5X document order | match |
+| No duplicate member names | match |
+| `typeId` == `BlueSky/AOI/FLOWVLV2_AOI` | match |
+| `FLOWVLV_AOI` (the PLC name) occurrences in the file | **0** — the required result, see note below |
+| `DeviceName` == `String` / `BOP_O2_CombinedTest` | match |
+| `Description` == that instance's own L5X description, verbatim | match |
+| Parameter set == exactly `DeviceName` + `Description` (no `EngUnit`) | match |
+| Top-level key shape == the verified prior runs | match (`name`, `parameters`, `tagType`, `tags`, `typeId`) |
+| `tagType` == `UdtInstance`; members only `name` + `tagType: AtomicTag` | match |
+| Instance names == L5X tag names verbatim | match |
+| No duplicate instance names | match |
+| Top-level payload shape == `{"tags": [...]}` | match (`--folder-mode flat`) |
+
+15 checks, all passed.
+
+Note on the zero-occurrence row — this is the `CONSPD4_AOI` variant of
+the check, not the `FLOWIN3_AOI` one, and the distinction matters. Where
+the PLC name and the UDT name are the **same** (`FLOWIN3_AOI`), the right
+expectation is *one occurrence per instance*, inside `typeId`. Where they
+**differ**, as here, the PLC name must leak nowhere at all and the right
+expectation is **zero**. The substring test is genuinely meaningful in
+this case: `FLOWVLV2_AOI` does not contain `FLOWVLV_AOI`, so the count is
+not zero by accident of one name containing the other.
+
+**What this does and does not establish.** It establishes that the
+`FLOWVLV_AOI` → `FLOWVLV2_AOI` name mapping is applied correctly and
+appears in `typeId` with no leakage of the PLC name, that the
+two-parameter mapping emits with no `EngUnit`, and that the 38-member
+list comes from the L5X. It does **not** establish that the real Ignition
+`FLOWVLV2_AOI` UDT has exactly these 38 members or exactly these two
+parameters — only a real export or a Designer import can show that. The
+UNVERIFIED warning printed on this run, as it should have.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
@@ -2247,7 +2369,23 @@ situation."
 
 ---
 
-*Last updated: September 11, 2026 (4th) — TASK_011 scope confirmed with
+*Last updated: September 11, 2026 (5th) — TASK_005 fourth run:
+`FLOWVLV_AOI` generated **1 instance (`O2_MV112A`), 38 members**, into its
+own file `BlueSky/FLOWVLV_AOI tag instances generated 2026-09-11.json`.
+Second family whose Ignition UDT name differs from its PLC AOI name —
+run with `--udt-name FLOWVLV2_AOI`, and the PLC name verified to appear
+**0 times** anywhere in the output. All 15 structural checks passed,
+cross-read against the L5X by an independent throwaway script;
+**structural only — not yet Designer-confirmed**, and the script's
+UNVERIFIED warning printed as expected. Added the "Fourth run —
+`FLOWVLV_AOI`" and "Verification of the `FLOWVLV_AOI` run" sections,
+updated the Status line and the per-AOI parameter table's `FLOWVLV_AOI`
+row to the ⚠️ structural-only grade. **No anomalies flagged — the first
+run of the four with a completely clean scan** (real description, no
+duplicates, and the sole instance is `O2_`-prefixed so it raises no
+folder-placement question). Noted as a caveat rather than a win: one
+instance is the smallest scope yet, so a clean pass here is weaker
+evidence than `FLOWIN3_AOI`'s seven. Prior update, September 11, 2026 (4th) — TASK_011 scope confirmed with
 Doug: a written reference (not a tool), living in `PLCHelper_Reference.md`
 (not `PLCHelper_Status.md`, per Lesson 9). First real content added there:
 an intro note on the new "Broader use case" convention, plus the first
