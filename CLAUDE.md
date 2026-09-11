@@ -618,7 +618,7 @@ and `Visibility_00`..`_31`, each an OPC tag bound per bit
 (`...{InstanceName}.Interlocks.9`). The generated instance file declares
 five — `EnableIn`, `EnableOut`, `Interlocks`, `Visibility`,
 `OutputState`, straight from the L5X parameter list. **Zero overlap**, so
-the import fails on the first one alphabetically-by-document-order,
+the import fails on the first of those five in document order,
 `EnableIn`. Its top-level `parameters` (`DeviceName`, `Description`) are
 correct and *do* exist on the definition. This is the manual bitfield
 expansion already recorded in `BlueSky/BLUE_SKY_STATUS.md` (Open Work
