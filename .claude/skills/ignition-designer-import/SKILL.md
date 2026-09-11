@@ -429,12 +429,38 @@ being configured."*
 
 Forum confirmation for the root case, from a thread IA staff participated
 in: *"the only way to reach properties on the root is to use an Absolute
-path `/root.custom.prop1`."* Also established in that same thread:
-**`parent.parent.parent` chaining does NOT work.** Multi-level traversal
-is `../../../Name.custom.prop` or an absolute path — never dotted
-`parent` chaining. Carl Gould's rationale: *"We didn't want to overload
-the use of dot-dereferencing because that would have led to confusing
-path parsing."*
+path `/root.custom.prop1`."*
+
+**The grammar in one sentence** — Carl Gould's own framing: *"the syntax
+was `{../locate/the/component DOT scope DOT property path}`."* So
+**slashes locate the component; the first dot switches into the property
+namespace.** Everything before the first dot is a component path,
+everything after is `scope.property`. That single rule predicts every
+valid and invalid form below.
+
+Invalid forms, each confirmed broken:
+
+| Wrong | Why |
+|---|---|
+| `{parent.parent.parent.meta.name}` | Dotted `parent` chaining isn't supported — use `../../../Name.…` |
+| `{parent/Container/Comp.custom.X}` | Can't mix a shortcut keyword with further slashes; use a full absolute path |
+| `{../../custom.X}` | `custom` would parse as a *component name*. Name the container: `{../../Name.custom.X}` |
+| `{/root/custom.X}` | Same mistake with a slash — `custom` is a category on root, not a child |
+
+Carl Gould's rationale for the restriction: *"We didn't want to overload
+the use of dot-dereferencing because that would have led to confusing and
+in some cases non-deterministic path parsing."*
+
+⚠️ **Component names containing spaces or dashes break path resolution.**
+If a container is named `Fault Panel`, references through it fail. Keep
+component names identifier-safe (`Fault_Panel`) in any view whose
+components reference each other.
+
+⚠️ **Never bind `meta.name` on a component that appears in another
+binding's path.** Bindings routed through it fail to resolve at session
+startup and return null — and the failure is Designer-invisible: it
+previews fine, then breaks in a real session, and re-saving the binding
+appears to fix it but does not persist.
 
 ### Diagnosing this in 10 seconds
 
@@ -466,12 +492,35 @@ Put it on the **View's** `custom` category, not root's, and reference it
 as `{view.custom.X}`. The docs endorse exactly this: *"Custom properties
 can be defined for views. They act just like custom properties of a
 component and are internal to the view, so they can be referenced by all
-child components and containers in that view."* Two practical reasons to
-prefer it over root:
+child components and containers in that view."*
+
+**This is also the explicit Inductive Automation staff recommendation**,
+from two of them independently. Cody Mallonee: *"I always put my
+view-wide custom properties on the view node... Placing a custom property
+on the root node sort of implies that only the root would use that
+property. I've always considered properties on the View node to be
+available for use throughout the View."* Paul Griffith: *"Having them on
+the view itself makes it slightly easier to reference from scripting
+(`self.view.custom.someProperty`) and, in my opinion, slightly easier to
+reason about. Performance wise, there shouldn't be any difference."*
+
+Practical reasons to prefer it over root:
 
 - It survives someone restructuring or renaming containers under root.
 - It reads identically to `view.params.*`, which is already the
   established idiom in a parameterized equipment template.
+- Scripting access is shorter: `self.view.custom.X`.
+
+Escalate to **`session.custom.X`** only when the value must be shared
+across *multiple pages* — that is its documented purpose, and it also has
+the property that a binding referencing it can be copy-pasted onto any
+component in any view without faulting.
+
+The counter-argument for root, which IA staff acknowledged as valid: a
+view's **message handlers and custom methods must live on root anyway**,
+so a shop that keeps all view-level machinery together has a consistent
+reason to put custom props there too. Either is defensible — just be
+consistent within a project.
 
 Root-custom + `{/root.custom.X}` is equally *valid* and is the right
 choice when you don't want to re-author an existing binding — just be
@@ -500,9 +549,67 @@ if({view.custom.AnyFault},"faulted",
 
 This is a **chained binding** (a binding whose expression references a
 property that is itself bound). That is supported and normal in
-Perspective — Doug's own working
-`if({view.params.Fault},…)` binding is the same shape. Chaining is *not*
-the cause when this errors; a wrong scope keyword almost always is.
+Perspective — a working `if({view.params.Fault},…)` binding is the same
+shape. Chaining is *not* the cause when this errors; a wrong scope
+keyword almost always is.
+
+### Evaluation order IS real — but it causes flicker, not a hard error
+
+Worth knowing so it can be ruled *out* rather than chased. Perspective
+does **not** delay a binding until the properties it references have
+settled: a chained binding re-evaluates each time a dependency resolves.
+Cody Mallonee (Inductive Automation): *"As of this time there is no way
+to really delay the binding evaluation process, nor the appearance of
+components which are waiting for bindings to evaluate."* The reported
+symptom is a component visibly **flickering** through intermediate
+values on view open, plus a named query firing several times in under a
+second — **not** a persistent error.
+
+The distinction is the diagnostic: **a binding error that sits there
+steadily in the Designer's preview panel is a path/syntax problem, not a
+timing problem.** Timing artifacts are transient and settle on their own.
+
+Mitigation, if genuine flicker is the issue: **8.1.21 added a "wait on
+all" option to Expression *Structure* bindings**, which holds evaluation
+until every referenced binding has resolved. That is a different binding
+type from a plain Expression binding — reach for it only for the flicker
+case, never to fix an unresolvable path.
+
+### Why the error message is so unhelpful — the actual failure chain
+
+Worth understanding, because it explains why the Designer shows a generic
+error instead of "no such property":
+
+1. A **syntactically valid** property path that resolves to nothing does
+   **not** raise a path error — it quietly returns **`null`**. (A
+   *malformed* path is different: that gives `Error_InvalidPathSyntax`.)
+2. That `null` is then handed to `if()` as its first argument.
+3. **`if()` rejects a null condition** — the underlying error string is
+   `Error_ExpressionEval('If function got a null first argument')`.
+
+So the error names the *downstream* function, not the upstream bad path.
+**The reported error is one step removed from the actual cause.** Corollary
+worth internalizing: `Error_ExpressionEval` on an `if()` should be read as
+*"something inside me is null,"* and the first suspect is a property
+reference that isn't resolving.
+
+This also means the **same** error appears for an entirely different
+reason: `tag()` on a subscription that has not delivered its first value
+yet returns null on startup, which `if()` rejects identically.
+
+**Defensive hardening — cheap, and worth doing regardless:**
+
+```
+if(coalesce({view.custom.AnyFault}, false),"faulted",
+   if(coalesce(tag(Concat({view.params.Tag_Path},"/Running_hwdi")), false),
+      "running","stopped"))
+```
+
+`coalesce(x, false)` guarantees `if()` always receives a real Boolean, so
+a transient startup null degrades to "not faulted" instead of erroring the
+whole binding. **But note:** `coalesce` also *masks* a genuinely wrong
+path — it will silently read as `false` forever. Fix the path first,
+confirm it previews correctly, and only then wrap it.
 
 ### Other causes of a bare `Error_ExpressionEval`
 
