@@ -395,6 +395,139 @@ No behavioral difference between **8.1 and 8.3** was found for any part of
 and compared directly; the property names, the `udts`/`dataTypes` split,
 and the `bind`/`path` actions are identical.
 
+## Perspective — `view` vs. `root` are different objects; sharing one computed value across a view (verified 2026-09-11)
+
+**The single highest-value fact in this section:** in Perspective, the
+**View** and the **`root` container** are two *different objects*, and
+**each has its own separate `custom` category.** A custom property added
+to `root` is **not** reachable as `{view.custom.X}`, and vice versa.
+Getting this backwards produces a bare `Error_ExpressionEval` with no
+detail in the Designer's binding preview — the single most misleading
+symptom in this whole area.
+
+Carl Gould (Inductive Automation) states it directly on the forum: the
+root container *"is actually the top of the component hierarchy"* while
+*"the view is sort of special and not actually a component."* The docs
+say the same structurally: *"Each view contains exactly one root level
+container."* The View **contains** root; it is not root.
+
+### The reference syntax, by where the property actually lives
+
+| Property lives on | Reference it from a nested component as |
+|---|---|
+| The **View** (`params` category) | `{view.params.MyParam}` |
+| The **View** (`custom` category) | `{view.custom.MyProp}` |
+| The **`root` container** (`custom` category) | `{/root.custom.MyProp}` |
+| A named child component | `{/root/Flex_0/Pump.custom.MyProp}` |
+
+Note the shape of the root case: **`/root.custom.X`** — leading slash,
+and **no second slash** before `custom`. `/root/custom.X` is wrong;
+`custom` is a property category on root, not a child component. The
+leading `/` is documented as an absolute path — *"a path that starts at
+the top of the view hierarchy and is not relative to where the binding is
+being configured."*
+
+Forum confirmation for the root case, from a thread IA staff participated
+in: *"the only way to reach properties on the root is to use an Absolute
+path `/root.custom.prop1`."* Also established in that same thread:
+**`parent.parent.parent` chaining does NOT work.** Multi-level traversal
+is `../../../Name.custom.prop` or an absolute path — never dotted
+`parent` chaining. Carl Gould's rationale: *"We didn't want to overload
+the use of dot-dereferencing because that would have led to confusing
+path parsing."*
+
+### Diagnosing this in 10 seconds
+
+Two reliable checks when a cross-component property reference errors:
+
+1. **In the Designer's Project Browser**, click the **view node** (the
+   top entry, named after the view) and read the Property Editor, then
+   click the **`root`** node beneath it and read it again. They are two
+   different property sets. Whichever one actually lists your property
+   dictates the syntax per the table above.
+2. **In the exported `view.json`**, a *View* custom property sits at the
+   **top level**, as a sibling of `params` and `root`; a *root* custom
+   property sits **inside** the `root` object:
+
+```jsonc
+{
+  "custom": { "AnyFault": false },   // <-- VIEW custom  -> {view.custom.AnyFault}
+  "params": { "Tag_Path": "" },
+  "root": {
+    "custom": { "AnyFault": false }, // <-- ROOT custom  -> {/root.custom.AnyFault}
+    "type": "ia.container.flex"
+  }
+}
+```
+
+### Recommended pattern for "one computed boolean, whole view"
+
+Put it on the **View's** `custom` category, not root's, and reference it
+as `{view.custom.X}`. The docs endorse exactly this: *"Custom properties
+can be defined for views. They act just like custom properties of a
+component and are internal to the view, so they can be referenced by all
+child components and containers in that view."* Two practical reasons to
+prefer it over root:
+
+- It survives someone restructuring or renaming containers under root.
+- It reads identically to `view.params.*`, which is already the
+  established idiom in a parameterized equipment template.
+
+Root-custom + `{/root.custom.X}` is equally *valid* and is the right
+choice when you don't want to re-author an existing binding — just be
+deliberate about which one you picked, and don't mix the two spellings
+for the same value.
+
+### Worked example — the aggregate-fault pump template
+
+Aggregate several alarm members into one boolean on the **View's**
+`custom.AnyFault`, via an Expression binding:
+
+```
+tag(Concat({view.params.Tag_Path},"/FAIL_alm")) ||
+tag(Concat({view.params.Tag_Path},"/DriveFault_alm")) ||
+tag(Concat({view.params.Tag_Path},"/CURRENT_HiAlm"))
+```
+
+Then, on any nested component however deep — e.g.
+`root > FlexContainer > FlexContainer_0 > Pump` (`ia.symbol.pump`), on
+`props.state`:
+
+```
+if({view.custom.AnyFault},"faulted",
+   if(tag(Concat({view.params.Tag_Path},"/Running_hwdi")),"running","stopped"))
+```
+
+This is a **chained binding** (a binding whose expression references a
+property that is itself bound). That is supported and normal in
+Perspective — Doug's own working
+`if({view.params.Fault},…)` binding is the same shape. Chaining is *not*
+the cause when this errors; a wrong scope keyword almost always is.
+
+### Other causes of a bare `Error_ExpressionEval`
+
+Ranked by how often they're the real culprit here:
+
+1. **Wrong scope keyword / unresolvable property path** — by far the most
+   common, and the one with the least helpful error text.
+2. **A typo or case mismatch in the property name.** These paths are
+   case-sensitive; `anyFault` ≠ `AnyFault`.
+3. **`tag()` pointing at a path that doesn't resolve** — usually because
+   the parameter feeding `Concat()` is empty at design time, or a member
+   name is misspelled. Test by previewing just the
+   `tag(Concat(...))` fragment alone.
+4. **Type mismatch in `if()`** — a referenced property holding an
+   Object/Dataset or `null` where a Boolean is expected.
+
+**Free reliability win:** never hand-type these paths. The expression
+binding editor has a **property-picker button** that inserts a
+syntactically correct reference at the cursor, generated from the actual
+view tree. It gets the `view.` vs `/root.` distinction right every time.
+
+**8.1 vs 8.3:** no behavioral difference found. The View property
+categories (`props`/`params`/`custom`), the one-root-container rule, and
+the absolute-path operator are documented identically on both.
+
 ## Importing generated UDT definitions into Ignition Designer (verified 2026-09-07)
 
 This is the receiving end of TASK_004 — the actual Designer steps for
