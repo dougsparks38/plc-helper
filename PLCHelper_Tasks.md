@@ -576,8 +576,27 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 **Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, and `FLOWVLV_AOI`
 all Implemented and export-verified** (`ALARM_AOI` 2026-09-10, the other
-three all 2026-09-11). **The other 4 AOI types are still Idea.**
+three all 2026-09-11). **`INTERLOCK_AOI` is Implemented and structurally
+verified as of 2026-09-11 — all 15 checks passed, awaiting Designer
+import confirmation before it can be promoted to export-verified.**
+**The other 3 AOI types are still Idea.**
 Script: `generate_ignition_tags.py`.
+
+`INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
+originally flagged as the natural next test candidate after `ALARM_AOI`.
+It inverts the shape of every prior run — the most instances (10) and by
+far the fewest members (5) — and it is the first run where **every**
+instance has a blank L5X description. All 15 structural checks passed,
+including the one that matters most for this type: the parameter set is
+exactly `DeviceName` + `Description`, with none of this AOI's many
+UDT-defaulted parameters leaking into the instances. **Structural only —
+no Designer import has been done yet**, so this is the same grade of
+evidence the three types above each held before their imports. One thing
+to watch on that import is flagged in the run section: the two DINT
+bitfield parameters (`Interlocks`, `Visibility`) are emitted as two flat
+members, while the real Ignition UDT has them manually expanded per bit —
+a known observation, not a defect, and unrelated to this run's own
+correctness. See "Fifth run — `INTERLOCK_AOI`" below.
 
 `FLOWVLV_AOI` was the fourth type run through the tool and the second
 whose Ignition UDT name differs from its PLC AOI name (`FLOWVLV2_AOI`,
@@ -705,7 +724,7 @@ supplied the mapping directly. It is implemented in
 | `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed the Designer import 2026-09-11 |
 | `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ✅ **Yes** — Doug confirmed all test steps passed on Designer import 2026-09-11 |
 | `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed all 7 test steps passed on Designer import 2026-09-11 |
-| `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
+| `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ⚠️ **Structural only** — all 15 checks passed 2026-09-11, **not yet Designer-confirmed** |
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 | `MODVLV` | `MODVLV` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
 | `VARSPD2_AOI` | **`VARSPD_AOI`** | `DeviceName`, `Description`, `EngUnit` | ❌ No |
@@ -1361,6 +1380,163 @@ Doug confirmed the UDT bound correctly, all 38 members populated,
 existed on this type as expected. `FLOWVLV_AOI` is now export-verified,
 same confidence grade as the other three types, despite the thinner
 one-instance sample this run happened to produce.
+
+### Fifth run — `INTERLOCK_AOI` (2026-09-11)
+
+Placed here, after the whole `FLOWVLV_AOI` write-up rather than between
+that run and its own verification section, so each run stays next to the
+verification that belongs to it — same arrangement as the third and
+fourth runs.
+
+The fifth AOI type through the tool, and the type Doug originally flagged
+back on 2026-09-10 as the natural next test candidate after `ALARM_AOI`.
+Two-parameter mapping (`DeviceName`, `Description`) — no `EngUnit` — and
+the Ignition UDT name is the **same** as the PLC AOI name for this
+family, so `--udt-name` is deliberately omitted:
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type INTERLOCK_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/INTERLOCK_AOI tag instances generated 2026-09-11.json"
+```
+
+**Result: 10 `INTERLOCK_AOI` instances**, all controller-scoped, none an
+array, each with **5 members**. Kept in its **own file**, not merged with
+the four prior runs — small test scopes first, per Doug's standing
+instruction.
+
+**This run inverts the shape of every prior run: the most instances (10,
+where the previous high was 7) and by far the fewest members (5, where
+the others were 38 and 51).** `INTERLOCK_AOI`'s entire L5X parameter set
+is five parameters, in document order: `EnableIn`, `EnableOut`,
+`Interlocks`, `Visibility`, `OutputState`. That is the correct and
+expected outcome of the mapping-table note — this AOI's "many other
+parameters" live on the Ignition UDT *definition* with defaults and are
+inherited by the instance, so nothing is emitted for them; an instance
+only ever carries parameters it actually overrides.
+
+| Instance | L5X description |
+|---|---|
+| `BOP_BL1_INTERLOCK` | *(blank)* |
+| `O2_AC001_INTERLOCK` | *(blank)* |
+| `O2_AC010A_INTERLOCK` | *(blank)* |
+| `O2_AC010B_INTERLOCK` | *(blank)* |
+| `O2_AD002_INTERLOCK` | *(blank)* |
+| `O2_BL2_INTERLOCK` | *(blank)* |
+| `O2_MV112A_INTERLOCK` | *(blank)* |
+| `O2_OG003_INTERLOCK` | *(blank)* |
+| `O2_RB010A_INTERLOCK` | *(blank)* |
+| `O2_RB010B_INTERLOCK` | *(blank)* |
+
+Three things to look at before importing. All three are **flagged, not
+filtered** — same reasoning as every prior run: the qualifying input is
+an *AOI type*, and this task has no notion of job scope, description
+quality, or name prefix within a type. Every one of these is a faithful
+copy of what the PLC program actually says.
+
+1. ⚠ **Every one of the 10 descriptions is blank — 10 of 10, the first
+   run where this is true of any instance at all, let alone all of
+   them.** A blank description is a real value here, not a missing field
+   (see the script's module docstring and the `ALARM_AOI` run), so the
+   `Description` parameter is still emitted for all 10 with an empty
+   string, and the script listed every one of them explicitly rather
+   than passing over them silently. This is a different anomaly class
+   from `FLOWIN3_AOI`'s `description <number>` placeholders: there the
+   PLC text was unfinished, here there is no PLC text at all. The
+   operator-visible description on all 10 Ignition tags will be empty
+   until something changes. Fixing it belongs in the L5X rather than in
+   the generated JSON, so it survives the next regeneration — same
+   conclusion as the `FLOWIN3_AOI` placeholders. Not acted on here;
+   Doug's call.
+2. ⚠ **One of the 10 is `BOP_`-prefixed, not `O2_`** —
+   `BOP_BL1_INTERLOCK`; the other nine all carry the `O2_` prefix. Same
+   class of folder-placement question as `BOP_FLR` on the `CONSPD4_AOI`
+   run and the six `BOP_FIT30xx` tags on the `FLOWIN3_AOI` run, at the
+   smallest share yet (1 of 10). Not filtered by name prefix — prefix
+   filtering is exactly the loose `O2_`-match approach this task retired
+   in the 2026-09-08 re-scope. Doug resolves placement by hand,
+   tag-by-tag, during the Designer import.
+3. ⚠ **The two DINT bitfield parameters (`Interlocks`, `Visibility`) are
+   emitted as two flat `AtomicTag` members, one each — worth watching on
+   import.** This is correct behavior for this script: members come from
+   the L5X parameter list verbatim, and in the PLC each of these *is* a
+   single DINT. But the real Ignition `INTERLOCK_AOI` UDT has per-bit
+   tags manually bound for those bitfields, which is precisely the gap
+   that has TASK_004's definition side on hold for this type (see
+   `BLUE_SKY_STATUS.md`). So the generated instance's 5-member list is
+   **not** expected to line up one-for-one with the real UDT's member
+   list. Members are inherited from the definition and matched by name
+   on import, so the practical question is what Designer does with two
+   named members whose names may not exist on the definition. **Raised
+   as an observation to watch during the import test, not a defect and
+   not something to work around here** — the TASK_004 bitfield gap is a
+   different task and explicitly out of scope for this run.
+
+**No other anomaly classes present.** No duplicated descriptions across
+tags (vacuously true — all blank, but checked rather than assumed), no
+placeholder `description <number>` text, no array instances, no
+program-scoped instances, no duplicate instance names.
+
+### Verification of the `INTERLOCK_AOI` run (2026-09-11) — PASSED, structural only
+
+**No reference export exists for this type**, so this is the same grade
+of evidence the `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI` runs each
+had before their Designer imports — *not* the export-verified grade all
+four prior types now hold. The output was cross-read against the L5X by a
+separate throwaway script that re-parses the L5X with its own code and
+deliberately does **not** import `generate_ignition_tags.py` — a bug in
+the tool's own helpers cannot hide itself by being used on both sides of
+the comparison.
+
+| Check | Result |
+|---|---|
+| Instance count vs. L5X instances of this type | **10 / 10** |
+| Member count vs. `INTERLOCK_AOI`'s own L5X parameter set | **5 / 5** on all 10 instances |
+| Member names — exact set match to the L5X parameters | match, zero missing / zero extra |
+| Member order == L5X document order | match, all 10 |
+| No duplicate member names | match |
+| `typeId` == `BlueSky/AOI/INTERLOCK_AOI` on every instance | match, all 10 |
+| `INTERLOCK_AOI` occurrences in the file == one per instance | **10 / 10** — appears only inside `typeId`, nowhere stray |
+| `DeviceName` == `String` / `BOP_O2_CombinedTest` | match, all 10 |
+| `Description` == that instance's own L5X description, verbatim | match, all 10 — all empty strings |
+| Parameter set == exactly `DeviceName` + `Description` (no more, no less) | match, all 10 — no defaulted parameter leaked through |
+| Top-level key shape == the verified prior runs | match (`name`, `parameters`, `tagType`, `tags`, `typeId`) |
+| `tagType` == `UdtInstance`; members only `name` + `tagType: AtomicTag` | match |
+| Instance names == L5X tag names verbatim | match, all 10, same order |
+| No duplicate instance names | match |
+| Top-level payload shape == `{"tags": [...]}` | match (`--folder-mode flat`) |
+
+15 checks, all passed.
+
+Note on the name-occurrence row — this is the `FLOWIN3_AOI` variant of
+the check, not the `CONSPD4_AOI`/`FLOWVLV_AOI` one. Here the PLC name and
+the UDT name are the **same**, so zero occurrences would be the wrong
+expectation; the equivalent check is that the name appears *exactly once
+per instance*, inside `typeId` and nowhere else. Ten instances, ten
+occurrences.
+
+Note on the parameter-set row — it carries more weight on this type than
+on any prior run. `INTERLOCK_AOI` is the type with "many other
+parameters" defined on the Ignition UDT, so the meaningful assertion is
+not just that `DeviceName` and `Description` are present but that
+**nothing else leaked through**: every one of those other parameters must
+stay absent from the instance and be inherited from the definition's
+defaults. Confirmed absent on all 10.
+
+**What this does and does not establish.** It establishes that the
+two-parameter mapping emits with no `EngUnit`, that no defaulted
+parameter leaks into the instances, that the 5-member list comes from the
+L5X in document order, and that the PLC-name-equals-UDT-name case builds
+`typeId` correctly. It does **not** establish that the real Ignition
+`INTERLOCK_AOI` UDT has exactly these 5 members — and for this type there
+is positive reason to expect it does not, because of the manually
+expanded bitfield tags noted as flag 3 above. Only a real export or a
+Designer import can settle that. The UNVERIFIED warning printed on this
+run, as it should have.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
@@ -2373,7 +2549,30 @@ situation."
 
 ---
 
-*Last updated: September 11, 2026 (5th) — TASK_005 fourth run:
+*Last updated: September 11, 2026 (6th) — TASK_005 fifth run:
+`INTERLOCK_AOI` generated **10 instances, 5 members each**, into its own
+file `BlueSky/INTERLOCK_AOI tag instances generated 2026-09-11.json`.
+Ignition UDT name equals the PLC AOI name for this family, so
+`--udt-name` was omitted and the name was verified to appear **exactly
+once per instance, inside `typeId` only**. The run inverts the shape of
+every prior one — most instances yet (10 vs. a previous high of 7), by
+far the fewest members (5 vs. 38 and 51) — and the parameter-set check
+carries the most weight here of any run so far: exactly `DeviceName` +
+`Description`, with **none** of this AOI's many UDT-defaulted parameters
+leaking into the instances. All 15 structural checks passed, cross-read
+against the L5X by an independent throwaway script; **structural only —
+not yet Designer-confirmed**, and the script's UNVERIFIED warning printed
+as expected. Added the "Fifth run — `INTERLOCK_AOI`" and "Verification of
+the `INTERLOCK_AOI` run" sections, updated the Status line and the
+per-AOI parameter table's `INTERLOCK_AOI` row to the ⚠️ structural-only
+grade. **Three anomalies flagged, none acted on:** all 10 descriptions
+blank (a first — a valid value, not a missing field, but every
+operator-visible description will be empty); one `BOP_`-prefixed instance
+(`BOP_BL1_INTERLOCK`) raising the usual folder-placement question; and
+the two DINT bitfield parameters (`Interlocks`, `Visibility`) emitted as
+flat members where the real Ignition UDT has them manually expanded per
+bit — flagged to watch on import, explicitly **not** an attempt to touch
+the separate TASK_004 bitfield gap. Prior update, September 11, 2026 (5th) — TASK_005 fourth run:
 `FLOWVLV_AOI` generated **1 instance (`O2_MV112A`), 38 members**, into its
 own file `BlueSky/FLOWVLV_AOI tag instances generated 2026-09-11.json`.
 Second family whose Ignition UDT name differs from its PLC AOI name —
