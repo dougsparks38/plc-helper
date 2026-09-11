@@ -1044,16 +1044,27 @@ revision 2.4 in this L5X.
 | `O2_AD002` | AD-002 Air Dryer |
 | `O2_OG003` | OG-003 Oxygen (O2) Generator |
 
-⚠ **`BOP_FLR` is a flare tag, not an O2 tag, and this run puts it in the
+✅ **`BOP_FLR` is a flare tag, not an O2 tag, and this run puts it in the
 O2 destination folder.** It is a genuine `CONSPD4_AOI` instance so the
 script is right to emit it — the qualifying input is an *AOI type*, and
 this task has no notion of job scope within a type. But
 `--dest-folder "[default]O2InjectionSystem"` was chosen for the O2 scope,
 and three of these four instances are `O2_`-prefixed while this one is
-not. **Doug should decide whether `BOP_FLR` belongs in that folder before
-importing.** Flagging rather than filtering it: name-prefix filtering is
+not. Flagging rather than filtering it: name-prefix filtering is
 exactly the loose `O2_`-prefix approach this task retired in 2026-09-08's
 re-scope, and re-introducing it silently would undo that decision.
+
+**Resolved 2026-09-11, per Doug: `BOP_FLR` also imported and looks
+perfect, staying in the O2 folder for this job.** More generally, worth
+recording why a flare tag legitimately uses `CONSPD4_AOI` at all —
+`CONSPD4_AOI` was originally scoped for single-speed motors (a thing that
+turns on/off and can fail to do either, with runtime/failure alarming),
+but its actual real-world use has broadened: **anything that turns
+on/off and has the same class of failure modes reuses this AOI**, motor
+or not. Blue Sky's flare is the concrete example. See TASK_011 below —
+Doug wants PLCHelper to eventually be able to *suggest* an existing AOI
+like this one when someone describes a new on/off-with-failure-modes
+control need, instead of assuming a new AOI is required.
 
 ### Verification of the `CONSPD4_AOI` run (2026-09-10) — PASSED, structural only
 
@@ -1170,8 +1181,9 @@ one of these is a faithful copy of what the PLC program actually says.
    handling folder placement for `BOP_`-prefixed instances by hand,
    tag-by-tag, during the Designer import itself** — confirmed working
    well. No script-side filtering change requested or needed; this is
-   Doug's own judgment call per instance, same as the still-open
-   `BOP_FLR` question on the `CONSPD4_AOI` run.
+   Doug's own judgment call per instance, same as the `BOP_FLR` question
+   on the `CONSPD4_AOI` run (also resolved 2026-09-11 — see that
+   section).
 
 ### Verification of the `FLOWIN3_AOI` run (2026-09-11) — PASSED, structural only
 
@@ -2179,7 +2191,78 @@ undeclared edit, rather than passing vacuously.
 
 ---
 
-*Last updated: September 11, 2026 (2nd) — TASK_005 third run:
+## TASK_011 — Suggest existing AOIs for a described control need
+
+**Status:** **Idea — first real content added 2026-09-11 (written
+reference, not a tool). Confirmed with Doug: this is a documentation
+feature, not an automated matching tool** — shape question 1 below is
+now resolved.
+
+### Purpose
+
+When someone describes needing an AOI/control scheme for a new piece of
+equipment, PLCHelper should be able to check whether an existing,
+already-supported AOI already covers that need — instead of everyone
+assuming a new AOI has to be designed from scratch every time.
+
+Prompted directly by `CONSPD4_AOI` (see TASK_005's "Second run" section
+above): it was originally scoped for single-speed motors — something
+that turns on/off and can fail to do either, needing run-fail alarming
+and runtime tracking — but its real-world use has broadened. Doug (or
+someone else at Casne, not recalled who) realized **any** on/off
+actuator with that same class of failure modes can reuse it, motor or
+not. Blue Sky's flare tag (`BOP_FLR`) is a live example — a non-motor
+device legitimately using `CONSPD4_AOI`.
+
+### Doug's framing, verbatim (2026-09-11)
+
+"...whenever we have a thing like this, like the flare, it can turn on
+and off, and it has failure modes. So we just use that con spd for AOI
+for that too... it would be pretty nice if in the future... when someone
+says, oh, I need an AOI that'll control this thing that I need to turn
+on and off, you can suggest, hey, that con spd AOI might work for this
+situation."
+
+### Resolved 2026-09-11
+
+1. ✅ **Documentation/knowledge feature, confirmed — not an automated
+   tool.** A written **Broader use case** note per AOI, for a future
+   session or engineer to read and match by judgment. No matching
+   engine, no new script.
+2. ✅ **Lives in `PLCHelper_Reference.md`**, the existing AOI/UDT
+   reference document — not `PLCHelper_Status.md` (that stays scoped to
+   infrastructure/task tracking, per Lesson 9). A short intro note was
+   added there explaining the convention, plus the first real entry: a
+   **Broader use case** note on `CONSPD4_AOI` (any on/off actuator
+   needing run-fail alarming and runtime/stuck-on tracking, motor or
+   not — Blue Sky's flare tag `BOP_FLR` is the confirmed real example).
+
+### Still open
+
+3. **Which other AOIs need this treatment?** Only `CONSPD4_AOI` has a
+   Broader use case note so far. Others may have similarly generalized
+   real-world uses not reflected in their PLC-side names — a pass across
+   the whole supported-AOI list in `PLCHelper_Reference.md` would be
+   needed to find them. Not started; no timeline requested.
+
+---
+
+*Last updated: September 11, 2026 (4th) — TASK_011 scope confirmed with
+Doug: a written reference (not a tool), living in `PLCHelper_Reference.md`
+(not `PLCHelper_Status.md`, per Lesson 9). First real content added there:
+an intro note on the new "Broader use case" convention, plus the first
+entry on `CONSPD4_AOI` itself. Which other AOIs need the same treatment
+stays open, not started. Prior update, September 11, 2026 (3rd) — resolved the `BOP_FLR` flag on
+TASK_005's `CONSPD4_AOI` run: Doug confirmed it also imported perfectly
+and stays in the O2 destination folder for this job. Recorded the
+broader reason why a flare tag legitimately uses `CONSPD4_AOI` at all —
+it was originally scoped for single-speed motors but its real use has
+generalized to any on/off actuator with the same failure-mode class.
+Added new **TASK_011** (Idea stage): a future PLCHelper capability to
+suggest an existing AOI (like `CONSPD4_AOI`) when someone describes a new
+on/off-with-failure-modes control need, instead of assuming a new AOI is
+required — not yet scoped, three open questions logged, not started.
+Prior update, September 11, 2026 (2nd) — TASK_005 third run:
 `FLOWIN3_AOI` generated **7 instances, 51 members each**, into its own
 file `BlueSky/FLOWIN3_AOI tag instances generated 2026-09-11.json`. First
 run to exercise the three-parameter mapping (`EngUnit` created and

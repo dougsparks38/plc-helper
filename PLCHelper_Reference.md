@@ -6,6 +6,16 @@ copied exactly from the L5X files. Sections are sorted A–Z by name. Each secti
 source: **Casne** (built/authored in-house, no `Vendor` attribute on the source `AddOnInstructionDefinition`)
 or the vendor named in that attribute (e.g. **Rockwell Automation**).
 
+**Broader use case notes (added 2026-09-11, PLCHelper TASK_011 — Idea
+stage, see `PLCHelper_Tasks.md`):** some AOIs get reused for real-world
+equipment their name doesn't suggest — Doug's example: `CONSPD4_AOI` was
+scoped for single-speed motors, but really fits *any* on/off actuator
+with the same failure-mode class. A **Broader use case** line, when
+present in a section below, records that generalized fit — check it
+before assuming a new AOI needs to be built for a new piece of on/off
+equipment. Only `CONSPD4_AOI` carries one so far; adding these to the
+rest of the AOIs below is real future work, not yet done.
+
 ---
 
 ## ALARM_AOI
@@ -40,6 +50,13 @@ One instance per alarm point; every alarm should map to a FactoryTalk SE/ME alar
 
 Revision 2.4. Constant-speed motor/pump AOI. Provides HOA mode control, fail-to-run alarm, stuck-on runtime alarm,
 circuit breaker auxiliary alarm, total and monthly runtime hour tracking, and last start/stop/runtime timestamps.
+
+**Broader use case (per Doug, 2026-09-11):** not limited to motors —
+suits *any* on/off actuator that needs run-fail alarming and runtime/
+stuck-on tracking. Confirmed real example: Blue Sky's flare tag
+(`BOP_FLR`) uses this AOI, and it is correct as-is, not a misuse. Before
+building a new AOI for a piece of equipment that simply turns on/off and
+can fail to do so, check whether this one already fits.
 
 HOA_STATUS_scai values: -1=Manual, 0=Off, 1=Auto
 MOTOR_STATUS_scai values: 0=stopped, 1=running, 2=fault
