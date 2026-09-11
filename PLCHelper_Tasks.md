@@ -574,22 +574,19 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, and `FLOWIN3_AOI` all
-Implemented and export-verified** (`ALARM_AOI` 2026-09-10, `CONSPD4_AOI`
-and `FLOWIN3_AOI` both 2026-09-11). **`FLOWVLV_AOI` is Implemented and
-structurally verified only (2026-09-11) — awaiting Designer import
-confirmation**, the same intermediate grade `CONSPD4_AOI` and
-`FLOWIN3_AOI` each held before their imports. **The other 4 AOI types are
-still Idea.** Script: `generate_ignition_tags.py`.
+**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, and `FLOWVLV_AOI`
+all Implemented and export-verified** (`ALARM_AOI` 2026-09-10, the other
+three all 2026-09-11). **The other 4 AOI types are still Idea.**
+Script: `generate_ignition_tags.py`.
 
 `FLOWVLV_AOI` was the fourth type run through the tool and the second
 whose Ignition UDT name differs from its PLC AOI name (`FLOWVLV2_AOI`,
 passed with `--udt-name`). It produced a single instance, `O2_MV112A`,
 with 38 members; all 15 structural checks passed and the anomaly scan was
-completely clean — the first run of the four with nothing to flag. See
-"Fourth run — `FLOWVLV_AOI`" below. Do not read that clean result as
-strong evidence: one instance is the smallest scope yet run, and only a
-Designer import can promote it to export-verified.
+completely clean. **Doug confirmed 2026-09-11 that all 7 test steps
+passed on Designer import**, promoting it to the same export-verified
+grade as the other three types, despite the thinner one-instance sample
+size — see "Fourth run — `FLOWVLV_AOI`" below.
 
 `FLOWIN3_AOI` was the third type run through the tool and the first to
 exercise the three-parameter mapping (`DeviceName`, `Description`,
@@ -707,7 +704,7 @@ supplied the mapping directly. It is implemented in
 | `ALARM_AOI` | `ALARM_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` | ✅ **Yes** — against a real export |
 | `CONSPD4_AOI` | **`CONSPD2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed the Designer import 2026-09-11 |
 | `FLOWIN3_AOI` | `FLOWIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ✅ **Yes** — Doug confirmed all test steps passed on Designer import 2026-09-11 |
-| `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ⚠️ **Structural only** — generated and all 15 structural checks passed 2026-09-11, but **not yet confirmed by a Designer import**. Lower grade than the three ✅ rows above. |
+| `FLOWVLV_AOI` | **`FLOWVLV2_AOI`** | `DeviceName`, `Description` | ✅ **Yes** — Doug confirmed all 7 test steps passed on Designer import 2026-09-11 |
 | `INTERLOCK_AOI` | `INTERLOCK_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description` (+ many defaulted params, see note) | ❌ No |
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 | `MODVLV` | `MODVLV` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
@@ -1357,6 +1354,13 @@ list comes from the L5X. It does **not** establish that the real Ignition
 `FLOWVLV2_AOI` UDT has exactly these 38 members or exactly these two
 parameters — only a real export or a Designer import can show that. The
 UNVERIFIED warning printed on this run, as it should have.
+
+**Update 2026-09-11 — Designer import done, all 7 test steps passed.**
+Doug confirmed the UDT bound correctly, all 38 members populated,
+`DeviceName`/`Description` were correct, and no `EngUnit` parameter
+existed on this type as expected. `FLOWVLV_AOI` is now export-verified,
+same confidence grade as the other three types, despite the thinner
+one-instance sample this run happened to produce.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
