@@ -528,6 +528,104 @@ UDT instances or definition members "would flag existing values as
 overrides on Memory tags" — so an 8.3 upgrade improves rename behavior
 specifically, while the delete-and-re-add override loss is unchanged.
 
+## Importing tag *instances* — `does not have item 'X' for overrides, and cannot accept children tags` (verified 2026-09-11)
+
+Third entry in the import-troubleshooting run above. The first covers
+*getting a definition JSON in*; the second covers *replacing a definition
+that has instances*. This one is the **instance** side — TASK_005's
+output, not TASK_004's — and it is a different failure with a different
+cause, so do not reach for either of the answers above.
+
+**The error.** Advanced Tag Import accepts the file, reports collisions,
+then fails per target path with:
+
+```
+Bad_Unsupported("The target path '[default]<folder>/<TagName>' does not
+have item 'EnableIn' for overrides, and cannot accept children tags.")
+```
+
+**What it actually means — and what it does not.** A `UdtInstance` node
+can hold exactly two things: **parameter values**, and **overrides of
+members its UDT definition already declares**. It cannot hold a child the
+definition does not declare, because an instance is not a folder. The
+message's two clauses map straight onto that: *"does not have item 'X'
+for overrides"* = the definition declares no member named `X`; *"and
+cannot accept children tags"* = and an instance can't take it as a new
+child either. Decisive forum quote: **"Ignition doesn't support this at
+all. You must change the definition to include more members... UDT
+instances are not folders."** See `claude-workflow/TRUSTED_SOURCES.md`,
+entry "Forum: `Bad_Unsupported(...does not have item 'X' for
+overrides...)`", for the sources and the other reported forms.
+
+**So it is a member-NAME mismatch between the import file and the UDT
+definition.** Three things it is *not*, each ruled out rather than
+assumed:
+
+- **Not a Collision Policy problem.** No policy makes an instance accept
+  an undeclared child. `Overwrite` vs `MergeOverwrite` changes what
+  happens to properties that *do* resolve; it cannot conjure a member.
+  `Ignore` only appears to help because it skips the colliding paths
+  entirely — it imports nothing for them.
+- **Not the `MergeOverwrite` guidance from the section above.** That
+  guidance is scoped to **replacing a UDT definition that has live
+  instances**. This is importing **instances** into a folder. Different
+  operation, different failure; the two do not transfer.
+- **Not a `--folder-mode flat` / `wrap` problem.** `flat` is correct and
+  matches the shape of a real Ignition instance export. The error is
+  raised *inside* a target tag, after the destination folder has already
+  been resolved.
+
+**Read the count correctly.** The error is reported **once per target
+path**, and it names only the **first** offending child. "Error 1 of 9"
+means nine target paths failed — not nine bad members, and not that the
+other members are fine. Expect every undeclared member to be a problem.
+
+**Diagnostic — one step, settles it.** Export the target type's
+**definition** from the UDT Definitions tab and compare its member names
+against the `name` values in the import file's per-instance `tags` array.
+No overlap, or a missing name, is the whole answer. Do not start by
+reading the tag at the failing path — the tag is usually fine; it is the
+*definition behind it* that disagrees with the file.
+
+**The structural trap this exposes, worth understanding once.** An
+Ignition export of a UDT instance emits a **bare stub per member** —
+`{"name": "...", "tagType": "AtomicTag"}` with no properties at all.
+`generate_ignition_tags.py` mirrors that shape, taking the member names
+from the **L5X AOI parameter list**. Those stubs carry **zero
+information**: members are inherited from the definition, and a stub with
+no properties overrides nothing. They are pure redundancy on a new
+instance import — and they are the **only** part of the file that can
+raise this error. Whenever the Ignition UDT was hand-built rather than
+generated from the same L5X, the two name lists are free to disagree and
+this is what it looks like.
+
+**Fix, in order:**
+1. Strip the per-instance `tags` array from the import file (or emit it
+   empty). A `UdtInstance` object with just `name` / `tagType` / `typeId`
+   / `parameters` is legal and imports cleanly on definition defaults.
+2. Re-import. Use **`MergeOverwrite`**, not `Overwrite`, whenever the
+   existing instances may carry parameter overrides the generated file
+   does not mention — `Overwrite` is a complete overwrite of the tag and
+   will drop them, and a generated blank `Description` will overwrite a
+   hand-typed one under either policy.
+3. Only if members genuinely need to exist on the instances, fix the
+   **definition** (TASK_004 side) — never the instance file.
+
+**Known live case: `INTERLOCK_AOI` (Blue Sky).** Confirmed 2026-09-11 by
+reading Doug's own definition export. The real Ignition `INTERLOCK_AOI`
+UDT (`tagType: UdtType`) declares **64 members** — `Interlock_00`..`_31`
+and `Visibility_00`..`_31`, each an OPC tag bound per bit
+(`...{InstanceName}.Interlocks.9`). The generated instance file declares
+five — `EnableIn`, `EnableOut`, `Interlocks`, `Visibility`,
+`OutputState`, straight from the L5X parameter list. **Zero overlap**, so
+the import fails on the first one alphabetically-by-document-order,
+`EnableIn`. Its top-level `parameters` (`DeviceName`, `Description`) are
+correct and *do* exist on the definition. This is the manual bitfield
+expansion already recorded in `BlueSky/BLUE_SKY_STATUS.md` (Open Work
+Item 1, sub-item 5) and flagged in advance as watch-item 3 of
+`PLCHelper_Tasks.md`'s "Fifth run — `INTERLOCK_AOI`" — the prediction was
+right, and this is its confirmation.
+
 ## Editing L5X files
 
 - Ladder logic rungs are in `<Text><![CDATA[...]]></Text>` blocks
