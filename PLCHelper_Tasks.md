@@ -578,15 +578,13 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 `ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
 `VARSPD2_AOI`, and `MODVLV`** (`ALARM_AOI` 2026-09-10; `CONSPD4_AOI`,
 `FLOWIN3_AOI`, `FLOWVLV_AOI` 2026-09-11; `LEVELIN3_AOI`, `VARSPD2_AOI`,
-`MODVLV` 2026-09-12). `MODVLV` is a native Rockwell UDT, not an AOI —
-required adding native-UDT support to `generate_ignition_tags.py`
-(2026-09-12, reusing `generate_ignition_udt.py`'s existing parsing rather
-than duplicating it; see below). **`INTERLOCK_AOI` — fix applied and
-regenerated (2026-09-12), not yet re-imported/confirmed.** The known
-import fix (instance `tags` arrays always empty now, not just for this
-type — see below) is in the script and the file has been regenerated;
-Doug still needs to re-import with `MergeOverwrite` to confirm before
-this is export-verified. This is the only type not yet fully done.
+`MODVLV`, `INTERLOCK_AOI` — 2026-09-12). `MODVLV` is a native Rockwell
+UDT, not an AOI — required adding native-UDT support to
+`generate_ignition_tags.py` (2026-09-12, reusing `generate_ignition_udt.py`'s
+existing parsing rather than duplicating it). `INTERLOCK_AOI` needed a
+script-level fix (instance `tags` arrays are now always empty, for every
+type — see below) before it would import cleanly.
+**TASK_005 IS COMPLETE — ALL 8 QUALIFYING TYPES DONE.**
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1972,10 +1970,14 @@ their live Designer state changes.
 
 **`INTERLOCK_AOI` regenerated** with the fix —
 `BlueSky/INTERLOCK_AOI tag instances generated 2026-09-12.json`, same 10
-instances as the fifth run, `tags: []` on all of them. **Not yet
-re-imported/confirmed by Doug** — that's the next step, using
-`MergeOverwrite` per the skill file's own guidance (existing instances
-may carry parameter overrides this generated file doesn't mention).
+instances as the fifth run, `tags: []` on all of them.
+
+**Confirmed working by Doug (2026-09-12) — promoted to export-verified.**
+Re-imported with `MergeOverwrite`, worked — the `Bad_Unsupported` error
+is gone. `INTERLOCK_AOI` is now the eighth and final type at this grade.
+**All 8 qualifying types (`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`,
+`FLOWVLV_AOI`, `LEVELIN3_AOI`, `VARSPD2_AOI`, `MODVLV`, `INTERLOCK_AOI`)
+are now Implemented and export-verified. TASK_005 is complete.**
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
@@ -2988,7 +2990,11 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 (6th) — Fixed the `INTERLOCK_AOI`
+*Last updated: September 12, 2026 (7th) — `INTERLOCK_AOI` confirmed
+working by Doug: re-imported with `MergeOverwrite`, the `Bad_Unsupported`
+error is gone. Promoted to export-verified — **TASK_005 is now complete,
+all 8 qualifying types done.** Status line updated to reflect completion.
+Prior update, September 12, 2026 (6th) — Fixed the `INTERLOCK_AOI`
 import blocker at the script level rather than patching one file (Doug's
 explicit choice): `generate_ignition_tags.py`'s `build_instance()` now
 always emits `"tags": []` for every type, permanently, instead of
