@@ -584,7 +584,8 @@ re-import `MergeOverwrite`), not yet applied. **`MODVLV` attempted and
 blocked** — it's a native UDT, not an AOI, and the script has no
 `--datatype`-equivalent path for native-UDT-typed tag instances (mirrors
 the `TASK_004`/`TASK_008` split); needs new capability, not yet speced.
-**`VARSPD2_AOI` remains Idea.**
+**`VARSPD2_AOI` is Implemented and structurally verified** (2026-09-12,
+all 12 checks passed) — awaiting Designer import confirmation.
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1717,6 +1718,99 @@ mirroring how `TASK_008` was split out from `TASK_004` — not yet
 speced or built. **Doug's decision needed** on whether/how to extend
 `generate_ignition_tags.py` (a `--datatype` flag analogous to
 `TASK_008`) before `MODVLV` instances can be generated this way.
+Doug's call (2026-09-12): move on to `VARSPD2_AOI` for now rather than
+build the new capability immediately — see the next run below.
+
+### Seventh run — `VARSPD2_AOI` → UDT `VARSPD_AOI` (2026-09-12)
+
+Ignition UDT name **differs** from the PLC AOI name for this family
+(confirmed against `BLUE_SKY_STATUS.md`'s per-AOI checklist — imported
+and confirmed working under the name `VARSPD_AOI` back on 2026-09-08), so
+`--udt-name` is required:
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type VARSPD2_AOI \
+  --udt-name VARSPD_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/VARSPD2_AOI tag instances generated 2026-09-12.json"
+```
+
+**Result: 6 `VARSPD2_AOI` instances**, all controller-scoped, each
+carrying the same 3-member set (`Description`, `DeviceName`, `EngUnit`)
+out of 102 total parameters defined on the AOI — the largest parameter
+count of any type run so far.
+
+| Instance | L5X description |
+|---|---|
+| `BOP_BL1` | Lagoon Blower BL-1 |
+| `O2_AC010A` | Digester-A After Cooler |
+| `O2_AC010B` | Digester-B After Cooler |
+| `O2_BL2` | Lagoon Blower BL-2 |
+| `O2_RB010A` | Digester-A Recirc Blower |
+| `O2_RB010B` | Digester-B Recirc Blower |
+
+Notable overlap with today's separate Perspective work: `O2_BL2` and
+`BOP_BL1` are the exact two pump instances from today's live
+`Pump_UDTVARSPD_AOI_small` troubleshooting in `BLUE_SKY_STATUS.md` (the
+`AnyFault` fix and the missing-Device-parameter bug) — same PLC tags,
+different layer of the system (Perspective UI vs. Ignition tag
+instance), not a coincidence worth chasing further.
+
+One thing to look at before importing, **flagged not filtered** per the
+task's standing scope:
+
+1. ⚠ **1 of the 6 (`BOP_BL1`) is `BOP_`-prefixed**, the other 5 are
+   `O2_`-prefixed — same folder-placement question as every prior mixed
+   run. Doug already has a working pattern for this (split by hand
+   during import, as done on `LEVELIN3_AOI`).
+
+**No other anomaly classes present.** No duplicate instance names, no
+array instances, no program-scoped instances, no blank or placeholder
+descriptions.
+
+**The script's own printed warning applies to this type**, same
+UNVERIFIED-mapping grade as every run since `ALARM_AOI`.
+
+### Verification of the `VARSPD2_AOI` run (2026-09-12) — PASSED, structural only
+
+Cross-read against the L5X by a separate throwaway script, same method as
+every prior verification.
+
+| Check | Result |
+|---|---|
+| Instance count vs. L5X instances of this type | **6 / 6** |
+| Instance names — exact set match to the L5X | match, zero missing / zero extra |
+| Instance order == L5X document order | match, all 6 |
+| No duplicate instance names | match |
+| `typeId` == `BlueSky/AOI/VARSPD_AOI` on every instance | match, all 6 |
+| PLC name `VARSPD2_AOI` occurrences in the file == 0 (never leaks in) | match — 0 found |
+| UDT name `VARSPD_AOI` occurrences == instance count (typeId only) | match — 6 / 6 |
+| `tagType` == `UdtInstance` on every instance | match |
+| `DeviceName` == `String` / `BOP_O2_CombinedTest` | match, all 6, one consistent value |
+| `Description` == that instance's own L5X description, verbatim | match, all 6 (see note below) |
+| Member set == exactly `Description` + `DeviceName` + `EngUnit`, nothing else | match, all 6 — no defaulted parameter (of the other 99) leaked through |
+| Top-level payload shape == `{"tags": [...]}` | match (`--folder-mode flat`) |
+
+12 checks, all passed.
+
+**Second verification-script gotcha found and corrected, logged so it
+isn't rediscovered a third time:** the L5X's raw `<Description>` XML text
+node carries surrounding whitespace/newlines (e.g. `"\nLagoon Blower
+BL-1\n"`), which the real tool correctly strips before emitting
+`"Lagoon Blower BL-1"`. A first pass of this run's own verification
+script compared the raw unstripped XML text against the tool's cleaned
+output and threw a false failure on all 6 instances before this was
+caught — the fix is `.strip()` on the L5X side before comparing, not a
+defect in `generate_ignition_tags.py`. Combined with the
+`LEVELIN3_AOI` run's `Description`/`DeviceName`/`EngUnit` gotcha, any
+future ad hoc verification script should account for both up front:
+(1) those three fields are the tool's standard always-emitted fields,
+not members of the AOI's own parameter list, and (2) L5X description
+text needs stripping before byte-for-byte comparison.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
@@ -2729,7 +2823,21 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 (3rd) — `MODVLV` attempted for TASK_005
+*Last updated: September 12, 2026 (4th) — TASK_005 seventh run:
+`VARSPD2_AOI` generated **6 instances, 3 members each**, into its own
+file `BlueSky/VARSPD2_AOI tag instances generated 2026-09-12.json`,
+`--udt-name VARSPD_AOI` (differs from the PLC AOI name). All 12
+structural checks passed. Two of the six instances (`O2_BL2`, `BOP_BL1`)
+are the same pumps from today's separate live Perspective troubleshooting
+in `BLUE_SKY_STATUS.md` — same tags, different system layer, not
+duplicated work. One anomaly flagged: `BOP_BL1` is `BOP_`-prefixed among
+five `O2_`-prefixed instances, same folder-placement pattern as
+`LEVELIN3_AOI`. Also caught and logged a second verification-script
+gotcha: L5X `<Description>` text carries raw whitespace/newlines that
+must be stripped before comparing to the tool's cleaned output — a false
+failure in this run's own verification script, not a real defect,
+documented alongside the `LEVELIN3_AOI` gotcha so both are known going
+into future runs. Status line updated. Prior update, September 12, 2026 (3rd) — `MODVLV` attempted for TASK_005
 and blocked: it has no `AddOnInstructionDefinition` in the L5X, confirmed
 by actually running the script rather than assumed, since it's a native
 Rockwell UDT (same finding already established on the `TASK_004`/`TASK_008`
