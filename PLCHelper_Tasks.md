@@ -574,13 +574,14 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, and `FLOWVLV_AOI`
-all Implemented and export-verified** (`ALARM_AOI` 2026-09-10, the other
-three all 2026-09-11). **`INTERLOCK_AOI` and `LEVELIN3_AOI` are
-Implemented and structurally verified** (`INTERLOCK_AOI` 2026-09-11, all
-15 checks passed; `LEVELIN3_AOI` 2026-09-12, all 13 checks passed) —
-**both awaiting Designer import confirmation** before promotion to
-export-verified. **`MODVLV` and `VARSPD2_AOI` remain Idea.**
+**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`, and
+`LEVELIN3_AOI` all Implemented and export-verified** (`ALARM_AOI`
+2026-09-10; `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI` 2026-09-11;
+`LEVELIN3_AOI` 2026-09-12). **`INTERLOCK_AOI` is Implemented and
+structurally verified but blocked** — Designer import confirmed the
+predicted member-name mismatch; fix identified (strip `tags` array,
+re-import `MergeOverwrite`), not yet applied. **`MODVLV` and
+`VARSPD2_AOI` remain Idea.**
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1638,6 +1639,16 @@ bulk."* Same evidence tier as `CONSPD4_AOI`, `FLOWIN3_AOI`,
 `FLOWVLV_AOI`, and `INTERLOCK_AOI` before their own Designer imports —
 not the export-verified grade the first four runs now hold.
 
+**Confirmed working by Doug (2026-09-12) — promoted to export-verified.**
+Imported cleanly into Designer, no errors. The `BOP_`-prefixed vs.
+`O2_`-prefixed folder-placement question (flag 1 above) is resolved:
+Doug split the import by hand, putting the 7 `BOP_`-prefixed instances
+into the BOP folder and the 19 `O2_`-prefixed instances into the O2
+folder, rather than leaving everything in `[default]O2InjectionSystem`
+the way `BOP_FLR` was left in place on the `CONSPD4_AOI` run. `LEVELIN3_AOI`
+is now the fifth type at this grade, alongside `ALARM_AOI`, `CONSPD4_AOI`,
+`FLOWIN3_AOI`, and `FLOWVLV_AOI`.
+
 ### Verification of the `LEVELIN3_AOI` run (2026-09-12) — PASSED, structural only
 
 **No reference export exists for this type**, so this is the same grade
@@ -2692,7 +2703,13 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 — TASK_005 sixth run: `LEVELIN3_AOI`
+*Last updated: September 12, 2026 (2nd) — `LEVELIN3_AOI` confirmed working
+by Doug in Designer, no import errors — promoted from structurally
+verified to **export-verified**, the fifth type at that grade. The
+`BOP_`/`O2_` folder-placement question resolved by hand: Doug split the
+import, 7 `BOP_`-prefixed instances into the BOP folder, 19 `O2_`-prefixed
+into the O2 folder, rather than leaving everything in one destination
+folder. Status line updated accordingly. Prior update, September 12, 2026 — TASK_005 sixth run: `LEVELIN3_AOI`
 generated **26 instances, 3 members each** (`Description`, `DeviceName`,
 `EngUnit`, out of 90 total AOI parameters), into its own file
 `BlueSky/LEVELIN3_AOI tag instances generated 2026-09-12.json`, against a
