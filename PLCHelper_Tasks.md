@@ -576,10 +576,11 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 **Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, and `FLOWVLV_AOI`
 all Implemented and export-verified** (`ALARM_AOI` 2026-09-10, the other
-three all 2026-09-11). **`INTERLOCK_AOI` is Implemented and structurally
-verified as of 2026-09-11 — all 15 checks passed, awaiting Designer
-import confirmation before it can be promoted to export-verified.**
-**The other 3 AOI types are still Idea.**
+three all 2026-09-11). **`INTERLOCK_AOI` and `LEVELIN3_AOI` are
+Implemented and structurally verified** (`INTERLOCK_AOI` 2026-09-11, all
+15 checks passed; `LEVELIN3_AOI` 2026-09-12, all 13 checks passed) —
+**both awaiting Designer import confirmation** before promotion to
+export-verified. **`MODVLV` and `VARSPD2_AOI` remain Idea.**
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1552,6 +1553,133 @@ is positive reason to expect it does not, because of the manually
 expanded bitfield tags noted as flag 3 above. Only a real export or a
 Designer import can settle that. The UNVERIFIED warning printed on this
 run, as it should have.
+
+### Sixth run — `LEVELIN3_AOI` (2026-09-12)
+
+Run against a freshly re-exported L5X (same filename,
+`BOP_O2_CombinedTest_v35_Emulate.L5X`, intake-cleared through
+`PII_Review` the same day — the two known LINT-timestamp false positives
+applied per the standing exception in `BlueSky/CLAUDE.md`, no other flag
+type present). Ignition UDT name is the **same** as the PLC AOI name for
+this family, so `--udt-name` is deliberately omitted:
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type LEVELIN3_AOI \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/LEVELIN3_AOI tag instances generated 2026-09-12.json"
+```
+
+**Result: 26 `LEVELIN3_AOI` instances**, all controller-scoped, each
+carrying the same **3-member set** — `Description`, `DeviceName`,
+`EngUnit` — out of 90 total parameters defined on the AOI (the other 87
+are UDT-defaulted and correctly not emitted, same pattern as every prior
+run). Kept in its own file, not merged with the five prior runs.
+
+| Instance | L5X description |
+|---|---|
+| `BOP_GC3001` | O2 Receiver Tank Gas CH4 |
+| `BOP_GC3002` | O2 Receiver Tank Gas CH4 |
+| `BOP_GC3003` | O2 Receiver Tank Gas CH4 |
+| `BOP_GC3004` | O2 Receiver Tank Gas CH4 |
+| `BOP_GC3005` | O2 Receiver Tank Gas CH4 |
+| `BOP_GC3008` | O2 Receiver Tank Gas CH4 |
+| `BOP_PIT3001` | RNG Pressure |
+| `O2_BA400_CH4` | Analyzer BA-400 CH4 |
+| `O2_BA400_CO2` | Analyzer BA-400 CO2 |
+| `O2_BA400_H2S` | Analyzer BA-400 H2S |
+| `O2_BA400_N2` | Analyzer BA-400 N2 (calculated) |
+| `O2_BA400_O2` | Analyzer BA-400 O2 |
+| `O2_PIT010A` | Blower-A Suction Pressure |
+| `O2_PIT010B` | Blower-B Suction Pressure |
+| `O2_PIT012A` | BLOWER-A DISCHARGE PRESSURE |
+| `O2_PIT012B` | BLOWER-B DISCHARGE PRESSURE |
+| `O2_PIT020A` | Digester-A Cover Pressure |
+| `O2_PIT020B` | Digester-B Cover Pressure |
+| `O2_PIT3012` | WSP-3 Lagoon Pressure 1 |
+| `O2_PIT3013` | WSP-3 Lagoon Pressure 2 |
+| `O2_PIT3014` | WSP-4 Lagoon Pressure 1 |
+| `O2_PIT3015` | WSP-4 Lagoon Pressure 2 |
+| `O2_TIT010A` | Blower-A Discharge Temperature |
+| `O2_TIT010B` | Blower-B Discharge Temperature |
+| `O2_TIT011A` | Digester-A After-cooler cooled-gas discharge temperature |
+| `O2_TIT011B` | Digester-B After-cooler cooled-gas discharge temperature |
+
+Two things to look at before importing. Both **flagged, not filtered**,
+same reasoning as every prior run:
+
+1. ⚠ **7 of the 26 are `BOP_`-prefixed** (`BOP_GC3001`–`BOP_GC3005`,
+   `BOP_GC3008`, `BOP_PIT3001`) — the largest `BOP_` share of any run so
+   far (previous high: 1 of 10 on `INTERLOCK_AOI`). Same class of
+   folder-placement question as `BOP_FLR` (`CONSPD4_AOI`), the six
+   `BOP_FIT30xx` tags (`FLOWIN3_AOI`), and `BOP_BL1_INTERLOCK`
+   (`INTERLOCK_AOI`) — not filtered by name prefix, per the task's
+   standing scope (qualifying input is an AOI type, not a job-scope
+   prefix). Doug resolves placement by hand during the Designer import.
+2. ⚠ **`EngUnit` is blank on all 26 instances.** A real value, not a
+   missing field — same "blank is data, not absence" treatment as
+   `INTERLOCK_AOI`'s all-blank descriptions. Every one of these tags will
+   show no engineering unit in Ignition until the source AOI instances
+   in the PLC program carry one. Not acted on here; Doug's call whether
+   any of these actually need a unit filled in on the PLC side.
+
+**No other anomaly classes present.** No duplicate instance names, no
+array instances, no program-scoped instances, no placeholder
+`description <number>` text (unlike `FLOWIN3_AOI`).
+
+**The script's own printed warning applies to this type**: *"AOI type
+'LEVELIN3_AOI' parameter mapping is UNVERIFIED — it records Doug's
+stated intent but has never been checked against a real Ignition
+tag-instance export. Verify one instance by hand before importing in
+bulk."* Same evidence tier as `CONSPD4_AOI`, `FLOWIN3_AOI`,
+`FLOWVLV_AOI`, and `INTERLOCK_AOI` before their own Designer imports —
+not the export-verified grade the first four runs now hold.
+
+### Verification of the `LEVELIN3_AOI` run (2026-09-12) — PASSED, structural only
+
+**No reference export exists for this type**, so this is the same grade
+of evidence as every run since `ALARM_AOI`. Cross-read against the L5X by
+a separate throwaway script that independently re-parses the L5X and does
+**not** import `generate_ignition_tags.py`.
+
+| Check | Result |
+|---|---|
+| Instance count vs. L5X instances of this type | **26 / 26** |
+| Instance names — exact set match to the L5X | match, zero missing / zero extra |
+| Instance order == L5X document order | match, all 26 |
+| No duplicate instance names (L5X or JSON) | match |
+| `typeId` == `BlueSky/AOI/LEVELIN3_AOI` on every instance | match, all 26 |
+| `LEVELIN3_AOI` occurrences in the file == one per instance | **26 / 26** — appears only inside `typeId`, nowhere stray |
+| `tagType` == `UdtInstance` on every instance | match |
+| `DeviceName` == `String` / `BOP_O2_CombinedTest` | match, all 26, one consistent value |
+| `Description` == that instance's own L5X description, verbatim | match, all 26 |
+| `EngUnit` == that instance's own L5X value, verbatim | match, all 26 — all blank |
+| Member set == exactly `Description` + `DeviceName` + `EngUnit` (no more, no less) | match, all 26 — no defaulted parameter (of the other 87) leaked through |
+| Top-level key shape == the verified prior runs | match (`name`, `parameters`, `tagType`, `tags`, `typeId`) |
+| Top-level payload shape == `{"tags": [...]}` | match (`--folder-mode flat`) |
+
+13 checks, all passed.
+
+Note on scope: `Description`, `DeviceName`, and `EngUnit` are the tool's
+standard always-emitted fields (confirmed against the `ALARM_AOI` and
+`FLOWIN3_AOI` write-ups above), not members drawn from the AOI's own
+90-parameter L5X list — an early draft of this verification incorrectly
+checked emitted members against the raw AOI parameter list and threw a
+false failure on exactly these three names before this was caught and
+corrected. Recorded here so the same mistake isn't repeated verifying a
+future run.
+
+**What this does and does not establish.** It establishes that the
+three-field mapping (`Description`, `DeviceName`, `EngUnit`) emits
+correctly, that none of the other 87 UDT-defaulted parameters leak into
+the instances, that instance order and names match the L5X exactly, and
+that `typeId` builds correctly for the PLC-name-equals-UDT-name case. It
+does **not** establish that the real Ignition `LEVELIN3_AOI` UDT expects
+exactly these three members — only a real export or a Designer import
+settles that, per the UNVERIFIED warning above.
 
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
@@ -2564,7 +2692,31 @@ situation."
 
 ---
 
-*Last updated: September 11, 2026 (7th) — `INTERLOCK_AOI` moved from
+*Last updated: September 12, 2026 — TASK_005 sixth run: `LEVELIN3_AOI`
+generated **26 instances, 3 members each** (`Description`, `DeviceName`,
+`EngUnit`, out of 90 total AOI parameters), into its own file
+`BlueSky/LEVELIN3_AOI tag instances generated 2026-09-12.json`, against a
+freshly re-exported and PII-cleared L5X. All 13 structural checks passed,
+cross-read against the L5X by an independent throwaway script;
+**structural only — not yet Designer-confirmed**, same UNVERIFIED-mapping
+grade as `CONSPD4_AOI`/`FLOWIN3_AOI`/`FLOWVLV_AOI`/`INTERLOCK_AOI` before
+their own imports. Two anomalies flagged, neither acted on: 7 of 26
+instances are `BOP_`-prefixed (largest `BOP_` share of any run so far,
+same folder-placement question as every prior run with mixed prefixes);
+`EngUnit` is blank on all 26 (a real value, not a missing field — same
+treatment as `INTERLOCK_AOI`'s all-blank descriptions). Also caught and
+corrected a false failure in this run's own verification script, which
+had incorrectly checked emitted members against the AOI's raw 90-parameter
+list instead of recognizing `Description`/`DeviceName`/`EngUnit` as the
+tool's standard always-emitted fields — noted in the write-up so a future
+verification doesn't repeat it. Added the "Sixth run — `LEVELIN3_AOI`" and
+"Verification of the `LEVELIN3_AOI` run" sections; updated the Status line
+(now: 4 export-verified, 2 structurally-verified-awaiting-import
+[`INTERLOCK_AOI`, `LEVELIN3_AOI`], 2 still Idea [`MODVLV`, `VARSPD2_AOI`]).
+Also corrected a stale line in `BlueSky/BLUE_SKY_STATUS.md` that still
+described this whole task as "not yet speced beyond Idea" — it now points
+here as the source of truth instead of duplicating detail (Lesson 9).
+Prior update, September 11, 2026 (7th) — `INTERLOCK_AOI` moved from
 ⚠️ structural-only to ❌ blocked, once Doug's Designer import confirmed
 the predicted member-name mismatch: the real UDT's 64 hand-expanded
 `Interlock_NN`/`Visibility_NN` members share zero names with the 5
