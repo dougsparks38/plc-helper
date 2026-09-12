@@ -574,18 +574,17 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`, and
-`LEVELIN3_AOI` all Implemented and export-verified** (`ALARM_AOI`
-2026-09-10; `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI` 2026-09-11;
-`LEVELIN3_AOI` 2026-09-12). **`INTERLOCK_AOI` is Implemented and
+**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`,
+`LEVELIN3_AOI`, and `VARSPD2_AOI` all Implemented and export-verified**
+(`ALARM_AOI` 2026-09-10; `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`
+2026-09-11; `LEVELIN3_AOI`, `VARSPD2_AOI` 2026-09-12). **`INTERLOCK_AOI` is Implemented and
 structurally verified but blocked** — Designer import confirmed the
 predicted member-name mismatch; fix identified (strip `tags` array,
 re-import `MergeOverwrite`), not yet applied. **`MODVLV` attempted and
 blocked** — it's a native UDT, not an AOI, and the script has no
 `--datatype`-equivalent path for native-UDT-typed tag instances (mirrors
-the `TASK_004`/`TASK_008` split); needs new capability, not yet speced.
-**`VARSPD2_AOI` is Implemented and structurally verified** (2026-09-12,
-all 12 checks passed) — awaiting Designer import confirmation.
+the `TASK_004`/`TASK_008` split); needs new capability, not yet speced —
+work now underway, see below.
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1774,6 +1773,11 @@ descriptions.
 
 **The script's own printed warning applies to this type**, same
 UNVERIFIED-mapping grade as every run since `ALARM_AOI`.
+
+**Confirmed working by Doug (2026-09-12) — promoted to export-verified.**
+Imported cleanly into Designer, checked out perfect, no errors. Now the
+sixth type at this grade, alongside `ALARM_AOI`, `CONSPD4_AOI`,
+`FLOWIN3_AOI`, `FLOWVLV_AOI`, and `LEVELIN3_AOI`.
 
 ### Verification of the `VARSPD2_AOI` run (2026-09-12) — PASSED, structural only
 
