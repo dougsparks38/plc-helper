@@ -580,8 +580,11 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 `LEVELIN3_AOI` 2026-09-12). **`INTERLOCK_AOI` is Implemented and
 structurally verified but blocked** — Designer import confirmed the
 predicted member-name mismatch; fix identified (strip `tags` array,
-re-import `MergeOverwrite`), not yet applied. **`MODVLV` and
-`VARSPD2_AOI` remain Idea.**
+re-import `MergeOverwrite`), not yet applied. **`MODVLV` attempted and
+blocked** — it's a native UDT, not an AOI, and the script has no
+`--datatype`-equivalent path for native-UDT-typed tag instances (mirrors
+the `TASK_004`/`TASK_008` split); needs new capability, not yet speced.
+**`VARSPD2_AOI` remains Idea.**
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1692,6 +1695,29 @@ does **not** establish that the real Ignition `LEVELIN3_AOI` UDT expects
 exactly these three members — only a real export or a Designer import
 settles that, per the UNVERIFIED warning above.
 
+### `MODVLV` attempted (2026-09-12) — blocked, not a bug
+
+`MODVLV` has **no `AddOnInstructionDefinition` in the L5X** — same finding
+already established on the UDT-*definition* side (`TASK_004`/`TASK_008`):
+it's a native Rockwell UDT, not an AOI, handled there by `TASK_008`'s
+`--datatype` flag instead of `TASK_004`. `generate_ignition_tags.py` has
+the equivalent gap on the *instance* side: it only locates AOI instances
+(`AddOnInstructionDefinition` + matching controller tags), with no
+`--datatype`-style path for native-UDT-typed controller tags. Ran and
+confirmed rather than assumed:
+
+```
+WARNING: AOI type 'MODVLV' has no AddOnInstructionDefinition in this L5X. Nothing generated for it.
+```
+
+**Nothing generated, no file written.** This is a real capability gap,
+not something to work around by mis-declaring `MODVLV` as an AOI type.
+Building tag-instance generation for native-UDT-typed tags is new scope —
+mirroring how `TASK_008` was split out from `TASK_004` — not yet
+speced or built. **Doug's decision needed** on whether/how to extend
+`generate_ignition_tags.py` (a `--datatype` flag analogous to
+`TASK_008`) before `MODVLV` instances can be generated this way.
+
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
 Re-run with **no `--udt-name` given**, output compared to the file
@@ -2703,7 +2729,15 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 (2nd) — `LEVELIN3_AOI` confirmed working
+*Last updated: September 12, 2026 (3rd) — `MODVLV` attempted for TASK_005
+and blocked: it has no `AddOnInstructionDefinition` in the L5X, confirmed
+by actually running the script rather than assumed, since it's a native
+Rockwell UDT (same finding already established on the `TASK_004`/`TASK_008`
+definition side). `generate_ignition_tags.py` has no `--datatype`-style
+path for native-UDT-typed tag instances yet — real new capability needed,
+not yet speced. Nothing generated, no file written. Added the "`MODVLV`
+attempted" section and updated the Status line. Doug's decision needed on
+whether/how to extend the script before this can move forward. Prior update, September 12, 2026 (2nd) — `LEVELIN3_AOI` confirmed working
 by Doug in Designer, no import errors — promoted from structurally
 verified to **export-verified**, the fifth type at that grade. The
 `BOP_`/`O2_` folder-placement question resolved by hand: Doug split the
