@@ -91,6 +91,22 @@ for ALARM_AOI — is a coincidence of that one family, not the rule.
   per-family mappings are recorded in PLCHelper_Tasks.md TASK_005 for a
   human to read and pass, and nowhere in this file.
 
+INSTANCE `tags` ARRAYS ARE ALWAYS EMPTY (Doug-decided 2026-09-12, after
+the `INTERLOCK_AOI` import failure): every generated instance used to
+carry a bare-stub `tags` entry per member on the real definition. Those
+stubs carry zero information -- a member's real data type/OPC path is
+always inherited from the definition regardless -- and they are the ONLY
+part of this file Ignition's import can reject on a name mismatch
+between the L5X's raw parameter/member list and the real (possibly
+hand-edited) Ignition definition. See build_instance()'s docstring and
+the `ignition-designer-import` skill file for the full failure mode and
+root cause; not duplicated here (Lesson 9).
+
+Native UDT support added 2026-09-12 (MODVLV): AOI_PARAMETERS entries now
+carry a `source` field ("aoi" or "datatype"); "datatype" types resolve
+their member list via generate_ignition_udt.py's own parse_udt_members()
+plus its MEMBER_EXCLUSIONS mechanism, reused rather than duplicated.
+
 Written 2026-09-10 for PLCHelper (github.com/dougsparks38/plc-helper).
 """
 
@@ -339,28 +355,41 @@ def build_parameters(spec, device_name, description):
     return out
 
 
-def build_instance(tag_name, description, member_names, type_id,
-                   param_spec, device_name):
+def build_instance(tag_name, description, type_id, param_spec, device_name):
     """One Ignition UdtInstance entry.
 
     Shape is taken verbatim from the real reference export
     (`BlueSky/ALARM_AOI example tags.json`), not from generic docs:
-    `name`, `parameters`, `tagType: "UdtInstance"`, a `tags` array of
-    minimal `AtomicTag` members, and `typeId`.
+    `name`, `parameters`, `tagType: "UdtInstance"`, an empty `tags` array,
+    and `typeId`.
 
-    Members carry only `name` and `tagType`. Everything else — data type,
-    OPC item path, OPC server, permissions — is inherited from the UDT
-    definition TASK_004 generated, which is why the reference's members
-    carry nothing else either. Emitting a data type or an OPC path here
-    would create a second, competing source for values the definition
-    already owns; that is exactly the class of drift TASK_004 exists to
-    prevent.
+    `tags` IS ALWAYS EMPTY (changed 2026-09-12; carried per-member stubs
+    before this). Root-caused via the `INTERLOCK_AOI` import failure
+    (`Bad_Unsupported(...does not have item 'EnableIn' for overrides...)`,
+    documented in full in the `ignition-designer-import` skill file, not
+    duplicated here per Lesson 9): those stubs (`{"name": m, "tagType":
+    "AtomicTag"}` with no properties) carry zero information — a member's
+    real data type, OPC path, and everything else is inherited from the
+    UDT definition regardless, so a bare stub overrides nothing and is
+    pure redundancy on a new instance import. They are also the ONLY part
+    of this file that CAN raise that error: Ignition validates that every
+    name in an instance's `tags` array actually exists on the real
+    definition, which silently assumes the two name lists agree. They
+    don't always — `INTERLOCK_AOI`'s real Ignition UDT has 64 hand-
+    expanded per-bit members where the L5X AOI parameter list has 5, zero
+    overlap. Emitting `tags: []` sidesteps the whole failure class for
+    every future type, not just this one: a `UdtInstance` with just
+    `name`/`tagType`/`typeId`/`parameters` is documented as legal and
+    imports cleanly on definition defaults. The 7 types already confirmed
+    working in Designer (populated stubs, real overlap with their
+    definitions) are unaffected by this change and do not need
+    re-importing.
     """
     return {
         "name": tag_name,
         "parameters": build_parameters(param_spec, device_name, description),
         "tagType": "UdtInstance",
-        "tags": [{"name": m, "tagType": "AtomicTag"} for m in member_names],
+        "tags": [],
         "typeId": type_id,
     }
 
@@ -593,8 +622,9 @@ def main():
 
         print("-" * 72)
         print("%s  ->  typeId '%s'" % (aoi_type, type_id))
-        print("  %d parameters (become UDT members), %d instances found"
-              % (len(member_names), len(instances)))
+        print("  %d member(s) on the real definition (informational only -- "
+              "not written into the instance file, see build_instance()), "
+              "%d instances found" % (len(member_names), len(instances)))
         print()
 
         seen = {}
@@ -624,7 +654,6 @@ def main():
             all_instances.append(build_instance(
                 tag_name=tag_name,
                 description=description,
-                member_names=member_names,
                 type_id=type_id,
                 param_spec=mapping["params"],
                 device_name=args.device_name,

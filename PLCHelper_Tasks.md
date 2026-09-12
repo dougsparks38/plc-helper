@@ -581,11 +581,12 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 `MODVLV` 2026-09-12). `MODVLV` is a native Rockwell UDT, not an AOI —
 required adding native-UDT support to `generate_ignition_tags.py`
 (2026-09-12, reusing `generate_ignition_udt.py`'s existing parsing rather
-than duplicating it; see below). **`INTERLOCK_AOI` remains Implemented
-and structurally verified but blocked** — Designer import confirmed the
-predicted member-name mismatch; fix identified (strip `tags` array,
-re-import `MergeOverwrite`), not yet applied. This is the only type of
-the original 8 not yet done.
+than duplicating it; see below). **`INTERLOCK_AOI` — fix applied and
+regenerated (2026-09-12), not yet re-imported/confirmed.** The known
+import fix (instance `tags` arrays always empty now, not just for this
+type — see below) is in the script and the file has been regenerated;
+Doug still needs to re-import with `MergeOverwrite` to confirm before
+this is export-verified. This is the only type not yet fully done.
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1942,6 +1943,40 @@ confirmation the exclusion fix was necessary and correct, not just
 theoretically sound. `MODVLV` is now the seventh type at this grade, and
 the first native-UDT type to reach it.
 
+### `INTERLOCK_AOI` import fix applied — instance `tags` arrays now always empty (2026-09-12)
+
+Doug chose the broader fix over a one-off file patch: rather than just
+stripping `INTERLOCK_AOI`'s own generated file, `build_instance()` in
+`generate_ignition_tags.py` now always emits `"tags": []`, for every
+type, permanently. Root cause and full reasoning are in the
+`ignition-designer-import` skill file's "Importing tag instances" section
+(not duplicated here, Lesson 9) — short version: the per-member stubs
+carried zero information (everything real is inherited from the
+definition regardless) and were the *only* part of the file able to
+trigger `Bad_Unsupported(...does not have item 'X' for overrides...)` on
+a name mismatch between the L5X's raw member list and a possibly
+hand-edited real Ignition definition. Removing them removes the failure
+class for every future type, not just this one.
+
+`member_names` is still resolved and printed for the console report (now
+labeled "member(s) on the real definition (informational only)") — it's
+simply no longer written into the output file.
+
+**Regression-tested against a known-good run before calling this done:**
+re-ran `LEVELIN3_AOI` (already export-verified) and diffed against its
+existing output. Zero differences on `name`, `parameters`, `tagType`, or
+`typeId` for any instance — the *only* change was `tags` going from 90
+populated stubs to `[]`. The 7 already-verified types do not need
+re-importing; they already worked with the old shape and nothing about
+their live Designer state changes.
+
+**`INTERLOCK_AOI` regenerated** with the fix —
+`BlueSky/INTERLOCK_AOI tag instances generated 2026-09-12.json`, same 10
+instances as the fifth run, `tags: []` on all of them. **Not yet
+re-imported/confirmed by Doug** — that's the next step, using
+`MergeOverwrite` per the skill file's own guidance (existing instances
+may carry parameter overrides this generated file doesn't mention).
+
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
 Re-run with **no `--udt-name` given**, output compared to the file
@@ -2953,7 +2988,18 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 (5th) — Added native-UDT support to
+*Last updated: September 12, 2026 (6th) — Fixed the `INTERLOCK_AOI`
+import blocker at the script level rather than patching one file (Doug's
+explicit choice): `generate_ignition_tags.py`'s `build_instance()` now
+always emits `"tags": []` for every type, permanently, instead of
+per-member stubs. Root cause was already fully documented in the
+`ignition-designer-import` skill file (member-name mismatch between the
+L5X's raw parameter list and a real hand-edited definition); the fix
+removes the entire failure class rather than patching this one instance.
+Regression-tested against `LEVELIN3_AOI`'s existing known-good output —
+zero differences outside the `tags` array. `INTERLOCK_AOI` regenerated
+with the fix; not yet re-imported/confirmed by Doug. Status line updated.
+Prior update, September 12, 2026 (5th) — Added native-UDT support to
 `generate_ignition_tags.py` (Doug's decision, after initially deferring
 it to work on `VARSPD2_AOI` first): reused `generate_ignition_udt.py`'s
 `parse_udt_members()` rather than duplicating it, resolving a
