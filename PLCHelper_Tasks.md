@@ -574,17 +574,18 @@ and repeating it every time is unwanted noise, not a helpful safeguard.
 
 ## TASK_005 — Generate Ignition tag instances from AOI usages with valid UDTs
 
-**Status:** **`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`,
-`LEVELIN3_AOI`, and `VARSPD2_AOI` all Implemented and export-verified**
-(`ALARM_AOI` 2026-09-10; `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`
-2026-09-11; `LEVELIN3_AOI`, `VARSPD2_AOI` 2026-09-12). **`INTERLOCK_AOI` is Implemented and
-structurally verified but blocked** — Designer import confirmed the
+**Status:** **7 of 8 qualifying types Implemented and export-verified:
+`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
+`VARSPD2_AOI`, and `MODVLV`** (`ALARM_AOI` 2026-09-10; `CONSPD4_AOI`,
+`FLOWIN3_AOI`, `FLOWVLV_AOI` 2026-09-11; `LEVELIN3_AOI`, `VARSPD2_AOI`,
+`MODVLV` 2026-09-12). `MODVLV` is a native Rockwell UDT, not an AOI —
+required adding native-UDT support to `generate_ignition_tags.py`
+(2026-09-12, reusing `generate_ignition_udt.py`'s existing parsing rather
+than duplicating it; see below). **`INTERLOCK_AOI` remains Implemented
+and structurally verified but blocked** — Designer import confirmed the
 predicted member-name mismatch; fix identified (strip `tags` array,
-re-import `MergeOverwrite`), not yet applied. **`MODVLV` attempted and
-blocked** — it's a native UDT, not an AOI, and the script has no
-`--datatype`-equivalent path for native-UDT-typed tag instances (mirrors
-the `TASK_004`/`TASK_008` split); needs new capability, not yet speced —
-work now underway, see below.
+re-import `MergeOverwrite`), not yet applied. This is the only type of
+the original 8 not yet done.
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -1816,6 +1817,131 @@ future ad hoc verification script should account for both up front:
 not members of the AOI's own parameter list, and (2) L5X description
 text needs stripping before byte-for-byte comparison.
 
+### Native-UDT support added to `generate_ignition_tags.py` (2026-09-12)
+
+Doug decided to build the capability flagged as missing above, rather
+than leave `MODVLV` permanently out of TASK_005's scope. Extension, not a
+new script — same file, same command shape, same output format;
+everything downstream of "here's the member list" (finding instances,
+building the `UdtInstance` JSON, warnings, output) was already source-
+agnostic and needed no change. What actually changed:
+
+1. **Reused, not duplicated**, `generate_ignition_udt.py`'s existing
+   native-UDT parsing (`parse_udt_members()`) — resolves the "reuse vs.
+   duplicate parsing logic with TASK_004" open question that had sat
+   unresolved since 2026-09-10 (see the Open Questions section above).
+2. **`AOI_PARAMETERS` gained a `"source"` field** per entry (`"aoi"` or
+   `"datatype"`) instead of a new CLI flag — the table already uniquely
+   maps a type name to its parameter spec, so this is a small extension
+   of something already there. Every pre-existing entry defaults to
+   `"aoi"`; only `MODVLV` is `"datatype"`.
+3. **New `datatype_definition_parameters()` function**, the native-UDT
+   counterpart to `aoi_definition_parameters()` — same return contract
+   (list of member names, or `None` if not found), so the main loop
+   branches on `source` and treats both identically past that point.
+4. **`--list-aoi-types` became a combined listing** (Doug's explicit
+   choice over a separate `--list-datatypes` mirroring `TASK_008`) — now
+   shows both AOI types and native `Class="User"` DataTypes together,
+   each row tagged `AOI` or `UDT`.
+
+**A real bug found and fixed during this same build, before anything was
+called done:** the first working version only called `parse_udt_members()`
+and stopped there. That function correctly excludes Rockwell's own
+auto-generated `Hidden="true"` bit-packing backing members, but it does
+**not** apply `generate_ignition_udt.py`'s separate, opt-in
+`MEMBER_EXCLUSIONS` table — the mechanism that specifically dropped
+`MODVLV`'s 4 confirmed-dead members (`PID`, `DLYTMR`, `FTO_TMR`,
+`FTC_TMR`) when its UDT *definition* was built back on 2026-09-08. A
+first test run generated instances whose member-stub list still included
+all 4 of those — verified directly, not assumed (`grep`-checked the
+output JSON and found `PID`/`DLYTMR`/`FTO_TMR`/`FTC_TMR` all present).
+Since Ignition's import validates that every member name an instance
+lists actually exists on the real UDT definition, this would have hit
+the **exact same failure mode that blocked `INTERLOCK_AOI`**
+(`Bad_Unsupported(...does not have item 'X' for overrides...)`) — not a
+cosmetic gap. Fixed by also calling `resolve_exclusions()` +
+`apply_exclusions()` inside `datatype_definition_parameters()`, dropping
+the member count from 45 to the correct 41 and printing exactly what was
+excluded and why, matching `generate_ignition_udt.py`'s own reporting
+style rather than doing it silently.
+
+### Eighth run — `MODVLV` (2026-09-12) — first native-UDT run
+
+```
+python generate_ignition_tags.py \
+  --l5x "../BlueSky/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+  --aoi-type MODVLV \
+  --device-name "BOP_O2_CombinedTest" \
+  --dest-folder "[default]O2InjectionSystem" \
+  --udt-path-prefix "BlueSky/AOI" \
+  --output "../BlueSky/MODVLV tag instances generated 2026-09-12.json"
+```
+
+**Result: 6 `MODVLV` instances**, all controller-scoped, each carrying
+the same 4-member set — `Description`, `DeviceName`, `EngUnit`,
+`Analog_Vlv` (the one type so far with a fourth parameter beyond the
+usual three) — out of 41 usable members after exclusions (45 visible,
+minus the 4 confirmed-dead ones above; a separate 4 `Hidden="true"`
+bit-packing members were also excluded automatically, same as always).
+
+| Instance | L5X description |
+|---|---|
+| `BOP_CV1001` | Flare Control Valve |
+| `BOP_CV3001` | Digester Blower Control Valve |
+| `BOP_CV3002` | Process Feed Control Valve |
+| `BOP_CV3003` | Process Bio Flare Control Valve |
+| `BOP_CV3005` | Lagoon RNG/BIO Control Valve |
+| `O2_MV110` | Oxygen (O2) Shutoff Control Valve |
+
+Notably the most `BOP_`-heavy run so far: 5 of 6 are `BOP_`-prefixed, only
+`O2_MV110` is `O2_`-prefixed — the inverse of every prior run's mix.
+**Flagged, not filtered**, same standing reasoning as every prior run;
+Doug resolves placement by hand at import.
+
+**No other anomaly classes present.** No duplicate instance names, no
+array instances, no program-scoped instances, no blank descriptions.
+
+### Verification of the `MODVLV` run (2026-09-12) — PASSED, structural only
+
+Cross-read against the L5X by a separate throwaway script, same method as
+every prior verification — this one specifically re-derives the expected
+post-exclusion member list independently (via the same
+`parse_udt_members`/`resolve_exclusions`/`apply_exclusions` calls) rather
+than trusting the tool's own count, so the check can't just agree with
+itself.
+
+| Check | Result |
+|---|---|
+| Instance count vs. L5X instances of this type | **6 / 6** |
+| Instance names — exact set match to the L5X | match, zero missing / zero extra |
+| Instance order == L5X document order | match, all 6 |
+| No duplicate instance names | match |
+| `typeId` == `BlueSky/AOI/MODVLV` on every instance | match, all 6 |
+| `tagType` == `UdtInstance` on every instance | match |
+| Top-level parameters == exactly `Description`+`DeviceName`+`EngUnit`+`Analog_Vlv` | match, all 6 |
+| `Description` == that instance's own L5X description, verbatim (stripped) | match, all 6 |
+| `tags` member-stub array == the 41 post-exclusion members, in order | match, all 6 |
+| **None of the 4 confirmed-dead members (`PID`/`DLYTMR`/`FTO_TMR`/`FTC_TMR`) present in any instance** | match — confirms the exclusion fix actually worked, not just that it ran without error |
+| Every member-stub entry has only `name`+`tagType: AtomicTag` | match |
+| Top-level payload shape == `{"tags": [...]}` | match (`--folder-mode flat`) |
+
+12 checks, all passed. This is also the first verification of this task
+that checked the `tags` member-stub array's actual contents at all — the
+`LEVELIN3_AOI` and `VARSPD2_AOI` verifications above only checked
+top-level `parameters`, which is a real gap in those two write-ups
+(caught while building this one, not before) rather than a claim that
+this run's evidence is somehow stronger by design. Both of those were
+independently confirmed correct in Designer by Doug regardless, so the
+gap didn't hide a real problem there — but it means their "12/13 checks
+passed" tallies were never actually complete, and this note exists so
+that isn't quietly forgotten.
+
+**Confirmed working by Doug (2026-09-12) — promoted to export-verified.**
+Imported cleanly into Designer, "perfect," no errors — direct, real-world
+confirmation the exclusion fix was necessary and correct, not just
+theoretically sound. `MODVLV` is now the seventh type at this grade, and
+the first native-UDT type to reach it.
+
 ### `ALARM_AOI` regression after adding `--udt-name` (2026-09-10) — PASSED
 
 Re-run with **no `--udt-name` given**, output compared to the file
@@ -2827,7 +2953,30 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 (4th) — TASK_005 seventh run:
+*Last updated: September 12, 2026 (5th) — Added native-UDT support to
+`generate_ignition_tags.py` (Doug's decision, after initially deferring
+it to work on `VARSPD2_AOI` first): reused `generate_ignition_udt.py`'s
+`parse_udt_members()` rather than duplicating it, resolving a
+long-open "reuse vs. duplicate" question; `AOI_PARAMETERS` gained a
+`source` field (`"aoi"`/`"datatype"`) instead of a new CLI flag;
+`--list-aoi-types` became a combined AOI+UDT listing per Doug's choice.
+Found and fixed a real bug during the build itself, before calling
+anything done: the first version missed `generate_ignition_udt.py`'s
+separate `MEMBER_EXCLUSIONS` mechanism, which would have leaked
+`MODVLV`'s 4 confirmed-dead members into the generated instances — the
+same failure class that blocked `INTERLOCK_AOI` on import. Fixed by also
+calling `resolve_exclusions()`/`apply_exclusions()`. TASK_005 eighth run:
+`MODVLV` (the first native-UDT run) generated **6 instances, 4 members
+each**, out of 41 usable members after exclusions. All 12 structural
+checks passed, including a new check (added this run) that the `tags`
+member-stub array's actual contents match — a gap found in this run's
+own verification script that revealed the `LEVELIN3_AOI` and
+`VARSPD2_AOI` verifications above never actually checked that array,
+only top-level `parameters`; noted there rather than silently reissuing
+those as more complete than they were. Confirmed working by Doug in
+Designer, "perfect," no errors — promoted to export-verified. Status
+line updated: **7 of 8 qualifying types now done, only `INTERLOCK_AOI`
+remains** (blocked, fix identified, not yet applied). Prior update, September 12, 2026 (4th) — TASK_005 seventh run:
 `VARSPD2_AOI` generated **6 instances, 3 members each**, into its own
 file `BlueSky/VARSPD2_AOI tag instances generated 2026-09-12.json`,
 `--udt-name VARSPD_AOI` (differs from the PLC AOI name). All 12

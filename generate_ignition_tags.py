@@ -100,13 +100,33 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
+# Reuse, not duplicate (2026-09-12): native-UDT member parsing already
+# exists, correctly, in generate_ignition_udt.py (TASK_008) -- including
+# the Hidden="true" bit-packing-member exclusion, which is real logic
+# worth not re-deriving. Resolves the "reuse vs. duplicate parsing logic
+# with TASK_004" open question that had sat unresolved in
+# PLCHelper_Tasks.md since 2026-09-10. This does re-parse the L5X a
+# second time (parse_udt_members takes a path, not this script's already-
+# parsed root) -- accepted as a small, one-time-per-type cost rather than
+# changing generate_ignition_udt.py's signature for this script's benefit.
+from generate_ignition_udt import parse_udt_members, resolve_exclusions, apply_exclusions
+
 
 # ---------------------------------------------------------------------------
-# Per-AOI parameter mapping — Doug's own words, 2026-09-10.
+# Per-type parameter mapping — Doug's own words, 2026-09-10; extended
+# 2026-09-12 to also cover native UDTs (MODVLV), not just AOIs.
 #
 # `params`   : top-level Ignition parameters the instance carries.
 # `verified` : whether this row has been checked against a real Ignition
 #              tag-instance export. Only ALARM_AOI has.
+# `source`   : "aoi" (default, read from AddOnInstructionDefinition) or
+#              "datatype" (read from a native Class="User" DataType).
+#              Added 2026-09-12 rather than a separate CLI flag: this
+#              table already uniquely maps a type name to its parameter
+#              spec, so adding one more per-entry field is a small,
+#              consistent extension of something already there, not a new
+#              inference mechanism. Every pre-existing entry defaults to
+#              "aoi" (no behavior change for anything already working).
 #
 # Parameter spec entries are (name, dataType, default_value_or_None).
 # A default of None means "look the value up per instance" (Description) or
@@ -122,7 +142,7 @@ import xml.etree.ElementTree as ET
 # and would silently emit a stale typeId. The UDT name is now supplied per
 # run via `--udt-name` (see the module docstring), and the known per-family
 # mappings live in PLCHelper_Tasks.md TASK_005 where a human reads them.
-# This table is only about *parameters* now.
+# This table is only about *parameters* (and now *source*) now.
 # ---------------------------------------------------------------------------
 
 DEVICE_NAME = ("DeviceName", "String", None)      # one value for the whole run
@@ -134,18 +154,22 @@ AOI_PARAMETERS = {
     "ALARM_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": True,
+        "source": "aoi",
     },
     "CONSPD4_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
+        "source": "aoi",
     },
     "FLOWIN3_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
         "verified": False,
+        "source": "aoi",
     },
     "FLOWVLV_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
+        "source": "aoi",
     },
     "INTERLOCK_AOI": {
         # Doug: "many other parameters with default values expected to read in
@@ -155,18 +179,26 @@ AOI_PARAMETERS = {
         # for them here. Flagged as the natural next test candidate.
         "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
+        "source": "aoi",
     },
     "LEVELIN3_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
         "verified": False,
+        "source": "aoi",
     },
     "MODVLV": {
+        # Native Rockwell UDT, not an AOI (confirmed 2026-09-12: no
+        # AddOnInstructionDefinition for it in the L5X) -- member list
+        # comes from datatype_definition_parameters(), not
+        # aoi_definition_parameters().
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT, ANALOG_VLV],
         "verified": False,
+        "source": "datatype",
     },
     "VARSPD2_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
         "verified": False,
+        "source": "aoi",
     },
 }
 
@@ -217,6 +249,47 @@ def aoi_definition_parameters(root, aoi_type):
             return []
         return [p.get("Name") for p in params.findall("Parameter")]
     return None
+
+
+def datatype_definition_parameters(l5x_path, datatype_name, warnings):
+    """Return a native UDT's member names, in document order. TASK_005's
+    native-UDT counterpart to aoi_definition_parameters() -- same return
+    contract (a list of names, or None if the type isn't found), so the
+    main loop can treat both sources identically once it has this list.
+
+    Delegates to generate_ignition_udt.py's parse_udt_members(), which
+    already correctly excludes Hidden="true" bit-packing backing members
+    -- re-deriving that filtering here would risk quietly getting it
+    wrong a second time. parse_udt_members() raises SystemExit on a
+    missing/wrong-Class DataType; caught here and converted to this
+    script's own warn-and-skip convention so one bad type in a multi-type
+    run doesn't kill the whole run, matching aoi_definition_parameters()'s
+    behavior (returns None rather than exiting).
+
+    ALSO applies the standing MEMBER_EXCLUSIONS table via
+    resolve_exclusions()/apply_exclusions() (2026-09-12 fix -- an earlier
+    version of this function called parse_udt_members() alone and missed
+    this entirely, which would have silently leaked MODVLV's 4
+    confirmed-dead members, `.PID`/`.DLYTMR`/`.FTO_TMR`/`.FTC_TMR`, into
+    the generated instance's member-stub list. Those are excluded from
+    the real Ignition UDT definition, so an instance still referencing
+    them would be exactly the class of mismatch that broke `INTERLOCK_AOI`
+    on import. This script has no `--exclude` flag of its own -- only the
+    standing table applies here, not ad hoc per-run additions, since
+    TASK_005 has no CLI surface for that and the table already holds
+    every settled answer.
+    """
+    try:
+        members, _attrs, _hidden = parse_udt_members(l5x_path, datatype_name)
+    except SystemExit:
+        return None
+    exclusions = resolve_exclusions(datatype_name, cli_excludes=None)
+    kept, dropped = apply_exclusions(members, exclusions, warnings)
+    if dropped:
+        print("  excluded %d confirmed-dead member(s) from '%s': %s"
+              % (len(dropped), datatype_name,
+                 ", ".join("%s (%s)" % (d["name"], d["reason"]) for d in dropped)))
+    return [m["Name"] for m in kept]
 
 
 def find_instances(root, aoi_type):
@@ -359,8 +432,12 @@ def main():
                              "inside an explicit Folder entry named after "
                              "--dest-folder.")
     parser.add_argument("--list-aoi-types", action="store_true",
-                        help="List every AOI type in the L5X with an instance "
-                             "count, then exit. Use this to see what is "
+                        help="List every AOI type AND native Class=\"User\" "
+                             "DataType in the L5X, each with an instance "
+                             "count, then exit (combined listing, added "
+                             "2026-09-12 when native-UDT support was added -- "
+                             "one discovery view rather than a separate flag "
+                             "per source kind). Use this to see what is "
                              "available before choosing the qualifying list.")
     args = parser.parse_args()
 
@@ -368,9 +445,16 @@ def main():
 
     # ---- discovery aid -----------------------------------------------------
     if args.list_aoi_types:
-        counts = {}
+        # kind: "AOI" (AddOnInstructionDefinition) or "UDT" (native
+        # Class="User" DataType) -- combined per Doug's 2026-09-12 decision.
+        kinds = {}
         for aoi in root.iter("AddOnInstructionDefinition"):
-            counts.setdefault(aoi.get("Name"), 0)
+            kinds.setdefault(aoi.get("Name"), "AOI")
+        for datatype in root.iter("DataType"):
+            if datatype.get("Class") == "User":
+                kinds.setdefault(datatype.get("Name"), "UDT")
+
+        counts = {name: 0 for name in kinds}
         for controller in root.iter("Controller"):
             tags = controller.find("Tags")
             if tags is None:
@@ -379,11 +463,13 @@ def main():
                 dt = tag.get("DataType")
                 if dt in counts:
                     counts[dt] += 1
-        print("AOI types defined in %s:" % os.path.basename(args.l5x))
+
+        print("AOI types and native UDTs defined in %s:"
+              % os.path.basename(args.l5x))
         for name in sorted(counts):
             mapped = "mapped" if name in AOI_PARAMETERS else "NOT in mapping"
-            print("  %-20s %3d controller instances   (%s)"
-                  % (name, counts[name], mapped))
+            print("  %-3s %-20s %3d controller instances   (%s)"
+                  % (kinds[name], name, counts[name], mapped))
         print("\nThis is a discovery aid only. Which of these qualify is "
               "Doug's explicit decision, not this script's.")
         return 0
@@ -438,12 +524,13 @@ def main():
                 "before using it." % aoi_type)
             continue
 
+        type_kind = "Native UDT" if mapping.get("source") == "datatype" else "AOI type"
         if not mapping["verified"]:
             warnings.append(
-                "AOI type '%s' parameter mapping is UNVERIFIED - it records "
+                "%s '%s' parameter mapping is UNVERIFIED - it records "
                 "Doug's stated intent but has never been checked against a "
                 "real Ignition tag-instance export. Verify one instance by "
-                "hand before importing in bulk." % aoi_type)
+                "hand before importing in bulk." % (type_kind, aoi_type))
 
         # UDT name resolution, in priority order. Nothing is inferred from
         # the AOI name itself at any step — the last fallback is literally
@@ -473,16 +560,26 @@ def main():
                   "'%s' as the Ignition UDT name. If this job's UDT is named "
                   "differently, re-run with --udt-name." % udt_name)
 
-        member_names = aoi_definition_parameters(root, aoi_type)
-        if member_names is None:
-            warnings.append(
-                "AOI type '%s' has no AddOnInstructionDefinition in this L5X. "
-                "Nothing generated for it." % aoi_type)
-            continue
+        source = mapping.get("source", "aoi")
+        if source == "datatype":
+            member_names = datatype_definition_parameters(args.l5x, aoi_type, warnings)
+            if member_names is None:
+                warnings.append(
+                    "Native UDT '%s' has no usable Class=\"User\" DataType in "
+                    "this L5X (missing, wrong Class, or no <Members> block). "
+                    "Nothing generated for it." % aoi_type)
+                continue
+        else:
+            member_names = aoi_definition_parameters(root, aoi_type)
+            if member_names is None:
+                warnings.append(
+                    "AOI type '%s' has no AddOnInstructionDefinition in this "
+                    "L5X. Nothing generated for it." % aoi_type)
+                continue
         if not member_names:
             warnings.append(
-                "AOI type '%s' has a definition but no parameters. Nothing "
-                "generated for it." % aoi_type)
+                "%s '%s' has a definition but no usable members/parameters. "
+                "Nothing generated for it." % (type_kind, aoi_type))
             continue
 
         instances = find_instances(root, aoi_type)
