@@ -433,7 +433,7 @@ ALARM_CONFIG = {
     "mode": "Equality",
     "setpointA": 1.0,
     "priority": "High",
-    "activePipeline": "BlueSky",
+    "activePipeline": "Hartman_KC_Dairy_SCADA/BlueSky",
 }
 
 # ⚠ SITE-SPECIFIC, not a universal constant. "BlueSky" is the Blue Sky
