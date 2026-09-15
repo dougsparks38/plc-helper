@@ -29,8 +29,34 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
    day. **3 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot),
    `CONSPD4_AOI` and `FLOWIN3_AOI`, all imported by Doug and confirmed
-   firing and clearing on real instances. 4 types unstarted;
-   `INTERLOCK_AOI` is excluded.)*
+   firing and clearing on real instances. **`FLOWVLV_AOI` built the same
+   day, awaiting live test.** 3 types unstarted; `INTERLOCK_AOI` is
+   excluded.)*
+   - **`FLOWVLV_AOI` built 2026-09-15 — 4th type, awaiting Doug's live
+     test.** Deliverable: `BlueSky/FLOWVLV2_AOI UDT definition with alarms
+     2026-09-15.json`. 2 alarms, 0 skipped (no `UnACK_Alm` on this type),
+     zero blank `notes`, both members Boolean. **Uniform `High`, no split**
+     — worth noting because it directly follows `FLOWIN3_AOI`'s per-member
+     split: priority went split, then back to flat, which confirms it must
+     be asked per type rather than inferred from the previous one. Built
+     surgically; fidelity-checked to differ by exactly the 2 new `alarms`
+     arrays. Not done per Rule 5.
+   - **⚠ Name mismatch — target is `FLOWVLV2_AOI`, not `FLOWVLV_AOI`.**
+     There is **no** Ignition definition named `FLOWVLV_AOI` at all, so
+     importing under the L5X name would create a brand-new orphan rather
+     than updating the live definition. Pairing verified by count (L5X 38
+     parameters = Ignition 38 members), and the build copies the live
+     definition's own `name` field rather than writing one, so the correct
+     name is structural.
+   - **Name mismatches are the norm, not the exception:** 2 of the 4 types
+     built so far had one (`CONSPD4_AOI` → `CONSPD2_AOI`, `FLOWVLV_AOI` →
+     `FLOWVLV2_AOI`). `VARSPD2_AOI` → `VARSPD_AOI` is the third known pair
+     and is still unbuilt — check the Ignition name before building it.
+   - **"deactuate" preserved verbatim.** `FAIL_DEACT_alm`'s description
+     reads "Fail to deactuate alarm" — not a standard word, carried across
+     unchanged rather than silently corrected to "deactivate". Same
+     discipline as blank `notes`: if it should read differently, that is a
+     Studio 5000 fix at the source.
    - **`FLOWIN3_AOI` LIVE-VERIFIED 2026-09-15 — 3rd type.** Deliverable:
      `BlueSky/FLOWIN3_AOI UDT definition with alarms 2026-09-15.json`.
      Ignition and L5X names match for this type, so no name-pairing hazard.
@@ -129,10 +155,11 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      to fill it. The alarm still fires; only the notification email body is
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
-   - **Remaining: 4 types unstarted** — `FLOWVLV_AOI`, `LEVELIN3_AOI`,
-     `VARSPD2_AOI` and `MODVLV`. `INTERLOCK_AOI` is excluded (0 alarm
-     members). Each needs its own priority answer from Doug first (Rule 16),
-     and that answer may now be per-member rather than a single value.
+   - **Remaining: 3 types unstarted** — `LEVELIN3_AOI`, `VARSPD2_AOI` and
+     `MODVLV` (plus `FLOWVLV_AOI` pending its live test). `INTERLOCK_AOI`
+     is excluded (0 alarm members). Each needs its own priority answer from
+     Doug first (Rule 16), and that answer may be per-member or uniform —
+     both have now occurred, so neither can be assumed.
      `LEVELIN3_AOI` and `VARSPD2_AOI` also carry `UnACK_Alm` and will
      exercise the same exclusion `CONSPD4_AOI` just did. `MODVLV` is
      assessed as needing zero extra code (native-UDT path, shared member
@@ -383,7 +410,22 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (5th) — `FLOWIN3_AOI` promoted from built
+*Last updated: September 15, 2026 (6th) — `FLOWVLV_AOI` built (4th type),
+awaiting Doug's live test, so not done per Rule 5. Delivered as
+`BlueSky/FLOWVLV2_AOI UDT definition with alarms 2026-09-15.json` —
+**imported under the Ignition name `FLOWVLV2_AOI`, not the L5X name**, since
+no Ignition definition called `FLOWVLV_AOI` exists and the L5X name would
+have created an orphan. Pairing verified by count (38 = 38) and the build
+copies the live definition's own `name` field rather than writing one. 2
+alarms, 0 skipped, zero blank `notes`, both Boolean, **uniform `High` with
+no split** — notable because it follows `FLOWIN3_AOI`'s per-member split, so
+priority has now gone split then flat and genuinely cannot be inferred
+between types. `FAIL_DEACT_alm`'s "Fail to deactuate alarm" spelling was
+preserved verbatim rather than corrected. Fidelity-checked to differ by
+exactly the 2 new `alarms` arrays. Also recorded: PLC/Ignition name
+mismatches are the norm — 2 of 4 types built so far — with `VARSPD2_AOI` →
+`VARSPD_AOI` the third known pair, still unbuilt.
+Prior update, September 15, 2026 (5th) — `FLOWIN3_AOI` promoted from built
 to **LIVE-VERIFIED**; Doug's full Designer import and live-fire pass came
 back clean on every step. The one that mattered most: he forced a bit at
 **each** priority level, and a High member went Active at Priority High
