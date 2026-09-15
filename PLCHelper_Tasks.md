@@ -2994,9 +2994,9 @@ situation."
 
 ## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
 
-**Status:** **Capability implemented. 2 of 8 types LIVE-VERIFIED 2026-09-15
-— `ALARM_AOI` (pilot) and `CONSPD4_AOI`. `FLOWIN3_AOI` built the same day,
-awaiting live test. 4 types unstarted.**
+**Status:** **Capability implemented. 3 of 8 types LIVE-VERIFIED 2026-09-15
+— `ALARM_AOI` (pilot), `CONSPD4_AOI` and `FLOWIN3_AOI`. 4 types unstarted;
+`INTERLOCK_AOI` excluded.**
 
 ⚠ One open capability gap, raised by `FLOWIN3_AOI` and not yet fixed: the
 generator cannot express a **per-member** priority — see the section below
@@ -3370,7 +3370,7 @@ Two of the three members *do* carry good descriptions, which is the point
 worth keeping: the rule is sound and the blanks are gaps in the PLC program,
 not a flaw in the convention.
 
-### `FLOWIN3_AOI` — 3rd type built (2026-09-15), awaiting live test
+### `FLOWIN3_AOI` — 3rd type, LIVE-VERIFIED (2026-09-15)
 
 **Deliverable:** `BlueSky/FLOWIN3_AOI UDT definition with alarms
 2026-09-15.json`. Unlike the previous type, the Ignition and L5X names are
@@ -3408,7 +3408,20 @@ Built surgically from the 2026-09-15 live export, same method as the other
 two. **Fidelity check: PASS** — with the 6 `alarms` arrays stripped back off,
 the output compares identical to the live export's `FLOWIN3_AOI` object.
 
-Not done per Rule 5 — awaiting Doug's Designer import and live-fire test.
+**Live verification passed in full (Doug, 2026-09-15):** imported with
+`MergeOverwrite` overwriting in place; landed on the existing `FLOWIN3_AOI`
+definition; all 6 alarmed members present; **priorities confirmed correct
+per the split above**; real instances show the alarms as *inherited* with
+pre-existing overrides intact; a forced High bit went **Active at Priority
+High** and cleared, and a forced Medium bit went **Active at Priority
+Medium** and cleared.
+
+**That last step is the one that mattered.** Checking both levels on a real
+gateway — rather than only confirming the JSON was written correctly — is
+what actually proves a per-member priority survives `MergeOverwrite` and
+propagates to instances. A correct file would have looked identical at rest
+while still collapsing to a single priority on import; forcing a Medium bit
+and seeing it report Medium is the only way that distinction shows up.
 
 ### ⚠ Open capability gap — the generator cannot express a per-member priority
 
@@ -3428,9 +3441,15 @@ nothing went wrong. That is the same *shape* of failure as the latent
 
 Two things keep it from biting today: the standing method for this task is a
 surgical build off the live export (never a regenerate, precisely so
-hand-tuned live work is not reverted), and `FLOWIN3_AOI` has now been built.
-It becomes a real risk the moment either assumption slips, or the moment a
-second type needs a split.
+hand-tuned live work is not reverted), and `FLOWIN3_AOI` is now built *and
+live-verified* — the split is confirmed working on the gateway, so the
+correct state exists in production regardless of what the generator can
+express. It becomes a real risk the moment either assumption slips, or the
+moment a second type needs a split.
+
+Note the gap is about the **generator**, not the approach: Ignition itself
+handles per-member priorities on a UDT definition without complaint, proven
+live on 2026-09-15.
 
 Worth fixing before the remaining 4 types are built, since Doug has now
 established that priority genuinely varies per member and is not a per-type
@@ -3438,10 +3457,9 @@ constant. Not fixed in this pass — no code change was in scope.
 
 ### Scope
 
-`ALARM_AOI` (pilot) and `CONSPD4_AOI` are both **live-verified** — Rule 5
-satisfied for each. `FLOWIN3_AOI` is **built, awaiting live test**. That is 3
-of 8 types addressed, 2 fully done. `MODVLV` is assessed and needs no extra
-code but was not built.
+`ALARM_AOI` (pilot), `CONSPD4_AOI` and `FLOWIN3_AOI` are all
+**live-verified** — 3 of 8 types complete, Rule 5 satisfied for each.
+`MODVLV` is assessed and needs no extra code but was not built.
 
 **5 types remain:** `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
 `VARSPD2_AOI`, and `MODVLV`. `INTERLOCK_AOI` is excluded — it has 0 alarm
@@ -3451,7 +3469,20 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (4th) — `FLOWIN3_AOI` built (3rd type),
+*Last updated: September 15, 2026 (5th) — `FLOWIN3_AOI` promoted from built
+to **LIVE-VERIFIED**. Doug's full import and live-fire pass came back clean,
+including the step that actually mattered: he forced a bit at **each**
+priority level, and a High member reported Priority High while a Medium
+member reported Priority Medium, both clearing correctly. That proves a
+per-member priority survives `MergeOverwrite` and propagates to instances —
+a correctly-written file alone would have looked identical at rest while
+still collapsing to one priority on import, so this distinction only shows
+up by forcing the Medium bit. Ignition handles per-member priorities without
+complaint; the remaining gap is in PLCHelper's generator, not the approach.
+**3 of 8 types live-verified** (`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`),
+4 unstarted, `INTERLOCK_AOI` excluded. Nothing pending on `FLOWIN3_AOI`
+itself; the generator per-member-priority gap stays open and is Doug's call.
+Prior update, September 15, 2026 (4th) — `FLOWIN3_AOI` built (3rd type),
 awaiting Doug's live test. Delivered as `BlueSky/FLOWIN3_AOI UDT definition
 with alarms 2026-09-15.json`; Ignition and L5X names match for this type, so
 no name-pairing hazard. 6 alarms, 0 skipped (this type carries no

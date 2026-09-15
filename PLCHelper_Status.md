@@ -27,16 +27,16 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
 
 2. 🔄 **TASK_012 — Embed Ignition alarm definitions into generated UDT
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
-   day. **2 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot) and
-   `CONSPD4_AOI`, both imported by Doug and confirmed firing and clearing on
-   real instances. **`FLOWIN3_AOI` built the same day, awaiting live test.**
-   4 types unstarted; `INTERLOCK_AOI` is excluded.)*
-   - **`FLOWIN3_AOI` built 2026-09-15 — 3rd type, awaiting Doug's live
-     test.** Deliverable: `BlueSky/FLOWIN3_AOI UDT definition with alarms
-     2026-09-15.json`. Ignition and L5X names match for this type, so no
-     name-pairing hazard. 6 alarms, 0 skipped (carries no `UnACK_Alm`).
-     Built surgically from the live export; fidelity-checked to differ by
-     exactly the 6 new `alarms` arrays. Not done per Rule 5.
+   day. **3 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot),
+   `CONSPD4_AOI` and `FLOWIN3_AOI`, all imported by Doug and confirmed
+   firing and clearing on real instances. 4 types unstarted;
+   `INTERLOCK_AOI` is excluded.)*
+   - **`FLOWIN3_AOI` LIVE-VERIFIED 2026-09-15 — 3rd type.** Deliverable:
+     `BlueSky/FLOWIN3_AOI UDT definition with alarms 2026-09-15.json`.
+     Ignition and L5X names match for this type, so no name-pairing hazard.
+     6 alarms, 0 skipped (carries no `UnACK_Alm`). Built surgically from the
+     live export; fidelity-checked to differ by exactly the 6 new `alarms`
+     arrays.
    - **⚠ FIRST TYPE WITH A PER-MEMBER PRIORITY — don't read it as uniform.**
      High on `Hi_Alm`, `Lo_Alm`, `Xmtr_Alm`; Medium on `UnderRange_Alm`,
      `OverRange_Alm`, `ChFault_Alm` (Doug, 2026-09-15). Deliberately **not**
@@ -44,6 +44,20 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      two flow alarms, not with the other instrument faults. Built exactly as
      stated; "tidying" `Xmtr_Alm` to Medium would override a decision, not
      fix an inconsistency.
+   - **The per-member split is confirmed working on a real gateway, not
+     merely written correctly into the file.** Doug's verification pass
+     checked the priorities in Designer after import and then forced a bit
+     at *each* level: a High member went **Active at Priority High** and
+     cleared, and a Medium member went **Active at Priority Medium** and
+     cleared. That second check is the one that actually proves per-member
+     priority survives `MergeOverwrite` and propagates to instances — a
+     correct JSON file alone would not have shown it.
+   - **Doug's full live pass, all steps passed (2026-09-15):**
+     `MergeOverwrite` overwriting in place; landed on the existing
+     `FLOWIN3_AOI` definition; all 6 alarmed members present; priorities
+     correct per the split above; real instances show the alarms as
+     **inherited** with pre-existing overrides intact; both a High and a
+     Medium bit fired and cleared correctly.
    - **First type with zero blank `notes`** — all 6 members carry a real L5X
      Description, so nothing needed flagging. All 6 confirmed Boolean,
      checked deliberately because an analog input type with a REAL-typed
@@ -116,9 +130,9 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
    - **Remaining: 4 types unstarted** — `FLOWVLV_AOI`, `LEVELIN3_AOI`,
-     `VARSPD2_AOI` and `MODVLV` (plus `FLOWIN3_AOI` pending its live test).
-     `INTERLOCK_AOI` is excluded (0 alarm
-     members). Each needs its own priority answer from Doug first (Rule 16).
+     `VARSPD2_AOI` and `MODVLV`. `INTERLOCK_AOI` is excluded (0 alarm
+     members). Each needs its own priority answer from Doug first (Rule 16),
+     and that answer may now be per-member rather than a single value.
      `LEVELIN3_AOI` and `VARSPD2_AOI` also carry `UnACK_Alm` and will
      exercise the same exclusion `CONSPD4_AOI` just did. `MODVLV` is
      assessed as needing zero extra code (native-UDT path, shared member
@@ -369,7 +383,20 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (4th) — `FLOWIN3_AOI` built (3rd type),
+*Last updated: September 15, 2026 (5th) — `FLOWIN3_AOI` promoted from built
+to **LIVE-VERIFIED**; Doug's full Designer import and live-fire pass came
+back clean on every step. The one that mattered most: he forced a bit at
+**each** priority level, and a High member went Active at Priority High
+while a Medium member went Active at Priority Medium, both clearing
+correctly — so the per-member split is confirmed to survive
+`MergeOverwrite` and propagate to instances, not merely to have been written
+correctly into the file. That makes **3 of 8 types live-verified**
+(`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`), 4 unstarted, `INTERLOCK_AOI`
+excluded. Nothing pending on `FLOWIN3_AOI` itself. The generator's
+per-member-priority gap remains open and unfixed — it is Doug's call whether
+to close it before the remaining 4 types, and it is logged to the Daily
+Planner.
+Prior update, September 15, 2026 (4th) — `FLOWIN3_AOI` built (3rd type),
 awaiting Doug's live test, so not done per Rule 5. 6 alarms, 0 skipped, and
 zero blank `notes` — the first type where every member has a real L5X
 Description. All 6 confirmed Boolean. Fidelity-checked to differ from the
