@@ -29,7 +29,35 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
    day. **2 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot) and
    `CONSPD4_AOI`, both imported by Doug and confirmed firing and clearing on
-   real instances. 5 types remain; `INTERLOCK_AOI` is excluded.)*
+   real instances. **`FLOWIN3_AOI` built the same day, awaiting live test.**
+   4 types unstarted; `INTERLOCK_AOI` is excluded.)*
+   - **`FLOWIN3_AOI` built 2026-09-15 — 3rd type, awaiting Doug's live
+     test.** Deliverable: `BlueSky/FLOWIN3_AOI UDT definition with alarms
+     2026-09-15.json`. Ignition and L5X names match for this type, so no
+     name-pairing hazard. 6 alarms, 0 skipped (carries no `UnACK_Alm`).
+     Built surgically from the live export; fidelity-checked to differ by
+     exactly the 6 new `alarms` arrays. Not done per Rule 5.
+   - **⚠ FIRST TYPE WITH A PER-MEMBER PRIORITY — don't read it as uniform.**
+     High on `Hi_Alm`, `Lo_Alm`, `Xmtr_Alm`; Medium on `UnderRange_Alm`,
+     `OverRange_Alm`, `ChFault_Alm` (Doug, 2026-09-15). Deliberately **not**
+     a clean process-vs-diagnostic split — `Xmtr_Alm` is High alongside the
+     two flow alarms, not with the other instrument faults. Built exactly as
+     stated; "tidying" `Xmtr_Alm` to Medium would override a decision, not
+     fix an inconsistency.
+   - **First type with zero blank `notes`** — all 6 members carry a real L5X
+     Description, so nothing needed flagging. All 6 confirmed Boolean,
+     checked deliberately because an analog input type with a REAL-typed
+     alarm member would have made the `Equality`/`setpointA: 1.0` trip
+     condition wrong.
+   - **⚠ New open capability gap (not fixed):** `generate_ignition_udt.py`'s
+     `--alarms` path reads one flat `ALARM_CONFIG['priority']` and cannot
+     express a per-member value — the split above was applied by the
+     surgical build. A future regenerate of `FLOWIN3_AOI` with `--alarms`
+     would silently produce uniform `High` and lose the three `Medium`
+     values, with no warning. Same *shape* as the latent
+     `OPTIONAL_MEMBER_KEYS` bug: a quiet wrong answer, not a crash. Worth
+     fixing before the remaining 4 types, now that priority is established
+     as varying per member rather than per type.
    - **`CONSPD4_AOI` LIVE-VERIFIED 2026-09-15 — 2nd type, no new code.** The
      existing `--alarms` path pointed at a new type. Deliverable:
      `BlueSky/CONSPD2_AOI UDT definition with alarms 2026-09-15.json` —
@@ -87,8 +115,9 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      to fill it. The alarm still fires; only the notification email body is
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
-   - **Remaining: 5 types** — `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
-     `VARSPD2_AOI` and `MODVLV`. `INTERLOCK_AOI` is excluded (0 alarm
+   - **Remaining: 4 types unstarted** — `FLOWVLV_AOI`, `LEVELIN3_AOI`,
+     `VARSPD2_AOI` and `MODVLV` (plus `FLOWIN3_AOI` pending its live test).
+     `INTERLOCK_AOI` is excluded (0 alarm
      members). Each needs its own priority answer from Doug first (Rule 16).
      `LEVELIN3_AOI` and `VARSPD2_AOI` also carry `UnACK_Alm` and will
      exercise the same exclusion `CONSPD4_AOI` just did. `MODVLV` is
@@ -340,7 +369,20 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (3rd) — `CONSPD4_AOI` promoted from built
+*Last updated: September 15, 2026 (4th) — `FLOWIN3_AOI` built (3rd type),
+awaiting Doug's live test, so not done per Rule 5. 6 alarms, 0 skipped, and
+zero blank `notes` — the first type where every member has a real L5X
+Description. All 6 confirmed Boolean. Fidelity-checked to differ from the
+live export by exactly the 6 new `alarms` arrays. **First type with a
+per-member priority** — High on `Hi_Alm`/`Lo_Alm`/`Xmtr_Alm`, Medium on
+`UnderRange_Alm`/`OverRange_Alm`/`ChFault_Alm`, deliberately not a clean
+process-vs-diagnostic split (Doug put `Xmtr_Alm` at High). That surfaced a
+**new open capability gap**: the generator's `--alarms` path reads one flat
+priority and cannot express a per-member value, so a future regenerate would
+silently produce uniform High and drop the three Mediums. Not fixed — no
+code change was in scope — but worth fixing before the remaining 4 types now
+that priority is established as varying per member rather than per type.
+Prior update, September 15, 2026 (3rd) — `CONSPD4_AOI` promoted from built
 to **LIVE-VERIFIED**. Doug ran the full Designer import and live-fire pass
 and every step passed: `MergeOverwrite` overwrite-in-place, landed on the
 existing `CONSPD2_AOI` definition with no orphan, exactly 3 alarmed members

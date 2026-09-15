@@ -2995,7 +2995,12 @@ situation."
 ## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
 
 **Status:** **Capability implemented. 2 of 8 types LIVE-VERIFIED 2026-09-15
-— `ALARM_AOI` (pilot) and `CONSPD4_AOI`. 5 types remain.**
+— `ALARM_AOI` (pilot) and `CONSPD4_AOI`. `FLOWIN3_AOI` built the same day,
+awaiting live test. 4 types unstarted.**
+
+⚠ One open capability gap, raised by `FLOWIN3_AOI` and not yet fixed: the
+generator cannot express a **per-member** priority — see the section below
+before regenerating anything.
 
 The pilot is no longer pending: Doug imported `ALARM_AOI` with
 `MergeOverwrite`, confirmed the alarm is *inherited* (not a local override)
@@ -3074,7 +3079,7 @@ does not get to invent a pipeline name, a priority, or a trip condition.
 | `enabled` | `true` | — |
 | `mode` | `"Equality"` | A Casne alarm bit is a BOOL meaning "alarming" when 1 |
 | `setpointA` | `1.0` | Float because Ignition setpoint fields are numeric regardless of driving tag type |
-| `priority` | `"High"` | Doug, 2026-09-15, for the `ALARM_AOI` pilot; re-confirmed the same day as `High` across all 3 of `CONSPD4_AOI`'s real alarm members |
+| `priority` | **varies per type, and now per member** | `High` for `ALARM_AOI` (pilot) and for all 3 of `CONSPD4_AOI`'s members. `FLOWIN3_AOI` is **split** — High on `Hi_Alm`/`Lo_Alm`/`Xmtr_Alm`, Medium on `UnderRange_Alm`/`OverRange_Alm`/`ChFault_Alm` (Doug, 2026-09-15). **Never carry a previous type's priority forward — ask.** |
 | `activePipeline` | `"Hartman_KC_Dairy_SCADA/BlueSky"` | Doug, 2026-09-15. **Site-specific.** Corrected during the live pilot test — `"BlueSky"` alone is not a valid pipeline reference |
 | `notes` | the member's verbatim L5X `<Description>` | — |
 | `displayPath` | **absent** | see below |
@@ -3083,6 +3088,14 @@ does not get to invent a pipeline name, a priority, or a trip condition.
 **`priority` note:** Oliver may revisit `High` → `Medium` later. That is
 deliberately **not** encoded as a pending change — a value that might
 change is still just the current value.
+
+**`priority` is the one convention that is NOT site-wide.** Confirmed by
+`FLOWIN3_AOI` on 2026-09-15: Doug specified a per-member split rather than a
+uniform value, and explicitly said priority does not carry over
+automatically between types. Every new type needs its own answer (Rule 16
+gate) — assuming the previous type's value is a real way to get this wrong
+quietly. Note the generator cannot yet *express* a per-member priority; see
+the open capability gap below.
 
 **`displayPath` is omitted, not written as `""`.** The two spellings are
 behaviourally identical, and that is an established finding, not an
@@ -3357,11 +3370,78 @@ Two of the three members *do* carry good descriptions, which is the point
 worth keeping: the rule is sound and the blanks are gaps in the PLC program,
 not a flaw in the convention.
 
+### `FLOWIN3_AOI` — 3rd type built (2026-09-15), awaiting live test
+
+**Deliverable:** `BlueSky/FLOWIN3_AOI UDT definition with alarms
+2026-09-15.json`. Unlike the previous type, the Ignition and L5X names are
+the same here (`FLOWIN3_AOI` both sides), so there is no name-pairing hazard.
+
+**6 alarms, 0 skipped** (of 51 members). This type carries no `UnACK_Alm`,
+so no exclusion applies — confirmed against the table rather than assumed.
+
+| Member | `priority` | `notes` (verbatim L5X `<Description>`) |
+|---|---|---|
+| `Hi_Alm` | **High** | "High Flow Alarm" |
+| `Lo_Alm` | **High** | "Low Flow Alarm" |
+| `Xmtr_Alm` | **High** | "Transmitter Alarm" |
+| `UnderRange_Alm` | **Medium** | "Under Range Alarm" |
+| `OverRange_Alm` | **Medium** | "OverRange Alarm" |
+| `ChFault_Alm` | **Medium** | "Channel Fault Alarm" |
+
+**⚠ FIRST TYPE WITH A PER-MEMBER PRIORITY — do not read this as uniform.**
+`ALARM_AOI` and `CONSPD4_AOI` both used a flat `High`. Doug chose a split
+here (2026-09-15), and it is deliberately **not** a clean
+process-vs-diagnostic grouping: `Xmtr_Alm` sits at **High** alongside the two
+flow alarms, not with the other three instrument faults. That was his
+explicit call and it was built exactly as stated — anyone tempted to "tidy"
+`Xmtr_Alm` down to Medium for consistency would be overriding a decision,
+not fixing an inconsistency.
+
+**Zero blank `notes` — the first type with no gap at all.** All 6 members
+carry a real L5X Description, so nothing needed flagging and nothing was
+invented. All 6 are BOOL/Boolean, checked specifically because FLOWIN3 is an
+analog *input* type and a REAL-typed alarm member would have made the
+`Equality`/`setpointA: 1.0` trip condition wrong. It isn't — the alarm bits
+are BOOLs the PLC already computes.
+
+Built surgically from the 2026-09-15 live export, same method as the other
+two. **Fidelity check: PASS** — with the 6 `alarms` arrays stripped back off,
+the output compares identical to the live export's `FLOWIN3_AOI` object.
+
+Not done per Rule 5 — awaiting Doug's Designer import and live-fire test.
+
+### ⚠ Open capability gap — the generator cannot express a per-member priority
+
+Surfaced by `FLOWIN3_AOI` on 2026-09-15 and **not yet fixed.**
+
+`generate_ignition_udt.py`'s `--alarms` path reads a single flat
+`ALARM_CONFIG['priority']` and applies it to every alarm it generates. There
+is no CLI flag and no per-type table for a per-member value. The split above
+was therefore applied by the surgical build, which sets each alarm's
+`priority` individually after calling `build_alarm_definition()`.
+
+**Why this matters, concretely:** if anyone later regenerates `FLOWIN3_AOI`
+with `--alarms`, they will silently get **uniform `High`** and lose the three
+`Medium` values — with no warning, because from the script's point of view
+nothing went wrong. That is the same *shape* of failure as the latent
+`OPTIONAL_MEMBER_KEYS` bug: not a crash, a quiet wrong answer.
+
+Two things keep it from biting today: the standing method for this task is a
+surgical build off the live export (never a regenerate, precisely so
+hand-tuned live work is not reverted), and `FLOWIN3_AOI` has now been built.
+It becomes a real risk the moment either assumption slips, or the moment a
+second type needs a split.
+
+Worth fixing before the remaining 4 types are built, since Doug has now
+established that priority genuinely varies per member and is not a per-type
+constant. Not fixed in this pass — no code change was in scope.
+
 ### Scope
 
-`ALARM_AOI` (pilot) and `CONSPD4_AOI` are both **live-verified** — 2 of 8
-types complete, Rule 5 satisfied for each. `MODVLV` is assessed and needs no
-extra code but was not built.
+`ALARM_AOI` (pilot) and `CONSPD4_AOI` are both **live-verified** — Rule 5
+satisfied for each. `FLOWIN3_AOI` is **built, awaiting live test**. That is 3
+of 8 types addressed, 2 fully done. `MODVLV` is assessed and needs no extra
+code but was not built.
 
 **5 types remain:** `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
 `VARSPD2_AOI`, and `MODVLV`. `INTERLOCK_AOI` is excluded — it has 0 alarm
@@ -3371,7 +3451,25 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (3rd) — `CONSPD4_AOI` promoted from built
+*Last updated: September 15, 2026 (4th) — `FLOWIN3_AOI` built (3rd type),
+awaiting Doug's live test. Delivered as `BlueSky/FLOWIN3_AOI UDT definition
+with alarms 2026-09-15.json`; Ignition and L5X names match for this type, so
+no name-pairing hazard. 6 alarms, 0 skipped (this type carries no
+`UnACK_Alm`), and **zero blank `notes`** — the first type where every member
+has a real L5X Description. All 6 confirmed Boolean, checked deliberately
+because an analog input type with a REAL-typed alarm member would have made
+the `Equality`/`setpointA: 1.0` convention wrong. Fidelity-checked to differ
+from the live export by exactly the 6 new `alarms` arrays. **First type with
+a per-member priority** — High on `Hi_Alm`/`Lo_Alm`/`Xmtr_Alm`, Medium on
+`UnderRange_Alm`/`OverRange_Alm`/`ChFault_Alm`, and deliberately not a clean
+process-vs-diagnostic split since `Xmtr_Alm` is High; built exactly as Doug
+stated. That prompted two doc corrections: the site-conventions table no
+longer presents `priority` as a fixed `"High"`, and a **new open capability
+gap** is recorded — the generator's `--alarms` path reads one flat priority
+and cannot express a per-member value, so a future regenerate of
+`FLOWIN3_AOI` would silently produce uniform High and lose the three
+Mediums. Not fixed in this pass; worth fixing before the remaining 4 types.
+Prior update, September 15, 2026 (3rd) — `CONSPD4_AOI` promoted from built
 to **LIVE-VERIFIED**; Doug's full Designer import and live-fire pass came
 back clean on every step (`MergeOverwrite` in place, landed on the existing
 `CONSPD2_AOI` with no orphan, exactly 3 alarmed members with `UnACK_Alm`
