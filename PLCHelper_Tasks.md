@@ -42,6 +42,8 @@ once the spec is solid.
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
 | TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented, patched, and re-run (all 9 rules live) | Given an export of one site's alarm tags (Weston first), check every alarm against 9 correctness rules (pipeline validity, blank email overrides, enabled, folder-based priority match, tagGroup, name/displayPath consistency, historian config) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first run flagged all 143 Weston tags with 356 problems under the original 8-rule/looser-priority version. Rules 5 and 9 were then tightened going through those findings with Doug line by line, and the script was patched and re-run the same day: **143 tags, 0 OK, 367 problems** (+1 priority override, +10 historian config). |
 | TASK_010 | Fix flagged Ignition alarm tag configuration problems | Implemented | The companion tool to TASK_009 — applies the corrections the audit flags, for rules 2–9 only (rule 1 `notes` is never auto-fixed, only flagged for Doug). Implemented 2026-09-09 as `fix_alarm_tags.py`; it emits a brand-new corrected export JSON and never writes to its input. Correctness is not restated — it `import`s `audit_alarm_tags` and uses that module's own tables, so the two tools cannot disagree about what "correct" means. First real run on Weston: **143 tags, 367 fields changed** (matching the audit's 367 problems exactly), and re-auditing the corrected output reports **0 problems / 143 OK**. ⚠ Import the output with Collision Policy **`Overwrite`**, not `MergeOverwrite` — rule 9 works by *removing* keys, and MergeOverwrite treats a missing key as "leave alone." Each site's pipelines are still verified independently: an unconfirmed site leaves `activePipeline` untouched rather than guessing. |
+| TASK_011 | Suggest existing AOIs for a described control need | Idea (documentation feature, not a tool) | When someone describes needing an AOI for a new piece of equipment, check whether an existing supported AOI already covers it. Resolved 2026-09-11 as a written **Broader use case** note per AOI in `PLCHelper_Reference.md`, matched by human judgment — no matching engine, no new script. Only `CONSPD4_AOI` has a note so far. |
+| TASK_012 | Embed Ignition alarm definitions into generated UDT definitions | **Capability Implemented; `ALARM_AOI` pilot file built, NOT yet live-verified** | Emit an `alarms` array on the alarm-bit member(s) of a UDT **definition**, so every existing instance inherits a working alarm with zero per-instance work (confirmed by Inductive Automation's "Alarms in UDTs"). Alarm members are exactly the historization rule's alarm case (`_alm`/`_alarm` suffix, or the bare word) — alarm *controls* (`_alm_dis`/`_alm_ack`/`_alm_res`) never qualify. Every config value is a Doug-confirmed site convention, never invented: `Equality` against `1.0`, `priority: "High"`, `activePipeline: "BlueSky"` (site-specific, overridable via `--alarm-pipeline`), `notes` from the member's verbatim L5X Description, `displayPath` omitted. New `ALARM_DEFINITION_EXCLUSIONS` table keeps a member as a normal tag but withholds its alarm (`UnACK_Alm` on `CONSPD4_AOI`/`LEVELIN3_AOI`/`VARSPD2_AOI`, added ahead of need) — deliberately distinct from `MEMBER_EXCLUSIONS`, which deletes the member outright. `--alarms` is opt-in; without it output is byte-identical to the pre-change script. Also fixed a latent bug — `alarms` was missing from `OPTIONAL_MEMBER_KEYS`, which would have stamped one reference member's alarm onto every generated member. |
 
 ---
 
@@ -2990,7 +2992,258 @@ situation."
 
 ---
 
-*Last updated: September 12, 2026 (7th) — `INTERLOCK_AOI` confirmed
+## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
+
+**Status:** **Implemented (capability) + `ALARM_AOI` pilot file built and
+awaiting Doug's Designer import — NOT yet live-verified.** Per Rule 5 this
+task is not "done": nothing here has been imported into a real gateway or
+seen to fire. The remaining step is Doug's, in Designer; the numbered
+procedure is in "Import + verification procedure" below.
+
+### Purpose
+
+Put the alarm **on the UDT definition** instead of on each instance, so
+every existing instance inherits a working, configured alarm with zero
+per-instance work. Confirmed supported by Inductive Automation's "Alarms
+in UDTs" page: *"If an alarm is configured inside a UDT, every instance of
+that UDT will automatically have that same alarm configuration."*
+
+This is the alarm-side counterpart to what TASK_004 already does for
+History: a definition-level setting that propagates, rather than 31
+instances edited by hand.
+
+### Verified starting state (2026-09-15)
+
+Doug's fresh full UDT export (`BlueSky/O2 tags UDTs all export backup
+2026-09-15.json`) contains **zero** `alarms` arrays across all 8 live
+definitions. Nothing is currently propagating, so this is greenfield —
+no existing alarm configuration is being modified or overwritten.
+
+### Which member gets an alarm
+
+Exactly the members the historization rule already calls the *alarm* case,
+and nothing else: a name ending `_alm`/`_alarm`, or a name that IS the bare
+word `alm`/`alarm`. Compound alarm **controls** (`_alm_dis`, `_alm_ack`,
+`_alm_res`, anything else `_alm_*`) never qualify — they are how an alarm
+is operated, not the alarm itself.
+
+`is_alarm_member()` deliberately reuses the same constants as
+`classify_history()` rather than restating the test, so the two rules
+cannot drift apart. A `_hwdi` member classifies as *digital* for History
+but is not an alarm, and the alarm case is the only classification that
+qualifies.
+
+**Alarm-member census** (from `BOP_O2_CombinedTest_v35_Emulate.L5X`,
+run 2026-09-15 and re-verified the same day against the predicate itself):
+
+| Type | Alarm members | Has `UnACK_Alm` |
+|---|---|---|
+| `ALARM_AOI` | 1 | no |
+| `FLOWVLV_AOI` | 2 | no |
+| `CONSPD4_AOI` | 4 | **yes** |
+| `MODVLV` | 4 | no |
+| `FLOWIN3_AOI` | 6 | no |
+| `VARSPD2_AOI` | 7 | **yes** |
+| `LEVELIN3_AOI` | 9 | **yes** |
+| `INTERLOCK_AOI` | 0 | no |
+
+`MODVLV` needs **zero extra code** — it is a native UDT (TASK_008 path),
+and its 4 alarm members flow through the identical shared member builder.
+
+### Site conventions — all Doug-confirmed 2026-09-15
+
+Every value below is a supplied convention, not a default this tool chose.
+Same discipline as `SITE_PIPELINES` in `audit_alarm_tags.py`: the script
+does not get to invent a pipeline name, a priority, or a trip condition.
+
+| Field | Value | Source |
+|---|---|---|
+| `enabled` | `true` | — |
+| `mode` | `"Equality"` | A Casne alarm bit is a BOOL meaning "alarming" when 1 |
+| `setpointA` | `1.0` | Float because Ignition setpoint fields are numeric regardless of driving tag type |
+| `priority` | `"High"` | Doug, 2026-09-15, for the `ALARM_AOI` pilot |
+| `activePipeline` | `"BlueSky"` | Doug, 2026-09-15. **Site-specific** |
+| `notes` | the member's verbatim L5X `<Description>` | — |
+| `displayPath` | **absent** | see below |
+| `name` (of the alarm) | `"Alarm"` | Ignition's own default for a new alarm |
+
+**`priority` note:** Oliver may revisit `High` → `Medium` later. That is
+deliberately **not** encoded as a pending change — a value that might
+change is still just the current value.
+
+**`displayPath` is omitted, not written as `""`.** The two spellings are
+behaviourally identical, and that is an established finding, not an
+assumption: `audit_alarm_tags.py`'s rule 8 routes `"displayPath" not in
+alarm` and a blank value through the *same* branch with the *same* message,
+documented there as "a documented 'use the default,' not a mistyped path."
+Absent is preferred only because real Ignition exports omit a field at its
+default rather than writing an empty literal — the same reasoning already
+applied to `historicalDeadbandStyle`.
+
+**`activePipeline` is site-specific, and the tool says so.** `"BlueSky"` is
+Blue Sky's pipeline; Weston's is `"Site Pipelines/Weston"`, StLuc's is
+`"WWHMPWTP2/StLuc"`. `--alarm-pipeline` overrides it, every run prints the
+value used, and the run warns to confirm the pipeline exists on the target
+gateway — an alarm pointing at a pipeline that is not there still fires but
+notifies nobody, silently.
+
+### Standing exclusion from alarm generation — `UnACK_Alm`
+
+`ALARM_DEFINITION_EXCLUSIONS` in `generate_ignition_udt.py`, keyed by source
+type name, added 2026-09-15. `UnACK_Alm` is confirmed unused/deprecated by
+Doug and is excluded on all three types that carry it: `CONSPD4_AOI`,
+`LEVELIN3_AOI`, `VARSPD2_AOI`.
+
+**This is a different table from `MEMBER_EXCLUSIONS`, on purpose.**
+`MEMBER_EXCLUSIONS` drops a member from the UDT entirely — the tag ceases to
+exist. `ALARM_DEFINITION_EXCLUSIONS` keeps the member as a normal,
+readable, still-historized tag and only declines to hang an alarm on it.
+Collapsing the two would delete live tags.
+
+Keyed per type rather than by bare name for the same reason
+`MEMBER_EXCLUSIONS` is: a member of the same name in a different type is a
+different member with a different history.
+
+**Added ahead of need.** `UnACK_Alm` is *not* on `ALARM_AOI`, so this table
+changes nothing about the current pilot. It exists now so the decision is
+not lost before those three types are built later — at which point the
+census would otherwise silently generate three alarms nobody wants.
+
+### Latent bug fixed at the same time — `alarms` missing from `OPTIONAL_MEMBER_KEYS`
+
+Found during this task's design pass and fixed 2026-09-15. `alarms` is a
+per-member array and belongs in the set of keys stripped before
+`derive_conventions()` learns "member constants" from a reference UDT.
+
+Left out, the bug had never fired only because no reference seen so far
+carried an alarm. The moment one did, `_most_common()` would have treated
+`alarms` as a *convention*: it would pick one member's array and stamp that
+same alarm — its name, setpoint, priority and pipeline — onto **every**
+generated member. That is silent mass-misconfiguration, not a visible
+failure, which is why it was fixed before the first reference with alarms
+in it arrives rather than after.
+
+### Inputs
+
+- A fresh L5X export (for the `<Description>` text that becomes `notes`)
+- The live UDT definition export being updated
+- The site's confirmed alarm conventions (table above)
+
+### Process
+
+`--alarms` is **opt-in**, off by default. Regression-verified 2026-09-15:
+`ALARM_AOI`, `LEVELIN3_AOI` and `VARSPD2_AOI` all regenerate **byte-identical**
+to the pre-change script when `--alarms` is not passed, so no previously
+generated UDT is disturbed.
+
+```
+python generate_ignition_udt.py --aoi ALARM_AOI \
+    --l5x "<job>/BOP_O2_CombinedTest_v35_Emulate.L5X" \
+    --reference "<reference UDT definition>.json" \
+    --output "<out>.json" \
+    --alarms [--alarm-pipeline "<site pipeline>"]
+```
+
+Every run prints an alarm report: which members got an alarm, each one's
+`notes` (or `BLANK`), which members were **skipped** by the standing
+exclusion list, and the exact config applied. A skipped member is reported
+as loudly as a generated one — an alarm quietly missing is the failure mode
+this task exists to prevent.
+
+### The pilot file was built surgically, not regenerated
+
+The `ALARM_AOI` deliverable was **not** produced by re-running the generator.
+It was built by taking the live definition verbatim out of Doug's fresh
+2026-09-15 full export and adding the one `alarms` array to the `Alarm`
+member — because that export is the current hand-tuned live definition, and
+a regeneration could quietly revert live work that never came from the L5X.
+
+Automated fidelity check, run at build time: with the `alarms` array
+stripped back off, the output compares **identical** to the live export's
+`ALARM_AOI` object. The `MergeOverwrite` import therefore changes exactly
+one thing.
+
+The alarm JSON produced:
+
+```json
+{
+  "activePipeline": "BlueSky",
+  "enabled": true,
+  "mode": "Equality",
+  "name": "Alarm",
+  "notes": "",
+  "priority": "High",
+  "setpointA": 1.0
+}
+```
+
+### ⚠ Open item — `notes` is blank on `ALARM_AOI`, and nothing was invented
+
+`ALARM_AOI`'s `Alarm` parameter has **no `<Description>` element at all** in
+the L5X. The rule is "`notes` = the member's verbatim L5X Description," so
+the rule was followed and the result is an empty string. No text was
+substituted from any other source.
+
+The rule itself is sound — most alarm members elsewhere do carry a
+description (`Hi_Alm` → "High Flow Alarm", `FAIL_alm` → "PLC called motor to
+run, and the motor failed to provide running feedback"). `ALARM_AOI`'s one
+alarm member is simply a gap in the PLC program.
+
+Consequence: the alarm **fires correctly** — `notes` has no effect on
+triggering — but the pipeline's default email template prints no descriptive
+body, and `audit_alarm_tags.py` rule 1 flags a blank `notes`. Three ways to
+close it, for Doug to choose:
+
+1. Add a `Description` to the `Alarm` parameter in Studio 5000 — fixes it at
+   the source, flows automatically on every future regeneration, and is the
+   only option that also improves the PLC program itself.
+2. Edit `notes` in Designer after import (one field, one definition).
+3. Use a parameter reference such as `{Description}` so each instance's
+   alarm note carries that instance's own description. **Not applied** — it
+   goes beyond the confirmed rule and is a design change, not a fill-in.
+   Worth noting that because `notes` lives on the *definition*, any literal
+   text there is necessarily generic across all 31 instances; a parameter
+   reference is the only way to get per-instance text.
+
+### Import + verification procedure
+
+⚠ **Do NOT rename the existing definition to `zz delete ...` first.** For a
+UDT definition specifically, Doug's usual safety-margin habit is actively
+counterproductive — renaming is the "rename-first" procedure the
+`ignition-designer-import` skill shows to be no safer than deleting, and
+both destroy the member IDs that per-instance overrides are keyed to.
+Overwrite the existing definition in place.
+
+Collision Policy must be **`MergeOverwrite`**, not `Overwrite`. This import
+*adds* a property, and the rule of thumb is: changing or adding values →
+`MergeOverwrite` is safe; removing a property or resetting one to its
+default → `Overwrite` is required. Plain `Overwrite` would delete any member
+not present in the import file.
+
+The full numbered procedure Doug follows in Designer is in
+`BLUE_SKY_STATUS.md` for the job-side record; the generic mechanics are in
+the `ignition-designer-import` skill and are not duplicated here (Lesson 9).
+
+### Scope
+
+Pilot is `ALARM_AOI` only. `MODVLV` is assessed and needs no extra code but
+was not built. The other 6 types wait for Doug's go-ahead after the pilot is
+live-verified.
+
+---
+
+*Last updated: September 15, 2026 — TASK_012 added and implemented as a
+capability: `generate_ignition_udt.py` gained `--alarms` /
+`--alarm-pipeline`, the `ALARM_CONFIG` site-convention table, the
+`ALARM_DEFINITION_EXCLUSIONS` standing table (`UnACK_Alm` on `CONSPD4_AOI`
+/ `LEVELIN3_AOI` / `VARSPD2_AOI`, added ahead of need), and a fix for the
+latent `OPTIONAL_MEMBER_KEYS` bug that omitted `alarms`. The `ALARM_AOI`
+pilot definition was built surgically from Doug's fresh 2026-09-15 live
+export and fidelity-checked to differ from it by exactly the one `alarms`
+array. Not live-verified — awaiting Doug's Designer import (Rule 5). One
+open item flagged: `ALARM_AOI`'s `Alarm` parameter has no L5X Description,
+so `notes` is blank and nothing was invented to fill it.
+Prior update, September 12, 2026 (7th) — `INTERLOCK_AOI` confirmed
 working by Doug: re-imported with `MergeOverwrite`, the `Bad_Unsupported`
 error is gone. Promoted to export-verified — **TASK_005 is now complete,
 all 8 qualifying types done.** Status line updated to reflect completion.

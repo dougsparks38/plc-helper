@@ -25,29 +25,54 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      Instrument List into PLCHelper, keeping the tool reusable across
      jobs.
 
-2. ⬜ **TASK_012 — Embed Ignition alarm definitions into generated UDT
-   definitions** *(raised 2026-09-15; design reported, awaiting Doug's
-   go-ahead per Rule 16 — no code written yet)*
-   - Goal: emit an `alarms` array on the alarm-bit member(s) of a
-     generated UDT **definition**, so all existing instances inherit a
-     working alarm with no per-instance work. Confirmed supported by
-     Inductive Automation's "Alarms in UDTs" page: *"If an alarm is
-     configured inside a UDT, every instance of that UDT will
-     automatically have that same alarm configuration."*
-   - Alarm-member census (from `BOP_O2_CombinedTest_v35_Emulate.L5X`,
-     2026-09-15): ALARM_AOI 1, FLOWVLV_AOI 2, CONSPD4_AOI 4, MODVLV 4,
-     FLOWIN3_AOI 6, VARSPD2_AOI 7, LEVELIN3_AOI 9, INTERLOCK_AOI 0
-     (re-verified zero — its only bitfield params carry no alarm bits).
-   - Verified starting state: the fresh full UDT export (`BlueSky/O2 tags
-     UDTs all export backup 2026-09-15.json`) contains **zero** `alarms`
-     arrays across all 8 definitions — nothing is currently propagating,
-     so this is greenfield rather than a modification of live alarms.
-   - **Blocked on three site conventions Doug must supply** — logged as
-     their own Daily Planner entries under Blue Sky: `activePipeline`,
-     `priority`, and whether `UnACK_Alm` counts as an alarm. The tool must
-     not invent any of these (same discipline as `SITE_PIPELINES`).
-   - Pilot scope is `ALARM_AOI` only, plus a `MODVLV` attempt; the other
-     6 types wait for Doug's go-ahead.
+2. 🔄 **TASK_012 — Embed Ignition alarm definitions into generated UDT
+   definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
+   day — Doug answered all 5 open questions. Capability built, `ALARM_AOI`
+   pilot file produced. **Blocked only on Doug's Designer import + live
+   test** — nothing here has fired on a real gateway yet, so per Rule 5
+   this is not done.)*
+   - **Built 2026-09-15:** `generate_ignition_udt.py` gained `--alarms` /
+     `--alarm-pipeline`, the `ALARM_CONFIG` site-convention table, the
+     `ALARM_DEFINITION_EXCLUSIONS` standing table, `is_alarm_member()` and
+     `build_alarm_definition()`, plus a per-run alarm report. `--alarms` is
+     opt-in — regression-verified that `ALARM_AOI`, `LEVELIN3_AOI` and
+     `VARSPD2_AOI` all regenerate byte-identical without it.
+   - **Latent bug fixed:** `alarms` was missing from
+     `OPTIONAL_MEMBER_KEYS`. Left unfixed, the first reference UDT carrying
+     an alarm would have had that one alarm stamped onto *every* generated
+     member — silent mass-misconfiguration. Fixed before such a reference
+     exists rather than after.
+   - **Pilot deliverable:** `BlueSky/ALARM_AOI UDT definition with alarms
+     2026-09-15.json`, built surgically from Doug's fresh live export
+     rather than regenerated, and fidelity-checked to differ from it by
+     exactly the one `alarms` array.
+   - **⚠ One open item for Doug:** `ALARM_AOI`'s `Alarm` parameter has no
+     `<Description>` in the L5X, so `notes` is blank. Nothing was invented
+     to fill it. The alarm still fires; only the notification email body is
+     empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
+     Doug picks one.
+   - **Deferred, not lost:** `UnACK_Alm` exclusions for `CONSPD4_AOI`,
+     `LEVELIN3_AOI` and `VARSPD2_AOI` are already in the code even though
+     none of those types is built yet. `MODVLV` is assessed as needing zero
+     extra code (native-UDT path, shared member builder) but was not built.
+     The other 6 types wait for the pilot to be live-verified.
+
+   - Background (unchanged from when this was raised): the goal is a
+     definition-level alarm so all instances inherit it, per Inductive
+     Automation's "Alarms in UDTs" page: *"If an alarm is configured
+     inside a UDT, every instance of that UDT will automatically have that
+     same alarm configuration."* Alarm-member census from
+     `BOP_O2_CombinedTest_v35_Emulate.L5X`: ALARM_AOI 1, FLOWVLV_AOI 2,
+     CONSPD4_AOI 4, MODVLV 4, FLOWIN3_AOI 6, VARSPD2_AOI 7, LEVELIN3_AOI 9,
+     INTERLOCK_AOI 0 — re-verified 2026-09-15 by running the shipped
+     `is_alarm_member()` predicate itself, and it reproduces these counts
+     exactly. Starting state verified greenfield: **zero** `alarms` arrays
+     across all 8 live definitions in the 2026-09-15 full export.
+   - The three site conventions this was blocked on — `activePipeline`,
+     `priority`, and whether `UnACK_Alm` counts as an alarm — were all
+     answered by Doug on 2026-09-15 and are no longer open. Their Daily
+     Planner entries under Blue Sky can be closed.
+   - Full write-up: `PLCHelper_Tasks.md`, TASK_012.
 
 ## Deferred — Not Active Yet
 
@@ -275,7 +300,19 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 10, 2026 — added Open Work Item 1: TASK_003
+*Last updated: September 15, 2026 — TASK_012 moved from "design reported,
+no code written" to capability-implemented with the `ALARM_AOI` pilot file
+built. Doug answered all 5 Rule 16 design questions, closing the three
+site-convention blockers (`activePipeline` = `BlueSky`, `priority` =
+`High`, `UnACK_Alm` = excluded). `generate_ignition_udt.py` gained
+`--alarms`/`--alarm-pipeline` plus the `ALARM_CONFIG` and
+`ALARM_DEFINITION_EXCLUSIONS` tables, and a latent `OPTIONAL_MEMBER_KEYS`
+bug (missing `alarms`) was fixed. Still open and explicitly NOT claimed
+done per Rule 5: nothing has been imported into a real gateway or seen to
+fire — that step is Doug's. One item needs Doug's decision: `ALARM_AOI`'s
+`Alarm` parameter has no L5X Description, so the alarm's `notes` is blank
+and nothing was invented to fill it. Prior update, September 10, 2026 —
+added Open Work Item 1: TASK_003
 (rung-comment scaling & TODO audit), moved here from
 `BlueSky/BLUE_SKY_STATUS.md` since it's a PLCHelper capability rather
 than Blue Sky-specific work — Blue Sky's own L5X/Instrument List remain

@@ -224,11 +224,24 @@ CLI_EXCLUSION_DEFAULT_REASON = "no reason given on the command line"
 # Keys computed per-member rather than copied as a convention constant.
 COMPUTED_KEYS = {"name", "dataType", "opcItemPath"}
 
-# Per-member history/scaling keys. These are stripped out of the "member
-# constants" learned from the reference, so a reference member's own
+# Per-member history/scaling/alarm keys. These are stripped out of the
+# "member constants" learned from the reference, so a reference member's own
 # history settings can never leak onto an unrelated generated member. The
 # generated members' history block is built from the rule below instead.
+#
+# `alarms` was added 2026-09-15 (TASK_012), fixing a latent bug that had
+# never fired only because no reference UDT seen so far carried an alarm.
+# `alarms` is a per-member ARRAY of alarm definitions -- as per-member as a
+# value gets. Left out of this set, derive_conventions() would have treated
+# it as a candidate "convention": if a majority of a reference's members
+# ever carried an alarms array, _most_common() would have picked one
+# member's array and stamped that SAME alarm -- its name, setpoint, priority
+# and pipeline -- onto every single generated member. That is a silent
+# mass-misconfiguration, not a visible failure, which is exactly why it is
+# fixed before the first reference with alarms in it ever arrives rather
+# than after.
 OPTIONAL_MEMBER_KEYS = {
+    "alarms",
     "historyEnabled",
     "historyProvider",
     "historyTagGroup",
@@ -365,6 +378,175 @@ HISTORY_RULE_KEYS = set(HISTORY_DIGITAL) | set(HISTORY_ANALOG) | {
 # these, so they are DERIVED from the reference's own historized members,
 # the same way the OPC Server value and path template already are.
 HISTORY_CONTEXT_KEYS = ("historyProvider", "historyTagGroup", "includeMetadata")
+
+# --------------------------------------------------------------------------
+# Alarm definitions embedded in the UDT DEFINITION (TASK_012, 2026-09-15)
+#
+# Why on the definition rather than per instance: Inductive Automation's
+# "Alarms in UDTs" page -- "If an alarm is configured inside a UDT, every
+# instance of that UDT will automatically have that same alarm
+# configuration." One alarm on the definition reaches every existing
+# instance with zero per-instance work, which is the entire point of the
+# task. Verified starting state (2026-09-15 full export): ZERO alarms
+# arrays across all 8 live definitions, so this is greenfield -- nothing
+# existing is being overwritten.
+#
+# WHICH MEMBER GETS AN ALARM. Exactly the members classify_history() calls
+# the alarm case, and nothing else: a name ending in "_alm"/"_alarm", or a
+# name that IS the bare word "alm"/"alarm". Compound alarm CONTROLS
+# (_alm_dis, _alm_ack, _alm_res, and anything else _alm_*) are excluded for
+# the same reason they are excluded from historization -- they are how an
+# alarm is operated, not the alarm itself. This is deliberately the same
+# predicate as the historization rule's alarm case rather than a second,
+# parallel definition of "what is an alarm" that could drift from it.
+#
+# Census run against BOP_O2_CombinedTest_v35_Emulate.L5X, 2026-09-15 and
+# re-verified the same day: ALARM_AOI 1, FLOWVLV_AOI 2, CONSPD4_AOI 4,
+# MODVLV 4, FLOWIN3_AOI 6, VARSPD2_AOI 7, LEVELIN3_AOI 9, INTERLOCK_AOI 0.
+# --------------------------------------------------------------------------
+
+# Every value here is a Doug-confirmed site convention, supplied 2026-09-15.
+# NOT defaults this script chose. Same discipline as SITE_PIPELINES in
+# audit_alarm_tags.py: the tool does not get to invent a pipeline name, a
+# priority, or a trip condition.
+#
+#   enabled/mode/setpointA -- a Casne alarm bit is a BOOL that means
+#     "alarming" when it is 1, so Equality against 1.0 is the trip
+#     condition. setpointA is a float because Ignition's setpoint fields
+#     are numeric regardless of the driving tag's type.
+#   priority -- "High" for the ALARM_AOI pilot, per Doug 2026-09-15.
+#     Oliver may revisit this later; that is explicitly NOT encoded here as
+#     a pending change, because a value that might change is still just the
+#     current value.
+#   activePipeline -- "BlueSky". Site-specific; see the pipeline note below.
+#
+# displayPath is ABSENT on purpose, not written as a blank string. Both
+# spellings behave identically -- audit_alarm_tags.py's rule 8 treats
+# `"displayPath" not in alarm` and a blank value through the same branch
+# with the same message, and the documented behavior of each is the same
+# fallback to the tag's own source path. Absent is preferred only because
+# real Ignition exports omit a field at its default rather than writing an
+# empty literal (the same reasoning already applied to
+# historicalDeadbandStyle above).
+ALARM_CONFIG = {
+    "enabled": True,
+    "mode": "Equality",
+    "setpointA": 1.0,
+    "priority": "High",
+    "activePipeline": "BlueSky",
+}
+
+# ⚠ SITE-SPECIFIC, not a universal constant. "BlueSky" is the Blue Sky
+# job's alarm notification pipeline. A different site has a different
+# pipeline name (Weston's is "Site Pipelines/Weston", StLuc's is
+# "WWHMPWTP2/StLuc" -- see audit_alarm_tags.py's SITE_PIPELINES). Generating
+# a UDT for another site with this value unchanged would point its alarms at
+# a pipeline that does not exist there, so --alarm-pipeline exists to
+# override it and the run prints the value it used.
+ALARM_PIPELINE_IS_SITE_SPECIFIC = True
+
+# The alarm's own name inside the member's alarms array. Ignition's default
+# for a newly added alarm is "Alarm"; the member name is already the
+# qualifier (the alarm is addressed as <member>/<alarmName>), so a fixed
+# "Alarm" reads as e.g. "Hi_Alm/Alarm" rather than the stuttering
+# "Hi_Alm/Hi_Alm".
+ALARM_NAME = "Alarm"
+
+# What happened to one alarm-named member on a --alarms run. Reported per
+# member so a SKIPPED member is as visible as a generated one -- an alarm
+# quietly missing is the failure mode this task exists to prevent.
+ALARM_OUTCOME_GENERATED = "generated"
+ALARM_OUTCOME_EXCLUDED = "excluded"
+
+# --------------------------------------------------------------------------
+# Standing exclusions from ALARM-DEFINITION generation.
+#
+# DIFFERENT FROM MEMBER_EXCLUSIONS ABOVE, and deliberately a separate table.
+# MEMBER_EXCLUSIONS drops a member from the UDT entirely -- the tag ceases to
+# exist. This table keeps the member as a normal tag and only declines to
+# hang an alarm definition on it. A member listed here is still readable,
+# still historized if the naming rule says so; it just never becomes a
+# configured Ignition alarm.
+#
+# Keyed by source type name for exactly the reason MEMBER_EXCLUSIONS is: a
+# member of the same name in a different type is a different member with a
+# different history, and excluding it by bare name collision would be this
+# script making a judgment it is not entitled to make.
+#
+# Added 2026-09-15 ahead of need. `UnACK_Alm` is NOT present on ALARM_AOI,
+# so this table changes nothing about the current pilot. It exists now so
+# the decision is not lost before CONSPD4_AOI / LEVELIN3_AOI / VARSPD2_AOI
+# are built later -- at which point the alarm-member census would otherwise
+# silently generate three alarms nobody wants.
+ALARM_DEFINITION_EXCLUSIONS = {
+    "CONSPD4_AOI": {
+        "UnACK_Alm": (
+            "Confirmed unused/deprecated by Doug, 2026-09-15. Matches the "
+            "alarm naming rule by its _Alm suffix, but is a legacy "
+            "unacknowledged-alarm rollup bit, not an alarm condition of its "
+            "own. The member is still generated as a normal tag -- only the "
+            "alarm definition is withheld."
+        ),
+    },
+    "LEVELIN3_AOI": {
+        "UnACK_Alm": (
+            "Confirmed unused/deprecated by Doug, 2026-09-15. Same member "
+            "and same reasoning as CONSPD4_AOI's -- listed per type rather "
+            "than once by name, because this table never matches on a bare "
+            "name across types."
+        ),
+    },
+    "VARSPD2_AOI": {
+        "UnACK_Alm": (
+            "Confirmed unused/deprecated by Doug, 2026-09-15. Same member "
+            "and same reasoning as CONSPD4_AOI's -- listed per type rather "
+            "than once by name, because this table never matches on a bare "
+            "name across types."
+        ),
+    },
+}
+
+
+def is_alarm_member(name):
+    """True if this member should get an Ignition alarm definition.
+
+    Deliberately delegates to classify_history() rather than re-implementing
+    the alarm-name test, so the two rules cannot drift apart. The alarm case
+    is the ONLY history classification that qualifies -- a _hwdi member also
+    classifies as 'digital' for history and must never get an alarm.
+    """
+    if name is None:
+        return False
+    lowered = name.lower()
+    return lowered.endswith(ALARM_EXACT_SUFFIXES) or lowered in ALARM_BARE
+
+
+def build_alarm_definition(name, description, pipeline, warnings):
+    """Build the one-element `alarms` array for one alarm-bit member.
+
+    `description` is the member's verbatim L5X <Description> text, used as
+    the alarm's `notes`. A blank description yields a blank `notes`; nothing
+    is invented to fill it, and the caller is warned so the gap is visible
+    rather than silently shipped.
+    """
+    alarm = dict(ALARM_CONFIG)
+    alarm["name"] = ALARM_NAME
+    alarm["activePipeline"] = pipeline
+    alarm["notes"] = description or ""
+
+    if not description:
+        warnings.append(
+            f"{name}: alarm generated with a BLANK `notes` -- this "
+            f"parameter has no <Description> in the L5X, and nothing was "
+            f"invented to fill it. notes is what the pipeline's default "
+            f"email template prints as the alarm body "
+            f"(audit_alarm_tags.py rule 1 flags a blank one), so the alarm "
+            f"will fire correctly but notify with no descriptive text. Fix "
+            f"at the source by adding a Description to this parameter in "
+            f"Studio 5000, or edit notes in Designer after import."
+        )
+
+    return [alarm]
 
 
 def classify_history(name):
@@ -873,8 +1055,15 @@ def derive_conventions(reference_path):
     }
 
 
-def build_member(parameter, conventions, warnings):
-    """Build one Ignition UDT member from one AOI parameter."""
+def build_member(parameter, conventions, warnings,
+                 alarm_options=None):
+    """Build one Ignition UDT member from one AOI parameter.
+
+    Returns (member, history_signal, alarm_outcome). `alarm_outcome` is None
+    when alarm generation is off, else one of the ALARM_OUTCOME_* strings so
+    the caller can report what happened to every alarm-named member --
+    including the ones deliberately skipped.
+    """
     name = parameter["Name"]
     plc_type = parameter["DataType"]
 
@@ -933,7 +1122,37 @@ def build_member(parameter, conventions, warnings):
                 f"is name-based -- but this disagreement is worth a look."
             )
 
-    return member, signal
+    # --- Alarm definition. Opt-in per run (--alarms); off by default, so
+    # every UDT generated before TASK_012 regenerates byte-identically.
+    alarm_outcome = None
+    if alarm_options is not None and is_alarm_member(name):
+        excluded_reason = alarm_options["exclusions"].get(name)
+        if excluded_reason:
+            alarm_outcome = ALARM_OUTCOME_EXCLUDED
+            warnings.append(
+                f"{name}: matches the alarm naming rule but is on the "
+                f"standing ALARM_DEFINITION_EXCLUSIONS list for this type, "
+                f"so NO alarm definition was generated. The member itself is "
+                f"still present as a normal tag. Reason: {excluded_reason}"
+            )
+        else:
+            member["alarms"] = build_alarm_definition(
+                name, parameter.get("Description", ""),
+                alarm_options["pipeline"], warnings,
+            )
+            alarm_outcome = ALARM_OUTCOME_GENERATED
+            if ignition_type not in DIGITAL_IGNITION_TYPES:
+                warnings.append(
+                    f"{name}: an alarm definition was generated on a member "
+                    f"whose data type is '{ignition_type}' ({plc_type} in "
+                    f"the PLC), not Boolean. The alarm's trip condition is "
+                    f"{ALARM_CONFIG['mode']} against "
+                    f"{ALARM_CONFIG['setpointA']}, which assumes a bit that "
+                    f"means 'alarming' when it is 1. Confirm that is true "
+                    f"for this member before relying on the alarm."
+                )
+
+    return member, signal, alarm_outcome
 
 
 def main():
@@ -971,7 +1190,29 @@ def main():
                              "standing MEMBER_EXCLUSIONS table; it cannot "
                              "cancel a standing exclusion. Every exclusion "
                              "is printed in the report.")
+    # TASK_012. Opt-in rather than on by default: every UDT generated before
+    # 2026-09-15 must still regenerate byte-identically without this flag.
+    parser.add_argument("--alarms", action="store_true",
+                        help="Embed an Ignition alarm definition on every "
+                             "alarm-bit member (a name ending _alm/_alarm, "
+                             "or the bare word alm/alarm), so all existing "
+                             "instances inherit it. Alarm CONTROL bits "
+                             "(_alm_dis/_alm_ack/_alm_res) never qualify. "
+                             "Members on the standing "
+                             "ALARM_DEFINITION_EXCLUSIONS list are kept as "
+                             "tags but get no alarm.")
+    parser.add_argument("--alarm-pipeline", metavar="NAME",
+                        default=ALARM_CONFIG["activePipeline"],
+                        help="Alarm notification pipeline for --alarms. "
+                             "SITE-SPECIFIC -- the default "
+                             f"({ALARM_CONFIG['activePipeline']!r}) is Blue "
+                             "Sky's. Override it for any other site; a "
+                             "pipeline that does not exist on the target "
+                             "gateway silently notifies nobody.")
     args = parser.parse_args()
+
+    if args.alarm_pipeline != ALARM_CONFIG["activePipeline"] and not args.alarms:
+        parser.error("--alarm-pipeline has no effect without --alarms")
 
     if args.list_aois:
         list_aois(args.l5x)
@@ -1130,9 +1371,22 @@ def main():
                 f"Confirm it is genuinely not a needed data point."
             )
 
-    built = [build_member(p, conventions, warnings) for p in parameters]
-    members = [m for m, _ in built]
-    historized = [(m["name"], signal) for m, signal in built if signal]
+    # --- Alarm options, resolved once per run rather than per member. None
+    # when --alarms was not passed, which is what switches the whole feature
+    # off inside build_member.
+    alarm_options = None
+    if args.alarms:
+        alarm_options = {
+            "pipeline": args.alarm_pipeline,
+            "exclusions": ALARM_DEFINITION_EXCLUSIONS.get(source_name, {}),
+        }
+
+    built = [build_member(p, conventions, warnings, alarm_options)
+             for p in parameters]
+    members = [m for m, _, _ in built]
+    historized = [(m["name"], signal) for m, signal, _ in built if signal]
+    alarm_results = [(m["name"], outcome)
+                     for m, _, outcome in built if outcome]
 
     udt = dict(conventions["type_shape"])
     udt["name"] = udt_name
@@ -1189,6 +1443,46 @@ def main():
               f"relying on the history. The digital deadband "
               f"({HISTORY_DIGITAL['historicalDeadband']}) is not a")
         print(f"      judgment call and needs no review.")
+
+    # --- Alarm report. Printed in full on every --alarms run, same
+    # reasoning as the historization report above: which members got an
+    # alarm and which were deliberately skipped must be reviewable at a
+    # glance, not something to go hunting for in the JSON.
+    if args.alarms:
+        generated = [n for n, o in alarm_results
+                     if o == ALARM_OUTCOME_GENERATED]
+        excluded_alarms = [n for n, o in alarm_results
+                           if o == ALARM_OUTCOME_EXCLUDED]
+        print()
+        print(f"Alarm definitions embedded on {len(generated)} of "
+              f"{len(members)} members by the alarm naming rule:")
+        if generated:
+            for name in generated:
+                notes = next(m for m in members
+                             if m["name"] == name)["alarms"][0]["notes"]
+                print(f"  {name}  notes="
+                      + (repr(notes) if notes else "(BLANK -- see warnings)"))
+        else:
+            print("  (none matched -- this type has no alarm-bit members)")
+        if excluded_alarms:
+            print(f"  SKIPPED {len(excluded_alarms)} member(s) on the "
+                  f"standing exclusion list (kept as tags, no alarm): "
+                  f"{', '.join(excluded_alarms)}")
+        if generated:
+            print(f"  config: mode={ALARM_CONFIG['mode']}, "
+                  f"setpointA={ALARM_CONFIG['setpointA']}, "
+                  f"priority={ALARM_CONFIG['priority']!r}, "
+                  f"activePipeline={args.alarm_pipeline!r}, "
+                  f"displayPath omitted (Ignition default)")
+            print(f"  *** CONFIRM the pipeline {args.alarm_pipeline!r} "
+                  f"actually exists on the target gateway. It is "
+                  f"site-specific;")
+            print(f"      an alarm pointing at a pipeline that is not there "
+                  f"still fires but notifies nobody, silently.")
+            print(f"  *** These alarms land on the DEFINITION, so every "
+                  f"existing instance inherits them on import. Import with")
+            print(f"      Collision Policy MergeOverwrite -- see the "
+                  f"ignition-designer-import skill.")
 
     if historized and not history_context.get("historyProvider"):
         print()
