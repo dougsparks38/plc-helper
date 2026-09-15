@@ -25,6 +25,30 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      Instrument List into PLCHelper, keeping the tool reusable across
      jobs.
 
+2. ⬜ **TASK_012 — Embed Ignition alarm definitions into generated UDT
+   definitions** *(raised 2026-09-15; design reported, awaiting Doug's
+   go-ahead per Rule 16 — no code written yet)*
+   - Goal: emit an `alarms` array on the alarm-bit member(s) of a
+     generated UDT **definition**, so all existing instances inherit a
+     working alarm with no per-instance work. Confirmed supported by
+     Inductive Automation's "Alarms in UDTs" page: *"If an alarm is
+     configured inside a UDT, every instance of that UDT will
+     automatically have that same alarm configuration."*
+   - Alarm-member census (from `BOP_O2_CombinedTest_v35_Emulate.L5X`,
+     2026-09-15): ALARM_AOI 1, FLOWVLV_AOI 2, CONSPD4_AOI 4, MODVLV 4,
+     FLOWIN3_AOI 6, VARSPD2_AOI 7, LEVELIN3_AOI 9, INTERLOCK_AOI 0
+     (re-verified zero — its only bitfield params carry no alarm bits).
+   - Verified starting state: the fresh full UDT export (`BlueSky/O2 tags
+     UDTs all export backup 2026-09-15.json`) contains **zero** `alarms`
+     arrays across all 8 definitions — nothing is currently propagating,
+     so this is greenfield rather than a modification of live alarms.
+   - **Blocked on three site conventions Doug must supply** — logged as
+     their own Daily Planner entries under Blue Sky: `activePipeline`,
+     `priority`, and whether `UnACK_Alm` counts as an alarm. The tool must
+     not invent any of these (same discipline as `SITE_PIPELINES`).
+   - Pilot scope is `ALARM_AOI` only, plus a `MODVLV` attempt; the other
+     6 types wait for Doug's go-ahead.
+
 ## Deferred — Not Active Yet
 
 Logged so nothing is forgotten, but not pending action — do not bring
