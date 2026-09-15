@@ -2994,10 +2994,9 @@ situation."
 
 ## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
 
-**Status:** **Capability implemented. 3 of 8 types LIVE-VERIFIED 2026-09-15
-— `ALARM_AOI` (pilot), `CONSPD4_AOI` and `FLOWIN3_AOI`. `FLOWVLV_AOI` built
-the same day, awaiting live test. 3 types unstarted; `INTERLOCK_AOI`
-excluded.**
+**Status:** **Capability implemented. 4 of 8 types LIVE-VERIFIED 2026-09-15
+— `ALARM_AOI` (pilot), `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI`.
+3 types unstarted; `INTERLOCK_AOI` excluded.**
 
 ⚠ One open capability gap, raised by `FLOWIN3_AOI` and not yet fixed: the
 generator cannot express a **per-member** priority — see the section below
@@ -3424,7 +3423,7 @@ propagates to instances. A correct file would have looked identical at rest
 while still collapsing to a single priority on import; forcing a Medium bit
 and seeing it report Medium is the only way that distinction shows up.
 
-### `FLOWVLV_AOI` — 4th type built (2026-09-15), awaiting live test
+### `FLOWVLV_AOI` — 4th type, LIVE-VERIFIED (2026-09-15)
 
 **Deliverable:** `BlueSky/FLOWVLV2_AOI UDT definition with alarms
 2026-09-15.json`.
@@ -3468,7 +3467,19 @@ Built surgically from the 2026-09-15 live export. **Fidelity check: PASS** —
 with the 2 `alarms` arrays stripped back off, the output compares identical
 to the live export's `FLOWVLV2_AOI` object.
 
-Not done per Rule 5 — awaiting Doug's Designer import and live-fire test.
+**Live verification passed in full (Doug, 2026-09-15):** imported with
+`MergeOverwrite` overwriting in place; **landed on `FLOWVLV2_AOI` with no
+orphan created** under the L5X name; both alarmed members present at High;
+real instances show the alarms as *inherited* with pre-existing overrides
+intact; `FAIL_ACT_alm` and `FAIL_DEACT_alm` each forced independently, both
+going **Active at Priority High** and clearing correctly.
+
+**The name-mismatch hazard was confirmed navigable, not just theorised.**
+Step 4 of the procedure existed specifically to catch an orphan appearing
+under `FLOWVLV_AOI`, and it didn't — which retires the open question of
+whether copying the live definition's own `name` field is sufficient
+protection. It is. That is now a proven pattern for `VARSPD2_AOI` →
+`VARSPD_AOI`, the one remaining known mismatch.
 
 ### ⚠ Open capability gap — the generator cannot express a per-member priority
 
@@ -3504,10 +3515,14 @@ constant. Not fixed in this pass — no code change was in scope.
 
 ### Scope
 
-`ALARM_AOI` (pilot), `CONSPD4_AOI` and `FLOWIN3_AOI` are all
-**live-verified** — Rule 5 satisfied for each. `FLOWVLV_AOI` is **built,
-awaiting live test**. That is 4 of 8 types addressed, 3 fully done.
+`ALARM_AOI` (pilot), `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI` are all
+**live-verified** — 4 of 8 types complete, Rule 5 satisfied for each.
 `MODVLV` is assessed and needs no extra code but was not built.
+
+**3 types remain:** `LEVELIN3_AOI` (9 alarm members), `VARSPD2_AOI` (7) and
+`MODVLV` (4). The two largest remaining types are also the two that carry
+`UnACK_Alm`, so both will exercise the standing exclusion; `VARSPD2_AOI`'s
+Ignition name is `VARSPD_AOI`, the last known name mismatch.
 
 **Two of the four types built so far had a PLC/Ignition name mismatch**
 (`CONSPD4_AOI` → `CONSPD2_AOI`, `FLOWVLV_AOI` → `FLOWVLV2_AOI`), so this is
@@ -3523,7 +3538,19 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (6th) — `FLOWVLV_AOI` built (4th type),
+*Last updated: September 15, 2026 (7th) — `FLOWVLV_AOI` promoted from built
+to **LIVE-VERIFIED**. Doug's full import and live-fire pass came back clean,
+including the step this type was most at risk on: the import landed on
+`FLOWVLV2_AOI` with **no orphan** created under the L5X name. Both members
+were forced independently and each reported Active at Priority High before
+clearing. That retires the open question of whether copying the live
+definition's own `name` field is sufficient protection against the
+name-mismatch hazard — it is, and it is now a proven pattern for
+`VARSPD2_AOI` → `VARSPD_AOI`, the last known mismatch. **4 of 8 types
+live-verified**, 3 unstarted (`LEVELIN3_AOI` 9 alarms, `VARSPD2_AOI` 7,
+`MODVLV` 4), `INTERLOCK_AOI` excluded. Nothing pending on `FLOWVLV_AOI`
+itself; the generator per-member-priority gap stays open and is Doug's call.
+Prior update, September 15, 2026 (6th) — `FLOWVLV_AOI` built (4th type),
 awaiting Doug's live test. Delivered as `BlueSky/FLOWVLV2_AOI UDT definition
 with alarms 2026-09-15.json` — **imported under the Ignition name
 `FLOWVLV2_AOI`, not the L5X name**; there is no Ignition definition called

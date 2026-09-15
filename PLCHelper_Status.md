@@ -27,27 +27,33 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
 
 2. 🔄 **TASK_012 — Embed Ignition alarm definitions into generated UDT
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
-   day. **3 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot),
-   `CONSPD4_AOI` and `FLOWIN3_AOI`, all imported by Doug and confirmed
-   firing and clearing on real instances. **`FLOWVLV_AOI` built the same
-   day, awaiting live test.** 3 types unstarted; `INTERLOCK_AOI` is
-   excluded.)*
-   - **`FLOWVLV_AOI` built 2026-09-15 — 4th type, awaiting Doug's live
-     test.** Deliverable: `BlueSky/FLOWVLV2_AOI UDT definition with alarms
-     2026-09-15.json`. 2 alarms, 0 skipped (no `UnACK_Alm` on this type),
-     zero blank `notes`, both members Boolean. **Uniform `High`, no split**
-     — worth noting because it directly follows `FLOWIN3_AOI`'s per-member
-     split: priority went split, then back to flat, which confirms it must
-     be asked per type rather than inferred from the previous one. Built
-     surgically; fidelity-checked to differ by exactly the 2 new `alarms`
-     arrays. Not done per Rule 5.
-   - **⚠ Name mismatch — target is `FLOWVLV2_AOI`, not `FLOWVLV_AOI`.**
-     There is **no** Ignition definition named `FLOWVLV_AOI` at all, so
-     importing under the L5X name would create a brand-new orphan rather
-     than updating the live definition. Pairing verified by count (L5X 38
-     parameters = Ignition 38 members), and the build copies the live
-     definition's own `name` field rather than writing one, so the correct
-     name is structural.
+   day. **4 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot),
+   `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI`, all imported by Doug and
+   confirmed firing and clearing on real instances. 3 types unstarted;
+   `INTERLOCK_AOI` is excluded.)*
+   - **`FLOWVLV_AOI` LIVE-VERIFIED 2026-09-15 — 4th type.** Deliverable:
+     `BlueSky/FLOWVLV2_AOI UDT definition with alarms 2026-09-15.json`.
+     2 alarms, 0 skipped (no `UnACK_Alm` on this type), zero blank `notes`,
+     both members Boolean. **Uniform `High`, no split** — worth noting
+     because it directly follows `FLOWIN3_AOI`'s per-member split: priority
+     went split, then back to flat, which confirms it must be asked per type
+     rather than inferred from the previous one. Built surgically;
+     fidelity-checked to differ by exactly the 2 new `alarms` arrays.
+   - **⚠ Name mismatch — target was `FLOWVLV2_AOI`, not `FLOWVLV_AOI`, and
+     the import confirmed it.** There is **no** Ignition definition named
+     `FLOWVLV_AOI` at all, so importing under the L5X name would have
+     created a brand-new orphan rather than updating the live definition.
+     Pairing was verified beforehand by count (L5X 38 parameters = Ignition
+     38 members), and the build copies the live definition's own `name`
+     field rather than writing one. Doug's import landed on `FLOWVLV2_AOI`
+     with **no orphan created** — the hazard was real and was navigated
+     correctly.
+   - **Doug's full live pass, all steps passed (2026-09-15):**
+     `MergeOverwrite` overwriting in place; landed on `FLOWVLV2_AOI` with no
+     orphan under the L5X name; both alarmed members present at High; real
+     instances show the alarms as **inherited** with pre-existing overrides
+     intact; `FAIL_ACT_alm` and `FAIL_DEACT_alm` each forced independently,
+     both going **Active at Priority High** and clearing correctly.
    - **Name mismatches are the norm, not the exception:** 2 of the 4 types
      built so far had one (`CONSPD4_AOI` → `CONSPD2_AOI`, `FLOWVLV_AOI` →
      `FLOWVLV2_AOI`). `VARSPD2_AOI` → `VARSPD_AOI` is the third known pair
@@ -156,10 +162,13 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
    - **Remaining: 3 types unstarted** — `LEVELIN3_AOI`, `VARSPD2_AOI` and
-     `MODVLV` (plus `FLOWVLV_AOI` pending its live test). `INTERLOCK_AOI`
-     is excluded (0 alarm members). Each needs its own priority answer from
-     Doug first (Rule 16), and that answer may be per-member or uniform —
-     both have now occurred, so neither can be assumed.
+     `MODVLV`. `INTERLOCK_AOI` is excluded (0 alarm members). Each needs its
+     own priority answer from Doug first (Rule 16), and that answer may be
+     per-member or uniform — both have now occurred, so neither can be
+     assumed. `LEVELIN3_AOI` (9 alarm members) and `VARSPD2_AOI` (7) are the
+     two largest types remaining and both carry `UnACK_Alm`;
+     `VARSPD2_AOI`'s Ignition name is `VARSPD_AOI`, the third known name
+     mismatch.
      `LEVELIN3_AOI` and `VARSPD2_AOI` also carry `UnACK_Alm` and will
      exercise the same exclusion `CONSPD4_AOI` just did. `MODVLV` is
      assessed as needing zero extra code (native-UDT path, shared member
@@ -410,7 +419,17 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (6th) — `FLOWVLV_AOI` built (4th type),
+*Last updated: September 15, 2026 (7th) — `FLOWVLV_AOI` promoted from built
+to **LIVE-VERIFIED**. Doug's full Designer import and live-fire pass came
+back clean on every step, including the one this type was most at risk on:
+the import landed on `FLOWVLV2_AOI` with **no orphan** created under the L5X
+name `FLOWVLV_AOI`. Both members were forced independently and each went
+Active at Priority High and cleared. That makes **4 of 8 types
+live-verified** (`ALARM_AOI`, `CONSPD4_AOI`, `FLOWIN3_AOI`, `FLOWVLV_AOI`),
+3 unstarted, `INTERLOCK_AOI` excluded. Nothing pending on `FLOWVLV_AOI`
+itself. The generator's per-member-priority gap remains open and unfixed —
+still Doug's call, logged to the Daily Planner.
+Prior update, September 15, 2026 (6th) — `FLOWVLV_AOI` built (4th type),
 awaiting Doug's live test, so not done per Rule 5. Delivered as
 `BlueSky/FLOWVLV2_AOI UDT definition with alarms 2026-09-15.json` —
 **imported under the Ignition name `FLOWVLV2_AOI`, not the L5X name**, since
