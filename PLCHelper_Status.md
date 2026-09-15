@@ -27,10 +27,33 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
 
 2. 🔄 **TASK_012 — Embed Ignition alarm definitions into generated UDT
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
-   day — Doug answered all 5 open questions. Capability built, `ALARM_AOI`
-   pilot file produced. **Blocked only on Doug's Designer import + live
-   test** — nothing here has fired on a real gateway yet, so per Rule 5
-   this is not done.)*
+   day. **`ALARM_AOI` pilot LIVE-VERIFIED 2026-09-15** — Doug imported it
+   and forced a real alarm bit; it went Active/High and cleared correctly.
+   **`CONSPD4_AOI` built 2026-09-15**, awaiting Doug's Designer import, so
+   per Rule 5 that half is not done. 5 types remain.)*
+   - **`CONSPD4_AOI` built 2026-09-15 — 2nd type, no new code.** The
+     existing `--alarms` path pointed at a new type. Deliverable:
+     `BlueSky/CONSPD2_AOI UDT definition with alarms 2026-09-15.json` —
+     named and imported under the **Ignition** name `CONSPD2_AOI`, never
+     the L5X name `CONSPD4_AOI` (importing under the wrong one creates an
+     orphan definition instead of updating the live one). 3 alarms on
+     `FAIL_alm`, `Stuck_On_Alm` and `CBAux_alm`, all `High` per Doug;
+     `UnACK_Alm` skipped. Built surgically from the live export and
+     fidelity-checked to differ by exactly the 3 new `alarms` arrays.
+   - **The `UnACK_Alm` exclusion fired for real for the first time here** —
+     it was added ahead of need during the pilot, where no member matched
+     it. Without it a 4th unwanted alarm would have been generated.
+   - **⚠ Second blank-`notes` case:** `CONSPD4_AOI`'s `CBAux_alm` has no
+     `<Description>` element at all in the L5X (verified against the raw
+     XML), so its `notes` is blank — the same gap as `ALARM_AOI`'s, and
+     nothing was invented for either. Same three options apply.
+   - **⚠ Pipeline does not exist on the gateway yet.** Found during the
+     live pilot test: `Hartman_KC_Dairy_SCADA/BlueSky` is the correct
+     reference (the earlier `"BlueSky"` was wrong and was corrected), but
+     no such pipeline is actually configured. Alarms fire and show Active;
+     nothing notifies anyone. Gateway config work, not a PLCHelper defect
+     — PLCHelper references a pipeline by name, it never creates one.
+     Applies to `CONSPD4_AOI`'s 3 new alarms exactly as to `ALARM_AOI`'s.
    - **Built 2026-09-15:** `generate_ignition_udt.py` gained `--alarms` /
      `--alarm-pipeline`, the `ALARM_CONFIG` site-convention table, the
      `ALARM_DEFINITION_EXCLUSIONS` standing table, `is_alarm_member()` and
@@ -51,11 +74,13 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      to fill it. The alarm still fires; only the notification email body is
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
-   - **Deferred, not lost:** `UnACK_Alm` exclusions for `CONSPD4_AOI`,
-     `LEVELIN3_AOI` and `VARSPD2_AOI` are already in the code even though
-     none of those types is built yet. `MODVLV` is assessed as needing zero
-     extra code (native-UDT path, shared member builder) but was not built.
-     The other 6 types wait for the pilot to be live-verified.
+   - **Remaining: 5 types** — `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
+     `VARSPD2_AOI` and `MODVLV`. `INTERLOCK_AOI` is excluded (0 alarm
+     members). Each needs its own priority answer from Doug first (Rule 16).
+     `LEVELIN3_AOI` and `VARSPD2_AOI` also carry `UnACK_Alm` and will
+     exercise the same exclusion `CONSPD4_AOI` just did. `MODVLV` is
+     assessed as needing zero extra code (native-UDT path, shared member
+     builder) but was not built.
 
    - Background (unchanged from when this was raised): the goal is a
      definition-level alarm so all instances inherit it, per Inductive
@@ -71,7 +96,9 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
    - The three site conventions this was blocked on — `activePipeline`,
      `priority`, and whether `UnACK_Alm` counts as an alarm — were all
      answered by Doug on 2026-09-15 and are no longer open. Their Daily
-     Planner entries under Blue Sky can be closed.
+     Planner entries under Blue Sky can be closed. Note `activePipeline`'s
+     answer was corrected the same day during live testing: the real value
+     is the full path `Hartman_KC_Dairy_SCADA/BlueSky`, not `BlueSky`.
    - Full write-up: `PLCHelper_Tasks.md`, TASK_012.
 
 ## Deferred — Not Active Yet
@@ -300,7 +327,26 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 — TASK_012 moved from "design reported,
+*Last updated: September 15, 2026 (2nd) — TASK_012's `CONSPD4_AOI` built,
+the 2nd of 8 types and the first use of the capability since the pilot went
+live. No new code — the existing `--alarms` path pointed at a new type.
+Delivered as `BlueSky/CONSPD2_AOI UDT definition with alarms
+2026-09-15.json` (imported under the Ignition name, not the L5X name), with
+3 alarms at priority `High` and `UnACK_Alm` correctly skipped — the first
+time that standing exclusion actually fired, having been added ahead of
+need during the pilot. Fidelity-checked to differ from the live export by
+exactly the 3 new `alarms` arrays. Awaiting Doug's Designer import, so not
+done per Rule 5. Corrected in the same pass (Rule 37 sweep): this file and
+`PLCHelper_Tasks.md` both still described the `ALARM_AOI` pilot as awaiting
+import when Doug had already live-verified it on 2026-09-15 and
+`BLUE_SKY_STATUS.md` had recorded the result — and both still carried the
+superseded `activePipeline` value `BlueSky` instead of the corrected
+`Hartman_KC_Dairy_SCADA/BlueSky`. Two open items, neither a defect in this
+work: `CBAux_alm` has no L5X Description so its `notes` is blank (second
+instance of the `ALARM_AOI` gap; nothing invented), and the
+`Hartman_KC_Dairy_SCADA/BlueSky` pipeline is not yet configured on the
+gateway, so these alarms fire but notify nobody. 5 types remain.
+Prior update, September 15, 2026 — TASK_012 moved from "design reported,
 no code written" to capability-implemented with the `ALARM_AOI` pilot file
 built. Doug answered all 5 Rule 16 design questions, closing the three
 site-convention blockers (`activePipeline` = `BlueSky`, `priority` =

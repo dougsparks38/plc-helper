@@ -2994,11 +2994,22 @@ situation."
 
 ## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
 
-**Status:** **Implemented (capability) + `ALARM_AOI` pilot file built and
-awaiting Doug's Designer import — NOT yet live-verified.** Per Rule 5 this
-task is not "done": nothing here has been imported into a real gateway or
-seen to fire. The remaining step is Doug's, in Designer; the numbered
-procedure is in "Import + verification procedure" below.
+**Status:** **Capability implemented. `ALARM_AOI` pilot LIVE-VERIFIED
+2026-09-15. `CONSPD4_AOI` (2nd type) built 2026-09-15, awaiting Doug's
+Designer import.**
+
+The pilot is no longer pending: Doug imported `ALARM_AOI` with
+`MergeOverwrite`, confirmed the alarm is *inherited* (not a local override)
+on 3 real instances, and forced the bit on `O2_AC001_FAILURE` — it went
+**Active, Priority High** within seconds and cleared correctly. The full
+verification record lives in `BlueSky/BLUE_SKY_STATUS.md`'s Completed
+section (Lesson 9 — not duplicated here). Two things came out of that live
+run and are reflected below: the `activePipeline` correction, and the
+gateway pipeline gap.
+
+`CONSPD4_AOI` is built but **not** done per Rule 5 — nothing about it has
+fired on a gateway yet. Its numbered import procedure is in
+"Import + verification procedure" below.
 
 ### Purpose
 
@@ -3061,8 +3072,8 @@ does not get to invent a pipeline name, a priority, or a trip condition.
 | `enabled` | `true` | — |
 | `mode` | `"Equality"` | A Casne alarm bit is a BOOL meaning "alarming" when 1 |
 | `setpointA` | `1.0` | Float because Ignition setpoint fields are numeric regardless of driving tag type |
-| `priority` | `"High"` | Doug, 2026-09-15, for the `ALARM_AOI` pilot |
-| `activePipeline` | `"BlueSky"` | Doug, 2026-09-15. **Site-specific** |
+| `priority` | `"High"` | Doug, 2026-09-15, for the `ALARM_AOI` pilot; re-confirmed the same day as `High` across all 3 of `CONSPD4_AOI`'s real alarm members |
+| `activePipeline` | `"Hartman_KC_Dairy_SCADA/BlueSky"` | Doug, 2026-09-15. **Site-specific.** Corrected during the live pilot test — `"BlueSky"` alone is not a valid pipeline reference |
 | `notes` | the member's verbatim L5X `<Description>` | — |
 | `displayPath` | **absent** | see below |
 | `name` (of the alarm) | `"Alarm"` | Ignition's own default for a new alarm |
@@ -3080,12 +3091,26 @@ Absent is preferred only because real Ignition exports omit a field at its
 default rather than writing an empty literal — the same reasoning already
 applied to `historicalDeadbandStyle`.
 
-**`activePipeline` is site-specific, and the tool says so.** `"BlueSky"` is
-Blue Sky's pipeline; Weston's is `"Site Pipelines/Weston"`, StLuc's is
-`"WWHMPWTP2/StLuc"`. `--alarm-pipeline` overrides it, every run prints the
-value used, and the run warns to confirm the pipeline exists on the target
-gateway — an alarm pointing at a pipeline that is not there still fires but
-notifies nobody, silently.
+**`activePipeline` is site-specific, and the tool says so.**
+`"Hartman_KC_Dairy_SCADA/BlueSky"` is Blue Sky's pipeline; Weston's is
+`"Site Pipelines/Weston"`, StLuc's is `"WWHMPWTP2/StLuc"`.
+`--alarm-pipeline` overrides it, every run prints the value used, and the
+run warns to confirm the pipeline exists on the target gateway — an alarm
+pointing at a pipeline that is not there still fires but notifies nobody,
+silently.
+
+**That warning was not hypothetical — it fired for real.** The live pilot
+test proved both halves of it on the same day:
+1. The original value `"BlueSky"` was simply **wrong**; the real reference
+   is the full path `"Hartman_KC_Dairy_SCADA/BlueSky"`. Doug corrected it
+   in Designer and the generator default plus every reference file were
+   corrected to match.
+2. Even with the corrected name, that pipeline **does not actually exist on
+   the gateway yet**. The alarm fires and shows Active in the Alarm Status
+   table, but nothing notifies anyone. This is Gateway configuration work,
+   not a PLCHelper defect — the tool references a pipeline by name, it
+   never creates one. Tracked as its own Daily Planner item under Blue Sky
+   and it applies to every type built since, `CONSPD4_AOI` included.
 
 ### Standing exclusion from alarm generation — `UnACK_Alm`
 
@@ -3167,7 +3192,7 @@ The alarm JSON produced:
 
 ```json
 {
-  "activePipeline": "BlueSky",
+  "activePipeline": "Hartman_KC_Dairy_SCADA/BlueSky",
   "enabled": true,
   "mode": "Equality",
   "name": "Alarm",
@@ -3176,6 +3201,12 @@ The alarm JSON produced:
   "setpointA": 1.0
 }
 ```
+
+*(This block previously showed `"BlueSky"`. The pilot **file** was corrected
+the same day the live test found the error; only this write-up's text stayed
+stale, and it was caught during the `CONSPD4_AOI` build on 2026-09-15 —
+a Rule 37 sweep case: the data was right and the document describing it was
+not.)*
 
 ### ⚠ Open item — `notes` is blank on `ALARM_AOI`, and nothing was invented
 
@@ -3220,19 +3251,124 @@ Collision Policy must be **`MergeOverwrite`**, not `Overwrite`. This import
 default → `Overwrite` is required. Plain `Overwrite` would delete any member
 not present in the import file.
 
+Both points above were confirmed in practice during the live `ALARM_AOI`
+import: pre-existing per-instance overrides survived `MergeOverwrite`
+untouched, and the alarm showed as *inherited* rather than local on every
+instance spot-checked.
+
+**Type-specific gotcha for `CONSPD4_AOI`:** import the file under the
+Ignition name **`CONSPD2_AOI`**. The deliverable is named for the Ignition
+side precisely so the right name is the obvious one to reach for.
+
 The full numbered procedure Doug follows in Designer is in
 `BLUE_SKY_STATUS.md` for the job-side record; the generic mechanics are in
 the `ignition-designer-import` skill and are not duplicated here (Lesson 9).
 
+### `CONSPD4_AOI` — 2nd type built (2026-09-15)
+
+First application of the proven capability to a second type. **No new code
+was written** — this is the same `--alarms` path the pilot established,
+pointed at a different type.
+
+**Deliverable:** `BlueSky/CONSPD2_AOI UDT definition with alarms
+2026-09-15.json`.
+
+⚠ **The file is named, and must be imported, under the *Ignition* name
+`CONSPD2_AOI` — not the L5X name `CONSPD4_AOI`.** This is the confirmed,
+intentional name pairing (see PLCHelper_Status.md's "Handoff to SCADA"
+naming-convention note). Importing under the L5X name would create a new
+orphan definition instead of updating the live one.
+
+**3 alarms generated, 1 correctly skipped** (of 4 members matching the alarm
+naming rule, out of 68 total):
+
+| Member | `notes` (verbatim L5X `<Description>`) |
+|---|---|
+| `FAIL_alm` | "PLC called motor to run, and the motor failed to provide running feedback" |
+| `Stuck_On_Alm` | "Pump Stuck on / Runtime Alarm" |
+| `CBAux_alm` | **BLANK — no `<Description>` element in the L5X** |
+| `UnACK_Alm` | *skipped* — standing `ALARM_DEFINITION_EXCLUSIONS` entry; kept as a normal tag |
+
+All three are BOOL in the PLC / Boolean in Ignition, so the non-Boolean
+trip-condition warning did not fire. `priority` is `High` on all three —
+Doug confirmed it flat across the board rather than per-member, matching the
+pilot.
+
+**The `UnACK_Alm` exclusion fired for real here.** It was added ahead of need
+during the pilot (where `ALARM_AOI` carries no such member), so this is the
+first run where it actually did anything. Without it the census would have
+generated a 4th alarm nobody wants.
+
+**Multiple alarms on one definition is not a collision.** Verified before
+building, since the pilot had only one: all three alarms are named `"Alarm"`,
+and alarm-name uniqueness is per *tag*, not per UDT — each member is its own
+tag. The omitted `displayPath` then falls back to each instance's own full
+path, so an operator can still tell the 31 instances apart. Official IA
+"Alarms in UDTs" documentation, already in `TRUSTED_SOURCES.md`.
+
+**Built surgically, same method as the pilot** — the live `CONSPD2_AOI`
+definition was taken verbatim out of the 2026-09-15 full export and the three
+`alarms` arrays added to it, rather than regenerating from the L5X (which
+could silently revert hand-tuned live work, such as the OPC-Server-name and
+member-case fixes already applied by hand to this very type).
+
+**Automated fidelity check, run at build time:** with the three `alarms`
+arrays stripped back off, the output compares **identical** to the live
+export's `CONSPD2_AOI` object. The `MergeOverwrite` import therefore changes
+exactly those three things and nothing else.
+
+### ⚠ Open item — `CBAux_alm`'s `notes` is blank, and nothing was invented
+
+`CBAux_alm` has **no `<Description>` element at all** in the L5X — verified
+against the raw XML, not merely read as an empty string. This is the same gap
+already open on `ALARM_AOI`'s `Alarm` parameter, and the same three options
+apply (fix at the source in Studio 5000, edit in Designer after import, or a
+parameter reference — the last being a design change, not a fill-in). The
+alarm fires correctly either way; `notes` only feeds the notification body.
+
+Two of the three members *do* carry good descriptions, which is the point
+worth keeping: the rule is sound and the blanks are gaps in the PLC program,
+not a flaw in the convention.
+
 ### Scope
 
-Pilot is `ALARM_AOI` only. `MODVLV` is assessed and needs no extra code but
-was not built. The other 6 types wait for Doug's go-ahead after the pilot is
-live-verified.
+`ALARM_AOI` (pilot, live-verified) and `CONSPD4_AOI` (built, awaiting import)
+are done on the PLCHelper side. `MODVLV` is assessed and needs no extra code
+but was not built.
+
+**5 types remain:** `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
+`VARSPD2_AOI`, and `MODVLV`. `INTERLOCK_AOI` is excluded — it has 0 alarm
+members. Each remaining type needs its own priority answer from Doug before
+it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
+`UnACK_Alm` and will exercise the same exclusion.
 
 ---
 
-*Last updated: September 15, 2026 — TASK_012 added and implemented as a
+*Last updated: September 15, 2026 (2nd) — TASK_012's `CONSPD4_AOI` built,
+the 2nd of 8 types and the first application of the capability after the
+pilot went live. No new code: the existing `--alarms` path was pointed at a
+new type. Delivered as `BlueSky/CONSPD2_AOI UDT definition with alarms
+2026-09-15.json` — named and imported under the **Ignition** name, not the
+L5X name. 3 alarms (`FAIL_alm`, `Stuck_On_Alm`, `CBAux_alm`, all priority
+`High` per Doug), with `UnACK_Alm` correctly skipped — the first run where
+the `ALARM_DEFINITION_EXCLUSIONS` table, added ahead of need during the
+pilot, actually fired. Built surgically from the live export and
+fidelity-checked to differ by exactly the 3 new `alarms` arrays. Verified
+before building that 3 same-named alarms on one definition is not a
+collision (uniqueness is per tag). Awaiting Doug's Designer import — not
+done per Rule 5. Two corrections made to this write-up in the same pass, a
+Rule 37 sweep: (1) the `ALARM_AOI` pilot is **live-verified**, not
+"awaiting import" as this file still claimed — Doug imported and
+live-fired it 2026-09-15 and `BLUE_SKY_STATUS.md` had recorded it while
+this file went stale; (2) every `activePipeline` reference here still read
+`"BlueSky"` when the real value, corrected during that same live test, is
+`"Hartman_KC_Dairy_SCADA/BlueSky"` — the pilot *file* was correct all
+along, only the prose was wrong. Open items: `CBAux_alm` has no L5X
+Description so its `notes` is blank (same gap as `ALARM_AOI`'s, nothing
+invented for either), and the `Hartman_KC_Dairy_SCADA/BlueSky` pipeline
+does not yet exist on the gateway, so these alarms fire but notify nobody
+— Gateway config work, tracked separately. 5 types remain.
+Prior update, September 15, 2026 — TASK_012 added and implemented as a
 capability: `generate_ignition_udt.py` gained `--alarms` /
 `--alarm-pipeline`, the `ALARM_CONFIG` site-convention table, the
 `ALARM_DEFINITION_EXCLUSIONS` standing table (`UnACK_Alm` on `CONSPD4_AOI`
@@ -3240,9 +3376,8 @@ capability: `generate_ignition_udt.py` gained `--alarms` /
 latent `OPTIONAL_MEMBER_KEYS` bug that omitted `alarms`. The `ALARM_AOI`
 pilot definition was built surgically from Doug's fresh 2026-09-15 live
 export and fidelity-checked to differ from it by exactly the one `alarms`
-array. Not live-verified — awaiting Doug's Designer import (Rule 5). One
-open item flagged: `ALARM_AOI`'s `Alarm` parameter has no L5X Description,
-so `notes` is blank and nothing was invented to fill it.
+array. One open item flagged: `ALARM_AOI`'s `Alarm` parameter has no L5X
+Description, so `notes` is blank and nothing was invented to fill it.
 Prior update, September 12, 2026 (7th) — `INTERLOCK_AOI` confirmed
 working by Doug: re-imported with `MergeOverwrite`, the `Bad_Unsupported`
 error is gone. Promoted to export-verified — **TASK_005 is now complete,
