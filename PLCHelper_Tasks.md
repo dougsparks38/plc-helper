@@ -2994,9 +2994,8 @@ situation."
 
 ## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
 
-**Status:** **Capability implemented. `ALARM_AOI` pilot LIVE-VERIFIED
-2026-09-15. `CONSPD4_AOI` (2nd type) built 2026-09-15, awaiting Doug's
-Designer import.**
+**Status:** **Capability implemented. 2 of 8 types LIVE-VERIFIED 2026-09-15
+— `ALARM_AOI` (pilot) and `CONSPD4_AOI`. 5 types remain.**
 
 The pilot is no longer pending: Doug imported `ALARM_AOI` with
 `MergeOverwrite`, confirmed the alarm is *inherited* (not a local override)
@@ -3007,9 +3006,12 @@ section (Lesson 9 — not duplicated here). Two things came out of that live
 run and are reflected below: the `activePipeline` correction, and the
 gateway pipeline gap.
 
-`CONSPD4_AOI` is built but **not** done per Rule 5 — nothing about it has
-fired on a gateway yet. Its numbered import procedure is in
-"Import + verification procedure" below.
+`CONSPD4_AOI` was built and live-verified the same day — Doug imported it
+with `MergeOverwrite` and every check passed, including a forced bit going
+Active/High and clearing. Details in the `CONSPD4_AOI` section below.
+
+Rule 5 is therefore satisfied for both types built so far. The remaining 5
+are unstarted, not pending verification.
 
 ### Purpose
 
@@ -3264,11 +3266,36 @@ The full numbered procedure Doug follows in Designer is in
 `BLUE_SKY_STATUS.md` for the job-side record; the generic mechanics are in
 the `ignition-designer-import` skill and are not duplicated here (Lesson 9).
 
-### `CONSPD4_AOI` — 2nd type built (2026-09-15)
+### `CONSPD4_AOI` — 2nd type, LIVE-VERIFIED (2026-09-15)
 
 First application of the proven capability to a second type. **No new code
 was written** — this is the same `--alarms` path the pilot established,
 pointed at a different type.
+
+**Live verification passed in full (Doug, 2026-09-15).** Every step of the
+import + live-fire procedure came back clean:
+- Imported with Collision Policy `MergeOverwrite`, overwriting the existing
+  definition **in place** — no rename, no `zz delete` staging
+- Landed on the existing **`CONSPD2_AOI`** definition; **no orphan** was
+  created under the L5X name `CONSPD4_AOI` — the name-pairing hazard called
+  out below is real but was navigated correctly
+- Exactly **3** alarmed members present (`FAIL_alm`, `Stuck_On_Alm`,
+  `CBAux_alm`); **`UnACK_Alm` carries none**, confirming the standing
+  exclusion held through a real import and not just at generation time
+- Spot-checked real instances show the alarms as **inherited**, not local
+  overrides, and **pre-existing per-instance overrides survived** the merge
+- A forced alarm bit went **Active, Priority High** and **cleared
+  correctly**
+- `CBAux_alm`'s blank `notes` appeared exactly as predicted — confirmed
+  expected, not a surprise
+
+**What this second type actually proves, beyond repeating the pilot.** The
+pilot established the mechanism on a *single-alarm* definition. `CONSPD4_AOI`
+carries three, so it is the first real evidence that (a) three alarms all
+named `Alarm` on different members of one definition genuinely do not
+collide in a live gateway — not just per the documentation — and (b) the
+standing exclusion table survives a real `MergeOverwrite` rather than being
+a generation-time-only nicety.
 
 **Deliverable:** `BlueSky/CONSPD2_AOI UDT definition with alarms
 2026-09-15.json`.
@@ -3332,9 +3359,9 @@ not a flaw in the convention.
 
 ### Scope
 
-`ALARM_AOI` (pilot, live-verified) and `CONSPD4_AOI` (built, awaiting import)
-are done on the PLCHelper side. `MODVLV` is assessed and needs no extra code
-but was not built.
+`ALARM_AOI` (pilot) and `CONSPD4_AOI` are both **live-verified** — 2 of 8
+types complete, Rule 5 satisfied for each. `MODVLV` is assessed and needs no
+extra code but was not built.
 
 **5 types remain:** `FLOWIN3_AOI`, `FLOWVLV_AOI`, `LEVELIN3_AOI`,
 `VARSPD2_AOI`, and `MODVLV`. `INTERLOCK_AOI` is excluded — it has 0 alarm
@@ -3344,7 +3371,18 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (2nd) — TASK_012's `CONSPD4_AOI` built,
+*Last updated: September 15, 2026 (3rd) — `CONSPD4_AOI` promoted from built
+to **LIVE-VERIFIED**; Doug's full Designer import and live-fire pass came
+back clean on every step (`MergeOverwrite` in place, landed on the existing
+`CONSPD2_AOI` with no orphan, exactly 3 alarmed members with `UnACK_Alm`
+carrying none, alarms inherited with pre-existing overrides intact, forced
+bit Active at Priority High and cleared). Beyond repeating the pilot, this
+is the first live proof that three alarms all named `Alarm` on one
+definition do not collide, and that the standing `ALARM_DEFINITION_EXCLUSIONS`
+table survives a real `MergeOverwrite` rather than being generation-time
+only. **2 of 8 types live-verified**, 5 remain, `INTERLOCK_AOI` excluded.
+Nothing pending on `CONSPD4_AOI` itself.
+Prior update, September 15, 2026 (2nd) — TASK_012's `CONSPD4_AOI` built,
 the 2nd of 8 types and the first application of the capability after the
 pilot went live. No new code: the existing `--alarms` path was pointed at a
 new type. Delivered as `BlueSky/CONSPD2_AOI UDT definition with alarms
