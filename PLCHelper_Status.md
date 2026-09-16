@@ -31,15 +31,36 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
    see the breakdown immediately below. Doug deliberately deferred testing
    after `FLOWVLV_AOI` in order to keep building, so "built" and "verified"
    are now different counts and must not be collapsed.)*
-   - **Where each of the 8 types stands (2026-09-15):**
+   - **Where each of the 8 types stands (2026-09-15). All 7 alarm-carrying
+     types are BUILT; nothing is unstarted. What remains is testing, on 3.**
      - **Live-verified (4):** `ALARM_AOI` (pilot), `CONSPD4_AOI`,
        `FLOWIN3_AOI`, `FLOWVLV_AOI` — imported by Doug, confirmed firing and
        clearing on real instances.
-     - **Built, NOT tested (2):** `LEVELIN3_AOI`, `VARSPD2_AOI` — files
-       delivered and fidelity-checked, but nothing has been imported. Per
-       Rule 5 neither is done.
-     - **Unstarted (1):** `MODVLV`.
+     - **Built, NOT tested (3):** `LEVELIN3_AOI`, `VARSPD2_AOI`, `MODVLV` —
+       files delivered and fidelity-checked, but nothing has been imported.
+       Per Rule 5 none is done.
      - **Excluded (1):** `INTERLOCK_AOI` — 0 alarm members.
+
+     ⚠ **The task is NOT complete at 7/7 built.** Rule 5 is satisfied for 4
+     types, not 7. Handy physical cue: in the BlueSky folder the four
+     imported deliverables are renamed `zz delete ...` and the three pending
+     ones are not, so the folder itself shows what is left to test.
+   - **`MODVLV` built 2026-09-15 — 7th and FINAL type.** Deliverable:
+     `BlueSky/MODVLV UDT definition with alarms 2026-09-15.json`. 4 alarms
+     at uniform `High`, zero blank `notes`, no `UnACK_Alm`, no name
+     mismatch, all Boolean. Fidelity-checked to differ by exactly the 4 new
+     `alarms` arrays. Not done per Rule 5.
+   - **`MODVLV` is the only native Rockwell UDT in the set** — TASK_008
+     `--datatype` path, not the AOI path. Its long-standing "needs zero
+     extra code" assessment was **re-verified rather than trusted**: exactly
+     one `build_member()` call site receives `alarm_options`, both `--aoi`
+     and `--datatype` converge on it, and `parse_udt_members()` emits the
+     same `Name`/`Description` keys. The assessment was correct.
+   - **`MODVLV` member-count note, deliberately not actioned:** L5X has 45
+     visible members, Ignition has 41. Per the standing hard scope boundary
+     this is **not** flagged as a mismatch and no missing-member list was
+     generated — omissions are deliberate and that call is Doug's. All 4
+     alarm members exist on both sides, so the build was unaffected.
    - **`VARSPD2_AOI` built 2026-09-15 — 6th type, awaiting Doug's live
      test.** Deliverable: `BlueSky/VARSPD_AOI UDT definition with alarms
      2026-09-15.json`. 7 matched the naming rule, `UnACK_Alm` excluded
@@ -220,13 +241,11 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      to fill it. The alarm still fires; only the notification email body is
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
-   - **Remaining: 1 type unstarted** — `MODVLV` (4 alarm members,
-     native-UDT `--datatype` path, no `UnACK_Alm`). Needs its own priority
-     answer from Doug first (Rule 16). Its "zero extra code" assessment was
-     re-verified 2026-09-15 rather than taken from the old note: there is
-     exactly one `build_member()` call site and both `--aoi` and
-     `--datatype` converge on it, with `parse_udt_members()` emitting the
-     same `Name`/`Description` keys the builder expects.
+   - **Remaining: no building left — 3 Designer imports.** `LEVELIN3_AOI`,
+     `VARSPD2_AOI` and `MODVLV` each need Doug's import + live-fire pass
+     before Rule 5 is satisfied. `LEVELIN3_AOI` uses a per-member priority
+     split, so its test must force a bit at **both** High and Medium; the
+     other two are uniform High.
    - **Why the Rule 16 priority gate is not ceremony — the record across
      five types:** flat High, flat High, per-member split, flat High,
      per-member split — and the two splits **disagree with each other** on
@@ -482,7 +501,21 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (9th) — `VARSPD2_AOI` built (6th type),
+*Last updated: September 15, 2026 (10th) — `MODVLV` built, the **7th and
+final type**. Every alarm-carrying type in TASK_012's list now has a
+deliverable and **nothing is unstarted**; what remains is 3 Designer
+imports, not more building. 4 alarms at uniform `High`, zero blank `notes`,
+no `UnACK_Alm`, no name mismatch, fidelity-checked to differ by exactly the
+4 new `alarms` arrays. As the only native Rockwell UDT in the set it used
+the TASK_008 `--datatype` path, and its long-standing "zero extra code"
+assessment was re-verified rather than trusted — one shared
+`build_member()` call site, both paths converging on it, matching
+`Name`/`Description` keys. Its L5X/Ignition member counts differ (45 vs 41)
+and that is deliberately not flagged per the hard scope boundary. **Standing
+state: 7 of 7 built, 4 live-verified, 3 awaiting test** (`LEVELIN3_AOI`,
+`VARSPD2_AOI`, `MODVLV`) — Rule 5 is satisfied for 4 types, not 7, so this
+task is not complete at 7/7 built.
+Prior update, September 15, 2026 (9th) — `VARSPD2_AOI` built (6th type),
 awaiting Doug's live test. Delivered as `BlueSky/VARSPD_AOI UDT definition
 with alarms 2026-09-15.json`, imported under the Ignition name — third and
 last known name mismatch, verified by count (102 = 102) rather than assumed.

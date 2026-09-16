@@ -2996,15 +2996,19 @@ situation."
 
 **Status:** **Capability implemented.**
 
+**All 7 types are BUILT as of 2026-09-15. Nothing is unstarted.** What
+remains is testing, on 3 of them.
+
 - **LIVE-VERIFIED (4):** `ALARM_AOI` (pilot), `CONSPD4_AOI`, `FLOWIN3_AOI`,
   `FLOWVLV_AOI` — imported by Doug and confirmed firing and clearing.
-- **BUILT, NOT YET TESTED (2):** `LEVELIN3_AOI`, `VARSPD2_AOI` — Doug
-  deliberately deferred testing to keep building; per Rule 5 neither is done.
-- **Unstarted (1):** `MODVLV`.
+- **BUILT, NOT YET TESTED (3):** `LEVELIN3_AOI`, `VARSPD2_AOI`, `MODVLV` —
+  Doug deliberately deferred testing to keep building; per Rule 5 none is
+  done.
 - **Excluded (1):** `INTERLOCK_AOI` — 0 alarm members.
 
-⚠ **"Built" and "verified" are now different counts and will stay that way
-until Doug runs the deferred imports.** Do not collapse them.
+⚠ **"Built" and "verified" are different counts and will stay that way
+until Doug runs the three deferred imports.** Do not collapse them. The task
+is **not** complete at 7/7 built — Rule 5 is satisfied for 4 types, not 7.
 
 ⚠ One open capability gap, raised by `FLOWIN3_AOI` and not yet fixed: the
 generator cannot express a **per-member** priority — see the section below
@@ -3613,6 +3617,46 @@ verbatim-Description rule — the same judgement already recorded for
 `ALARM_AOI` — but it is a more attractive option at 4 blanks than it was
 at 1.
 
+### `MODVLV` — 7th and final type built (2026-09-15), awaiting live test
+
+**Deliverable:** `BlueSky/MODVLV UDT definition with alarms 2026-09-15.json`.
+**This completes the build side of the whole type list** — every type in
+Open Work Item 1 now has a deliverable.
+
+**The only native Rockwell UDT in the set.** It goes through the TASK_008
+`--datatype` path rather than TASK_004's AOI path, so members were read with
+`parse_udt_members()` instead of `parse_aoi_parameters()`.
+
+**The old "zero extra code" assessment was re-verified, not taken on
+faith.** There is exactly **one** `build_member()` call site and it receives
+`alarm_options`; both `--aoi` and `--datatype` converge on that same loop,
+and `parse_udt_members()` emits the same `Name`/`Description` keys the
+builder expects. The alarm path is genuinely shared — no native-UDT-specific
+handling was needed, exactly as predicted when the assessment was first
+written.
+
+**4 alarms, 0 skipped** (of 41 members). No `UnACK_Alm` on this type, no
+name mismatch (`MODVLV` both sides), and **zero blank `notes`**:
+
+| Member | `priority` | `notes` (verbatim L5X `<Description>`) |
+|---|---|---|
+| `FAILOPN_alm` | High | "Valve Failed to Open" |
+| `FAILCLS_alm` | High | "Valve Failed to Close" |
+| `OpenWire_alm` | High | "Analog Output Channel Open Wire alarm" |
+| `CHFault_alm` | High | "Analog Output Channel Fault alarm" |
+
+**Uniform `High`, no split** (Doug, 2026-09-15). All Boolean. **Fidelity
+check: PASS** — differs from the live export by exactly the 4 new `alarms`
+arrays.
+
+**Member-count note, deliberately not actioned:** the L5X native UDT has 45
+visible members while the Ignition definition has 41. Per the standing hard
+scope boundary this is **not** flagged as a mismatch, and no missing-member
+list was generated — omissions are deliberate and that judgement is Doug's.
+It does not affect the build: all 4 alarm members exist on both sides and
+resolved cleanly, and the surgical build modifies the live 41-member
+definition regardless.
+
 ### ⚠ Open capability gap — the generator cannot express a per-member priority
 
 Surfaced by `FLOWIN3_AOI` on 2026-09-15 and **not yet fixed.**
@@ -3651,11 +3695,11 @@ constant. Not fixed in this pass — no code change was in scope.
 **live-verified** — 4 of 8 types complete, Rule 5 satisfied for each.
 `MODVLV` is assessed and needs no extra code but was not built.
 
-`LEVELIN3_AOI` and `VARSPD2_AOI` are **built, awaiting live test** — 6 of 8
-types addressed, 4 fully done.
+`LEVELIN3_AOI`, `VARSPD2_AOI` and `MODVLV` are **built, awaiting live test**.
+**Nothing is unstarted** — all 7 alarm-carrying types have a deliverable, and
+`MODVLV` needed no extra code exactly as assessed.
 
-**1 type remains unstarted:** `MODVLV` (4 alarm members, native-UDT
-`--datatype` path, no `UnACK_Alm`).
+**What remains is 3 Designer imports, not any more building.**
 
 **The priority record so far, which is why the Rule 16 gate is not
 ceremony:** flat High, flat High, per-member split, flat High, per-member
@@ -3676,7 +3720,23 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (9th) — `VARSPD2_AOI` built (6th type),
+*Last updated: September 15, 2026 (10th) — `MODVLV` built, the **7th and
+final type**: every alarm-carrying type in Open Work Item 1 now has a
+deliverable and nothing is unstarted. Delivered as `BlueSky/MODVLV UDT
+definition with alarms 2026-09-15.json`, 4 alarms at uniform `High`, zero
+blank `notes`, no `UnACK_Alm`, no name mismatch, fidelity-checked to differ
+by exactly the 4 new `alarms` arrays. As the only **native Rockwell UDT** in
+the set it went through the TASK_008 `--datatype` path, and the old "zero
+extra code" assessment was **re-verified rather than trusted**: there is
+exactly one `build_member()` call site receiving `alarm_options`, both paths
+converge on it, and `parse_udt_members()` emits the same `Name`/`Description`
+keys — the alarm path is genuinely shared. Its L5X has 45 visible members
+against Ignition's 41; per the standing hard scope boundary that is
+deliberately **not** flagged as a mismatch and no missing-member list was
+generated. **Standing state: 7 of 7 built, 4 live-verified, 3 awaiting
+Doug's Designer import** (`LEVELIN3_AOI`, `VARSPD2_AOI`, `MODVLV`). Rule 5
+is satisfied for 4 types, not 7 — the task is not complete at 7/7 built.
+Prior update, September 15, 2026 (9th) — `VARSPD2_AOI` built (6th type),
 awaiting Doug's live test. Delivered as `BlueSky/VARSPD_AOI UDT definition
 with alarms 2026-09-15.json` — **imported under the Ignition name
 `VARSPD_AOI`**, the third and last known name mismatch, verified by count
