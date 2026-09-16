@@ -2996,7 +2996,8 @@ situation."
 
 **Status:** **Capability implemented. 4 of 8 types LIVE-VERIFIED 2026-09-15
 — `ALARM_AOI` (pilot), `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI`.
-3 types unstarted; `INTERLOCK_AOI` excluded.**
+`LEVELIN3_AOI` built the same day, awaiting live test. 2 types unstarted
+(`VARSPD2_AOI`, `MODVLV`); `INTERLOCK_AOI` excluded.**
 
 ⚠ One open capability gap, raised by `FLOWIN3_AOI` and not yet fixed: the
 generator cannot express a **per-member** priority — see the section below
@@ -3481,6 +3482,66 @@ whether copying the live definition's own `name` field is sufficient
 protection. It is. That is now a proven pattern for `VARSPD2_AOI` →
 `VARSPD_AOI`, the one remaining known mismatch.
 
+### `LEVELIN3_AOI` — 5th type built (2026-09-15), awaiting live test
+
+**Deliverable:** `BlueSky/LEVELIN3_AOI UDT definition with alarms
+2026-09-15.json`. **Largest type in the job** — 90 members, 8 real alarms.
+
+**Names match**, verified rather than assumed per the standing habit: L5X
+`LEVELIN3_AOI` has 90 parameters and Ignition `LEVELIN3_AOI` has 90 members.
+No mismatch on this type.
+
+**9 members match the alarm naming rule; 1 excluded; 8 real alarms.**
+`UnACK_Alm` was skipped by the standing `ALARM_DEFINITION_EXCLUSIONS` entry
+and kept as a normal tag — the second type to exercise it after
+`CONSPD4_AOI`. It also has no `<Description>`, so excluding it sidesteps a
+blank-`notes` case as a side effect.
+
+| Member | `priority` | `notes` (verbatim L5X `<Description>`) |
+|---|---|---|
+| `HiHi_Alm` | **High** | "HiHi Alarm" |
+| `LoLo_Alm` | **High** | "LoLo Alarm" |
+| `Xmtr_Alm` | **High** | "Transmitter Alarm" |
+| `Hi_Alm` | **Medium** | "Hi Alarm" |
+| `Lo_Alm` | **Medium** | "Lo Alarm" |
+| `ChFault_Alm` | **Medium** | "Channel Fault Alarm" |
+| `UnderRange_Alm` | **Medium** | "UnderRange Alarm" |
+| `OverRange_Alm` | **Medium** | "OverRange Alarm" |
+
+**⚠ PER-MEMBER SPLIT — and deliberately NOT the same split as
+`FLOWIN3_AOI`.** This is the important one to read carefully, because six of
+these members share names with `FLOWIN3_AOI` and two of them are assigned
+*differently*:
+
+| Shared member | `FLOWIN3_AOI` | `LEVELIN3_AOI` |
+|---|---|---|
+| `Hi_Alm` | High | **Medium** |
+| `Lo_Alm` | High | **Medium** |
+| `Xmtr_Alm` | High | High |
+| `ChFault_Alm` | Medium | Medium |
+| `UnderRange_Alm` | Medium | Medium |
+| `OverRange_Alm` | Medium | Medium |
+
+Doug's explicit call, 2026-09-15, made with the FLOWIN3 carryover on the
+table and declined. **Do not reconcile the two types in either direction.**
+The structural difference that makes this coherent rather than
+contradictory: `LEVELIN3_AOI` has a full four-level trip stack, so `HiHi`
+and `LoLo` are the real trip points and `Hi`/`Lo` are warnings beneath them.
+`FLOWIN3_AOI` has no `HiHi`/`LoLo` at all, so there `Hi`/`Lo` *are* the top
+level. Same member names, different role in each type.
+
+**Critical was available and not used.** Ignition supports five levels —
+Diagnostic(0), Low(1), Medium(2), High(3), Critical(4). Critical was raised
+as an option for the `HiHi`/`LoLo` trip levels and Doug chose High instead,
+so its absence here is a decision, not an oversight.
+
+**Zero blank `notes` among the 8**, all Boolean. Built surgically from the
+2026-09-15 live export. **Fidelity check: PASS** — with the 8 `alarms`
+arrays stripped back off, the output compares identical to the live export's
+`LEVELIN3_AOI` object.
+
+Not done per Rule 5 — awaiting Doug's Designer import and live-fire test.
+
 ### ⚠ Open capability gap — the generator cannot express a per-member priority
 
 Surfaced by `FLOWIN3_AOI` on 2026-09-15 and **not yet fixed.**
@@ -3519,10 +3580,16 @@ constant. Not fixed in this pass — no code change was in scope.
 **live-verified** — 4 of 8 types complete, Rule 5 satisfied for each.
 `MODVLV` is assessed and needs no extra code but was not built.
 
-**3 types remain:** `LEVELIN3_AOI` (9 alarm members), `VARSPD2_AOI` (7) and
-`MODVLV` (4). The two largest remaining types are also the two that carry
-`UnACK_Alm`, so both will exercise the standing exclusion; `VARSPD2_AOI`'s
-Ignition name is `VARSPD_AOI`, the last known name mismatch.
+`LEVELIN3_AOI` is **built, awaiting live test** — 5 of 8 types addressed.
+
+**2 types remain unstarted:** `VARSPD2_AOI` (7 alarm members, carries
+`UnACK_Alm`, and its Ignition name is `VARSPD_AOI` — the last known name
+mismatch) and `MODVLV` (4 alarm members, native-UDT path, no `UnACK_Alm`).
+
+**The priority record so far, which is why the Rule 16 gate is not
+ceremony:** flat High, flat High, per-member split, flat High, per-member
+split — and the two splits do not agree with each other on shared member
+names. Five types, no inferable pattern.
 
 **Two of the four types built so far had a PLC/Ignition name mismatch**
 (`CONSPD4_AOI` → `CONSPD2_AOI`, `FLOWVLV_AOI` → `FLOWVLV2_AOI`), so this is
@@ -3538,7 +3605,26 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (7th) — `FLOWVLV_AOI` promoted from built
+*Last updated: September 15, 2026 (8th) — `LEVELIN3_AOI` built (5th type,
+largest in the job: 90 members, 8 real alarms), awaiting Doug's live test.
+Names verified matching (90 = 90). `UnACK_Alm` skipped by the standing
+exclusion — second type to exercise it — and kept as a normal tag; it also
+has no `<Description>`, so excluding it sidesteps a blank-`notes` case.
+Zero blank `notes` among the 8, all Boolean, fidelity-checked to differ from
+the live export by exactly the 8 new `alarms` arrays. **Per-member split
+that deliberately does NOT match `FLOWIN3_AOI`'s**: `Hi_Alm` and `Lo_Alm`
+are High on FLOWIN3 and **Medium** here, with High reserved for
+`HiHi_Alm`/`LoLo_Alm`/`Xmtr_Alm`. Doug made that call with the FLOWIN3
+carryover explicitly on the table and declined it — the two types must not
+be reconciled. The structural reason it is coherent rather than
+contradictory: LEVELIN3 has a full four-level trip stack so Hi/Lo are
+warnings beneath the HiHi/LoLo trips, whereas FLOWIN3 has no HiHi/LoLo and
+its Hi/Lo *are* the top level. Critical was surfaced as an available option
+(Ignition has five levels: Diagnostic/Low/Medium/High/Critical) and
+deliberately not used. Running priority record across five types: flat,
+flat, split, flat, split — with the two splits disagreeing on shared member
+names, so nothing about priority is inferable between types.
+Prior update, September 15, 2026 (7th) — `FLOWVLV_AOI` promoted from built
 to **LIVE-VERIFIED**. Doug's full import and live-fire pass came back clean,
 including the step this type was most at risk on: the import landed on
 `FLOWVLV2_AOI` with **no orphan** created under the L5X name. Both members

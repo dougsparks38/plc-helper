@@ -29,8 +29,36 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
    day. **4 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot),
    `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI`, all imported by Doug and
-   confirmed firing and clearing on real instances. 3 types unstarted;
-   `INTERLOCK_AOI` is excluded.)*
+   confirmed firing and clearing on real instances. **`LEVELIN3_AOI` built
+   the same day, awaiting live test.** 2 types unstarted (`VARSPD2_AOI`,
+   `MODVLV`); `INTERLOCK_AOI` is excluded.)*
+   - **`LEVELIN3_AOI` built 2026-09-15 — 5th type, awaiting Doug's live
+     test. Largest type in the job:** 90 members, 8 real alarms. Deliverable:
+     `BlueSky/LEVELIN3_AOI UDT definition with alarms 2026-09-15.json`.
+     Names verified matching (L5X 90 parameters = Ignition 90 members) — no
+     mismatch on this type. Zero blank `notes` among the 8, all Boolean.
+     Fidelity-checked to differ by exactly the 8 new `alarms` arrays. Not
+     done per Rule 5.
+   - **`UnACK_Alm` excluded — second type to exercise the standing table**
+     after `CONSPD4_AOI`. 9 members matched the naming rule, 1 skipped, 8
+     configured. It is kept as a normal tag. It also has no
+     `<Description>`, so excluding it sidesteps a blank-`notes` case as a
+     side effect.
+   - **⚠ PER-MEMBER SPLIT, and deliberately NOT the same as
+     `FLOWIN3_AOI`'s.** High on `HiHi_Alm`, `LoLo_Alm`, `Xmtr_Alm`; Medium
+     on `Hi_Alm`, `Lo_Alm`, `ChFault_Alm`, `UnderRange_Alm`,
+     `OverRange_Alm`. Six members share names with `FLOWIN3_AOI` and two are
+     assigned **differently**: `Hi_Alm` and `Lo_Alm` are High on FLOWIN3 and
+     **Medium** here. Doug made that call with the FLOWIN3 carryover
+     explicitly offered and declined — **do not reconcile the two types in
+     either direction.** The structural reason it is coherent: LEVELIN3 has
+     a full four-level trip stack, so Hi/Lo are warnings beneath the
+     HiHi/LoLo trips; FLOWIN3 has no HiHi/LoLo, so its Hi/Lo *are* the top
+     level. Same names, different role per type.
+   - **Critical was available and deliberately not used.** Ignition supports
+     five levels — Diagnostic(0), Low(1), Medium(2), High(3), Critical(4).
+     Critical was raised as an option for the HiHi/LoLo trip levels; Doug
+     chose High. Its absence is a decision, not an oversight.
    - **`FLOWVLV_AOI` LIVE-VERIFIED 2026-09-15 — 4th type.** Deliverable:
      `BlueSky/FLOWVLV2_AOI UDT definition with alarms 2026-09-15.json`.
      2 alarms, 0 skipped (no `UnACK_Alm` on this type), zero blank `notes`,
@@ -161,14 +189,16 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      to fill it. The alarm still fires; only the notification email body is
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
-   - **Remaining: 3 types unstarted** — `LEVELIN3_AOI`, `VARSPD2_AOI` and
-     `MODVLV`. `INTERLOCK_AOI` is excluded (0 alarm members). Each needs its
-     own priority answer from Doug first (Rule 16), and that answer may be
-     per-member or uniform — both have now occurred, so neither can be
-     assumed. `LEVELIN3_AOI` (9 alarm members) and `VARSPD2_AOI` (7) are the
-     two largest types remaining and both carry `UnACK_Alm`;
-     `VARSPD2_AOI`'s Ignition name is `VARSPD_AOI`, the third known name
-     mismatch.
+   - **Remaining: 2 types unstarted** — `VARSPD2_AOI` (7 alarm members,
+     carries `UnACK_Alm`, Ignition name is `VARSPD_AOI` — the last known
+     name mismatch) and `MODVLV` (4 alarm members, native-UDT path, no
+     `UnACK_Alm`). `INTERLOCK_AOI` is excluded (0 alarm members). Each needs
+     its own priority answer from Doug first (Rule 16).
+   - **Why the Rule 16 priority gate is not ceremony — the record across
+     five types:** flat High, flat High, per-member split, flat High,
+     per-member split — and the two splits **disagree with each other** on
+     shared member names. There is no inferable pattern, so priority must be
+     asked every time rather than carried forward.
      `LEVELIN3_AOI` and `VARSPD2_AOI` also carry `UnACK_Alm` and will
      exercise the same exclusion `CONSPD4_AOI` just did. `MODVLV` is
      assessed as needing zero extra code (native-UDT path, shared member
@@ -419,7 +449,22 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (7th) — `FLOWVLV_AOI` promoted from built
+*Last updated: September 15, 2026 (8th) — `LEVELIN3_AOI` built (5th type and
+the largest in the job: 90 members, 8 real alarms), awaiting Doug's live
+test, so not done per Rule 5. Names verified matching (90 = 90). `UnACK_Alm`
+skipped by the standing exclusion — second type to exercise it — and kept as
+a normal tag. Zero blank `notes`, all Boolean, fidelity-checked to differ
+from the live export by exactly the 8 new `alarms` arrays. **Per-member
+split that deliberately does NOT match `FLOWIN3_AOI`'s**: `Hi_Alm`/`Lo_Alm`
+are High on FLOWIN3 and **Medium** here, with High reserved for
+`HiHi_Alm`/`LoLo_Alm`/`Xmtr_Alm`. Doug declined the FLOWIN3 carryover
+explicitly; the two types must not be reconciled. Coherent because LEVELIN3
+has a four-level trip stack where Hi/Lo sit beneath HiHi/LoLo, while FLOWIN3
+has no HiHi/LoLo and its Hi/Lo are the top level. Critical was offered
+(Ignition has five levels) and deliberately not used. Running record across
+five types — flat, flat, split, flat, split, with the two splits disagreeing
+on shared names — which is why priority is asked every time.
+Prior update, September 15, 2026 (7th) — `FLOWVLV_AOI` promoted from built
 to **LIVE-VERIFIED**. Doug's full Designer import and live-fire pass came
 back clean on every step, including the one this type was most at risk on:
 the import landed on `FLOWVLV2_AOI` with **no orphan** created under the L5X
