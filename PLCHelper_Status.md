@@ -27,11 +27,42 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
 
 2. 🔄 **TASK_012 — Embed Ignition alarm definitions into generated UDT
    definitions** *(raised 2026-09-15; Rule 16 design gate cleared the same
-   day. **4 of 8 types LIVE-VERIFIED 2026-09-15** — `ALARM_AOI` (pilot),
-   `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI`, all imported by Doug and
-   confirmed firing and clearing on real instances. **`LEVELIN3_AOI` built
-   the same day, awaiting live test.** 2 types unstarted (`VARSPD2_AOI`,
-   `MODVLV`); `INTERLOCK_AOI` is excluded.)*
+   day. **4 LIVE-VERIFIED, 2 BUILT-NOT-TESTED, 1 unstarted, 1 excluded** —
+   see the breakdown immediately below. Doug deliberately deferred testing
+   after `FLOWVLV_AOI` in order to keep building, so "built" and "verified"
+   are now different counts and must not be collapsed.)*
+   - **Where each of the 8 types stands (2026-09-15):**
+     - **Live-verified (4):** `ALARM_AOI` (pilot), `CONSPD4_AOI`,
+       `FLOWIN3_AOI`, `FLOWVLV_AOI` — imported by Doug, confirmed firing and
+       clearing on real instances.
+     - **Built, NOT tested (2):** `LEVELIN3_AOI`, `VARSPD2_AOI` — files
+       delivered and fidelity-checked, but nothing has been imported. Per
+       Rule 5 neither is done.
+     - **Unstarted (1):** `MODVLV`.
+     - **Excluded (1):** `INTERLOCK_AOI` — 0 alarm members.
+   - **`VARSPD2_AOI` built 2026-09-15 — 6th type, awaiting Doug's live
+     test.** Deliverable: `BlueSky/VARSPD_AOI UDT definition with alarms
+     2026-09-15.json`. 7 matched the naming rule, `UnACK_Alm` excluded
+     (third type to exercise the table), 6 configured at **uniform `High`**,
+     all Boolean. Fidelity-checked to differ by exactly the 6 new `alarms`
+     arrays. Not done per Rule 5.
+   - **⚠ Name mismatch — target is `VARSPD_AOI`, not `VARSPD2_AOI`.** Third
+     and last known instance of the pattern. Verified by count (L5X 102
+     parameters = Ignition 102 members) rather than assumed, even though the
+     pattern is now familiar.
+   - **⚠ Blank `notes` at a new scale — 4 of 6.** `ChFault_alm`,
+     `CBAux_alm`, `DriveFault_alm` and `OpenWire_alm` have **no
+     `<Description>` element at all** (verified against the raw XML; absent,
+     not empty). Previous cases were isolated — 1 of 1 on `ALARM_AOI`, 1 of
+     3 on `CONSPD4_AOI` — whereas two-thirds of this type's alarms would
+     notify with an empty body. They all still fire correctly. Built as-is
+     on the established precedent rather than a fresh judgement call;
+     rebuildable if Doug would rather have held the type.
+   - **`CBAux_alm` is blank on two different types** (`CONSPD4_AOI` and
+     `VARSPD2_AOI`) — a recurring member name with a recurring gap, so
+     adding the Descriptions once in Studio 5000 fixes every type that uses
+     them at once and flows into every future regeneration. Stronger
+     argument for the source fix than any single type made alone.
    - **`LEVELIN3_AOI` built 2026-09-15 — 5th type, awaiting Doug's live
      test. Largest type in the job:** 90 members, 8 real alarms. Deliverable:
      `BlueSky/LEVELIN3_AOI UDT definition with alarms 2026-09-15.json`.
@@ -189,11 +220,13 @@ file is for PLCHelper itself: the tool, not any one job's use of it.*
      to fill it. The alarm still fires; only the notification email body is
      empty. Three options written up in `PLCHelper_Tasks.md` TASK_012 —
      Doug picks one.
-   - **Remaining: 2 types unstarted** — `VARSPD2_AOI` (7 alarm members,
-     carries `UnACK_Alm`, Ignition name is `VARSPD_AOI` — the last known
-     name mismatch) and `MODVLV` (4 alarm members, native-UDT path, no
-     `UnACK_Alm`). `INTERLOCK_AOI` is excluded (0 alarm members). Each needs
-     its own priority answer from Doug first (Rule 16).
+   - **Remaining: 1 type unstarted** — `MODVLV` (4 alarm members,
+     native-UDT `--datatype` path, no `UnACK_Alm`). Needs its own priority
+     answer from Doug first (Rule 16). Its "zero extra code" assessment was
+     re-verified 2026-09-15 rather than taken from the old note: there is
+     exactly one `build_member()` call site and both `--aoi` and
+     `--datatype` converge on it, with `parse_udt_members()` emitting the
+     same `Name`/`Description` keys the builder expects.
    - **Why the Rule 16 priority gate is not ceremony — the record across
      five types:** flat High, flat High, per-member split, flat High,
      per-member split — and the two splits **disagree with each other** on
@@ -449,7 +482,21 @@ later, on Doug's cue, per his stated preference.*
 
 ---
 
-*Last updated: September 15, 2026 (8th) — `LEVELIN3_AOI` built (5th type and
+*Last updated: September 15, 2026 (9th) — `VARSPD2_AOI` built (6th type),
+awaiting Doug's live test. Delivered as `BlueSky/VARSPD_AOI UDT definition
+with alarms 2026-09-15.json`, imported under the Ignition name — third and
+last known name mismatch, verified by count (102 = 102) rather than assumed.
+`UnACK_Alm` excluded (third type to exercise it), 6 alarms at uniform
+`High`, all Boolean, fidelity-checked to differ by exactly the 6 new
+`alarms` arrays. **Blank `notes` reached a new scale: 4 of 6** — nothing
+invented, built on the established precedent rather than a fresh judgement,
+and rebuildable if Doug would rather have held the type for a Studio 5000
+fix first. `CBAux_alm` is now known blank on two types, making the
+source-fix argument stronger than any single type made alone. This entry was
+also restructured to state plainly where all 8 types stand, because Doug
+deferred testing after `FLOWVLV_AOI` and **built vs. live-verified are now
+different counts** that must not be collapsed.
+Prior update, September 15, 2026 (8th) — `LEVELIN3_AOI` built (5th type and
 the largest in the job: 90 members, 8 real alarms), awaiting Doug's live
 test, so not done per Rule 5. Names verified matching (90 = 90). `UnACK_Alm`
 skipped by the standing exclusion — second type to exercise it — and kept as

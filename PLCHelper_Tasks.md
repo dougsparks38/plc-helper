@@ -2994,10 +2994,17 @@ situation."
 
 ## TASK_012 — Embed Ignition alarm definitions into generated UDT definitions
 
-**Status:** **Capability implemented. 4 of 8 types LIVE-VERIFIED 2026-09-15
-— `ALARM_AOI` (pilot), `CONSPD4_AOI`, `FLOWIN3_AOI` and `FLOWVLV_AOI`.
-`LEVELIN3_AOI` built the same day, awaiting live test. 2 types unstarted
-(`VARSPD2_AOI`, `MODVLV`); `INTERLOCK_AOI` excluded.**
+**Status:** **Capability implemented.**
+
+- **LIVE-VERIFIED (4):** `ALARM_AOI` (pilot), `CONSPD4_AOI`, `FLOWIN3_AOI`,
+  `FLOWVLV_AOI` — imported by Doug and confirmed firing and clearing.
+- **BUILT, NOT YET TESTED (2):** `LEVELIN3_AOI`, `VARSPD2_AOI` — Doug
+  deliberately deferred testing to keep building; per Rule 5 neither is done.
+- **Unstarted (1):** `MODVLV`.
+- **Excluded (1):** `INTERLOCK_AOI` — 0 alarm members.
+
+⚠ **"Built" and "verified" are now different counts and will stay that way
+until Doug runs the deferred imports.** Do not collapse them.
 
 ⚠ One open capability gap, raised by `FLOWIN3_AOI` and not yet fixed: the
 generator cannot express a **per-member** priority — see the section below
@@ -3542,6 +3549,70 @@ arrays stripped back off, the output compares identical to the live export's
 
 Not done per Rule 5 — awaiting Doug's Designer import and live-fire test.
 
+### `VARSPD2_AOI` — 6th type built (2026-09-15), awaiting live test
+
+**Deliverable:** `BlueSky/VARSPD_AOI UDT definition with alarms
+2026-09-15.json`.
+
+⚠ **Import under the Ignition name `VARSPD_AOI`, not the L5X name
+`VARSPD2_AOI`** — the third and last known instance of this pattern. There
+is **no** Ignition definition called `VARSPD2_AOI`. Verified by count rather
+than assumed even though the pattern is now familiar: L5X 102 parameters =
+Ignition 102 members.
+
+**7 matched the naming rule, 1 excluded, 6 configured.** `UnACK_Alm` skipped
+by the standing exclusion and kept as a normal tag — the **third** type to
+exercise it, after `CONSPD4_AOI` and `LEVELIN3_AOI`.
+
+| Member | `priority` | `notes` (verbatim L5X `<Description>`) |
+|---|---|---|
+| `Stuck_On_Alm` | High | "Pump Stuck on / Runtime Alarm" |
+| `FAIL_alm` | High | "PLC called motor to run, and the motor failed to provide running feedback" |
+| `ChFault_alm` | High | **BLANK — no `<Description>` element** |
+| `CBAux_alm` | High | **BLANK — no `<Description>` element** |
+| `DriveFault_alm` | High | **BLANK — no `<Description>` element** |
+| `OpenWire_alm` | High | **BLANK — no `<Description>` element** |
+
+**Uniform `High`, no split** (Doug, 2026-09-15). All Boolean. Built
+surgically; **fidelity check: PASS** — differs from the live export by
+exactly the 6 new `alarms` arrays.
+
+### ⚠ Blank `notes` at a new scale — 4 of 6 on `VARSPD2_AOI`
+
+Previous cases were isolated: 1 of 1 on `ALARM_AOI`, 1 of 3 on
+`CONSPD4_AOI`. Here **two-thirds of the type's alarms** have no
+`<Description>` at all — verified against the raw XML, the elements are
+absent rather than empty. Nothing was invented, consistent with the standing
+rule and with how both earlier cases were handled.
+
+Consequence is unchanged in kind but larger in degree: every one of these
+alarms **fires correctly** — `notes` has no effect on triggering — but four
+of the six would notify with an empty body, and `audit_alarm_tags.py` rule 1
+flags each.
+
+**Proceeded on the established precedent, not a fresh judgement call.** Doug
+answered the priority question and did not answer a "hold this type until
+the Descriptions exist?" question that was put alongside it; the type was
+built as-is because that is exactly how `ALARM_AOI` and `CONSPD4_AOI` were
+handled. It can be rebuilt in seconds if he would rather have held it.
+
+**`CBAux_alm` is blank on two different types** — `CONSPD4_AOI` and
+`VARSPD2_AOI`. These are recurring member names carrying a recurring gap in
+the PLC program, so adding the Descriptions once in Studio 5000 fixes every
+type that uses them at the same time, and flows automatically into every
+future regeneration. That is a stronger argument for the source fix than any
+single type made on its own.
+
+**Also confirmed available but deliberately NOT applied:** Ignition alarm
+properties — `notes` included — are bindable to UDT parameters and
+expressions, so a per-instance dynamic note is genuinely possible (IA's docs
+use the Display Path property as the worked example). *Fair warning: the
+exact JSON shape of a bound alarm property in an export has not been
+verified here.* Applying it remains a design change beyond the confirmed
+verbatim-Description rule — the same judgement already recorded for
+`ALARM_AOI` — but it is a more attractive option at 4 blanks than it was
+at 1.
+
 ### ⚠ Open capability gap — the generator cannot express a per-member priority
 
 Surfaced by `FLOWIN3_AOI` on 2026-09-15 and **not yet fixed.**
@@ -3580,11 +3651,11 @@ constant. Not fixed in this pass — no code change was in scope.
 **live-verified** — 4 of 8 types complete, Rule 5 satisfied for each.
 `MODVLV` is assessed and needs no extra code but was not built.
 
-`LEVELIN3_AOI` is **built, awaiting live test** — 5 of 8 types addressed.
+`LEVELIN3_AOI` and `VARSPD2_AOI` are **built, awaiting live test** — 6 of 8
+types addressed, 4 fully done.
 
-**2 types remain unstarted:** `VARSPD2_AOI` (7 alarm members, carries
-`UnACK_Alm`, and its Ignition name is `VARSPD_AOI` — the last known name
-mismatch) and `MODVLV` (4 alarm members, native-UDT path, no `UnACK_Alm`).
+**1 type remains unstarted:** `MODVLV` (4 alarm members, native-UDT
+`--datatype` path, no `UnACK_Alm`).
 
 **The priority record so far, which is why the Rule 16 gate is not
 ceremony:** flat High, flat High, per-member split, flat High, per-member
@@ -3605,7 +3676,27 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (8th) — `LEVELIN3_AOI` built (5th type,
+*Last updated: September 15, 2026 (9th) — `VARSPD2_AOI` built (6th type),
+awaiting Doug's live test. Delivered as `BlueSky/VARSPD_AOI UDT definition
+with alarms 2026-09-15.json` — **imported under the Ignition name
+`VARSPD_AOI`**, the third and last known name mismatch, verified by count
+(102 = 102) rather than assumed despite the pattern now being familiar.
+7 matched, `UnACK_Alm` excluded (third type to exercise the table), 6
+configured at **uniform `High`**, all Boolean, fidelity-checked to differ by
+exactly the 6 new `alarms` arrays. **Blank `notes` hit a new scale here: 4
+of 6** (`ChFault_alm`, `CBAux_alm`, `DriveFault_alm`, `OpenWire_alm`) have
+no `<Description>` element at all — verified against the raw XML. Nothing
+invented; built as-is on the established `ALARM_AOI`/`CONSPD4_AOI`
+precedent rather than a fresh judgement, and rebuildable if Doug would
+rather have held it. Recorded as a new argument for a Studio 5000 source
+fix: `CBAux_alm` is blank on **two** types, so these are recurring member
+names with a recurring gap, and fixing them once upstream fixes every type
+at once. Also recorded: alarm `notes` is bindable to UDT
+parameters/expressions (per-instance dynamic text is possible) — confirmed
+available, deliberately not applied, still a design change beyond the
+verbatim rule. Status block restructured to separate **built** from
+**live-verified**, since Doug deferred testing and those counts now differ.
+Prior update, September 15, 2026 (8th) — `LEVELIN3_AOI` built (5th type,
 largest in the job: 90 members, 8 real alarms), awaiting Doug's live test.
 Names verified matching (90 = 90). `UnACK_Alm` skipped by the standing
 exclusion — second type to exercise it — and kept as a normal tag; it also
