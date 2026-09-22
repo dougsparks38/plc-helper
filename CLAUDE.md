@@ -127,6 +127,73 @@ RSLogix5000Content
 | `_intm` | Intermediate accumulator (pre-rollover value) |
 | `_` prefix | Internal implementation detail |
 
+## Analog input diagnostic bits and I/O-wiring convention
+
+Two related conventions: how a client-provided IO list's tag names become
+real PLC tags, and how the resulting hardware IO actually gets referenced
+in logic.
+
+### IO-list tag → PLC tag translation
+
+A client-provided IO list (e.g. a panel designer's Excel list) often uses
+a dot before a signal-type suffix — e.g. `FIT_3001.F_RS` — because Excel
+is meant for humans and the dot reads naturally. In Studio 5000, a dot
+means "sub-element," which is wrong here (the suffix isn't a real
+member), so it gets flattened to an underscore for the real PLC tag. When
+a project has more than one PLC, a project-specific PLC-identifying
+prefix is also prepended, separated by an underscore, to keep tags from
+different PLCs distinguishable: `FIT_3001.F_RS` → `BOP_FIT_3001_F_RS`.
+The prefix itself (e.g. `BOP_`/`O2_`) is **not** a universal convention —
+it's chosen per project when multiple PLCs are involved; see that
+project's own `CLAUDE.md` for its actual prefix values.
+
+### Analog input diagnostic bits (best-effort, not guaranteed)
+
+For analog inputs specifically — never analog outputs, never digital IO —
+Casne tries to also bring in the module's own channel diagnostic bits
+alongside the scaled value: Overrange, Underrange, and (channel) Fault,
+one Boolean tag each, suffixed onto the base tag name: `<base
+tag>_Overrange`, `<base tag>_Underrange`, `<base tag>_Fault`. **This is
+aspirational, not guaranteed** — different Rockwell analog input module
+families expose different diagnostic bit sets (some may lack one or more
+of these, or expose additional/different ones). Map what the specific
+module actually provides; never assume all three exist for every AI.
+
+### Two I/O-wiring methods — Casne's preferred method vs. the "blanket" method
+
+Two different ways exist to get physical IO (analog or digital) into use
+by the rest of the program logic:
+
+- **The "blanket" method** — one dedicated routine reads all IO of a
+  given type (one routine for all AI, one for all AO, one for all DI, one
+  for all DO), staging each point into a base application tag via a MOVE
+  instruction (analog) or an XIC→OTE rung (each diagnostic bit), before
+  it's used anywhere else. Rationale: PLC IO updates asynchronously
+  relative to the program scan, so in theory a point read more than once
+  in a single scan could see different values mid-scan; reading once into
+  a base tag avoids that risk entirely. In practice, Casne engineers
+  don't worry about this much — program scans run on the order of 1ms,
+  far faster than real-world IO update rates, so the actual risk is low.
+- **The Casne method (preferred)** — no staging routine at all. Every
+  analog input gets up to 4 direct Rockwell Alias tags — the scaled value
+  (`_hwai` suffix, per the Naming conventions table above) plus up to 3
+  diagnostic-bit aliases (`_hwdi` suffix each, e.g. `..._Overrange`,
+  `..._Underrange`, `..._Fault`) — each aliased directly to the module's
+  own hardware tag
+  (`Local:<slot>:I.Ch<NN>.Data`/`.Overrange`/`.Underrange`/`.Fault`).
+  Each alias is referenced exactly once, typically typed directly as a
+  parameter into the AOI instruction call that uses it (e.g.
+  `FLOWIN3_AOI`'s `Analog_hwai`, `OverRange_hwdi`, `UnderRange_hwdi`,
+  `ChFault_hwdi` parameters) — so it's still effectively read once per
+  scan, just without a separate staging step or routine.
+
+Both methods are real, both appear in real Casne code — check which one a
+given project/instrument actually uses rather than assuming. Example:
+Blue Sky's BOP PLC currently uses the blanket method for `FIT-3001`
+(existing code, left as-is 2026-09-22 — not necessarily the pattern for
+new instruments); Blue Sky's O2/Lagoon PLC's `O2_FM100` (`FLOWIN3_AOI`)
+uses the Casne alias method.
+
 ## UDT type naming convention (source: `Casne Programming Standards for PLC.docx`, 2026-09-04)
 
 This is about the **UDT type's own name** — a different thing from the
