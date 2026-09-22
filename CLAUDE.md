@@ -194,6 +194,22 @@ Blue Sky's BOP PLC currently uses the blanket method for `FIT-3001`
 new instruments); Blue Sky's O2/Lagoon PLC's `O2_FM100` (`FLOWIN3_AOI`)
 uses the Casne alias method.
 
+## Firmware as a network-communication troubleshooting step
+
+Rockwell network/IO modules can ship from the factory without the latest
+firmware revision. When a 5069 (or similar) backplane module or controller
+is intermittently losing network communication and a power/controller
+reset only fixes it temporarily, checking and updating firmware is a
+known, real troubleshooting step — not a shot in the dark. Doug has seen
+an outdated firmware revision be the actual root cause of a
+comms-loss/network issue before.
+
+**Tooling:** ControlFLASH Plus, launched via FactoryTalk Linx (the Network
+Browser). Update the controller first, then the backplane modules.
+
+Noted 2026-09-22 during a live Blue Sky BOP PLC comms-loss incident — see
+`BlueSky/BLUE_SKY_STATUS.md` for that specific event.
+
 ## UDT type naming convention (source: `Casne Programming Standards for PLC.docx`, 2026-09-04)
 
 This is about the **UDT type's own name** — a different thing from the
