@@ -44,6 +44,7 @@ once the spec is solid.
 | TASK_010 | Fix flagged Ignition alarm tag configuration problems | Implemented | The companion tool to TASK_009 — applies the corrections the audit flags, for rules 2–9 only (rule 1 `notes` is never auto-fixed, only flagged for Doug). Implemented 2026-09-09 as `fix_alarm_tags.py`; it emits a brand-new corrected export JSON and never writes to its input. Correctness is not restated — it `import`s `audit_alarm_tags` and uses that module's own tables, so the two tools cannot disagree about what "correct" means. First real run on Weston: **143 tags, 367 fields changed** (matching the audit's 367 problems exactly), and re-auditing the corrected output reports **0 problems / 143 OK**. ⚠ Import the output with Collision Policy **`Overwrite`**, not `MergeOverwrite` — rule 9 works by *removing* keys, and MergeOverwrite treats a missing key as "leave alone." Each site's pipelines are still verified independently: an unconfirmed site leaves `activePipeline` untouched rather than guessing. |
 | TASK_011 | Suggest existing AOIs for a described control need | Idea (documentation feature, not a tool) | When someone describes needing an AOI for a new piece of equipment, check whether an existing supported AOI already covers it. Resolved 2026-09-11 as a written **Broader use case** note per AOI in `PLCHelper_Reference.md`, matched by human judgment — no matching engine, no new script. Only `CONSPD4_AOI` has a note so far. |
 | TASK_012 | Embed Ignition alarm definitions into generated UDT definitions | **Capability Implemented; `ALARM_AOI` pilot file built, NOT yet live-verified** | Emit an `alarms` array on the alarm-bit member(s) of a UDT **definition**, so every existing instance inherits a working alarm with zero per-instance work (confirmed by Inductive Automation's "Alarms in UDTs"). Alarm members are exactly the historization rule's alarm case (`_alm`/`_alarm` suffix, or the bare word) — alarm *controls* (`_alm_dis`/`_alm_ack`/`_alm_res`) never qualify. Every config value is a Doug-confirmed site convention, never invented: `Equality` against `1.0`, `priority: "High"`, `activePipeline: "BlueSky"` (site-specific, overridable via `--alarm-pipeline`), `notes` from the member's verbatim L5X Description, `displayPath` omitted. New `ALARM_DEFINITION_EXCLUSIONS` table keeps a member as a normal tag but withholds its alarm (`UnACK_Alm` on `CONSPD4_AOI`/`LEVELIN3_AOI`/`VARSPD2_AOI`, added ahead of need) — deliberately distinct from `MEMBER_EXCLUSIONS`, which deletes the member outright. `--alarms` is opt-in; without it output is byte-identical to the pre-change script. Also fixed a latent bug — `alarms` was missing from `OPTIONAL_MEMBER_KEYS`, which would have stamped one reference member's alarm onto every generated member. |
+| TASK_013 | Extract an equipment's IO points from a job's IO list into its Device Index | Implemented (manually, not scripted) | Given an equipment ID (e.g. `BL-1`), find its rows in the job's coworker-maintained IO list and append one row per IO point to that job's own Tags/Device index, following that job's column convention — re-derived from the Device Index's existing rows every time, never hardcoded across jobs. IO list is transcribed verbatim, never corrected. First run 2026-09-24: Blue Sky BL-1, 6 points. |
 
 ---
 
@@ -3720,7 +3721,118 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 ---
 
-*Last updated: September 15, 2026 (10th) — `MODVLV` built, the **7th and
+## TASK_013 — Extract an equipment's IO points from a job's IO list into its Device Index
+
+**Status:** **Implemented (2026-09-24) — manually, by direct read + write
+in one dispatch, not as a script.** First real run: Blue Sky's BL-1
+blower, 6 points, appended to Blue Sky's Device Index.
+
+### Purpose
+
+A job's IO list is usually a coworker-maintained spreadsheet (for Blue
+Sky, Hakam's IO list) that Doug does not edit. Doug keeps his own per-job
+Tags/Device index spreadsheet that restates each IO point in his own
+column layout, with his own manual `checked` column. Moving an
+equipment's points from the first into the second by hand is slow and
+easy to get subtly wrong (hyphen vs. underscore, slot vs. channel,
+trailing whitespace in descriptions). This task does that transcription
+for one named piece of equipment at a time — BL-1 first, BL-2 and other
+equipment next, and other jobs after that.
+
+### Inputs
+
+| Input | Where it lives | Notes |
+|---|---|---|
+| Job's IO list | The **job's own folder**, read cross-folder — never copied into PLCHelper (same rule as TASK_003/004) | Coworker-maintained. **Read-only** — transcribe verbatim, never "correct" it. Read with `data_only=True`. |
+| Job's Device Index / Tags index | The job's own folder | Doug's file. May be `.xlsm` — if so, load **and** save with `keep_vba=True`, or the macro-enabled content type/macros are lost. |
+| Equipment ID | From Doug | E.g. `BL-1`. Matches the IO list's Equipment ID column (strip whitespace — Blue Sky's has a trailing space, `"BL-1 "`). |
+
+### Process
+
+1. **Locate the equipment's rows** in the IO list by Equipment ID. Also
+   sanity-check the Tag Name column carries the same equipment prefix
+   (e.g. every BL-1 row's tag starts `BL_1.`). Report the row numbers
+   found — if Doug supplied an expected list, re-verify it against the
+   live file rather than trusting it (Rule 12).
+2. **Re-derive this job's column-mapping convention** by reading every
+   existing populated row of the target Device Index. Never assume the
+   last job's convention carries over (Rule 33). Note any row that
+   deviates from the pattern (see Blue Sky's GC note below).
+3. **Check for existing rows** for the same equipment in the Device
+   Index before appending, so points are not duplicated.
+4. **Append one row per IO point** after the last populated row, copying
+   the cell style of the last existing row so font/format match (Blue
+   Sky: Arial 10, General).
+5. **Verify** by re-opening the saved file and printing the new rows,
+   and (for `.xlsm`) confirming the workbook content type is still
+   `macroEnabled`. Back up the target file to the scratchpad first.
+6. **Flag, don't fix,** any known naming discrepancy between the IO list
+   and the site's reality (Blue Sky: `BL_1.MAN_ST` is really `REM-ST` on
+   site — transcribed as `MAN_ST` anyway, since the IO list is the
+   source of record and not Doug's to edit).
+
+### Blue Sky's column-mapping convention (this job's — re-derive per job)
+
+⚠ **This is Blue Sky's convention only**, derived from the 19 rows
+already in `A1.1 Tagss and Device index.xlsm` (sheet `Device Index`) on
+2026-09-24. A different job's Device Index may use different columns or
+rules — re-derive it from that file each time; do not hardcode this.
+
+Header: `PLC | prefix | loop | letter | Suffix | Tagname | Type |
+description | Rack | Slot | Point | checked | Schematic | Notes`
+
+- `PLC` = `BOP` (every row so far)
+- `prefix` = alpha part of the equipment ID (`FIT`, `CV`, `GC`, `BL`)
+- `loop` = numeric part of the equipment ID, **stored as text**
+  (`"3001"`, `"1"`)
+- `letter` = blank unless the equipment ID has an A/B suffix
+- `Suffix` = the source tag name after the dot (`F_RS`, `SPD_FBK`)
+- `Tagname` = `<prefix>-<loop>.<Suffix>` — **hyphen**, where the source
+  tag uses an underscore (`FIT_3001.F_RS` → `FIT-3001.F_RS`)
+- `Type` = source Signal Type, verbatim (`AI`, `AO`, `DI`, `DO`,
+  `HART - P`, `HART - S` — HART values are not converted)
+- `description` = source Tag Description, verbatim, trailing whitespace
+  trimmed
+- `Rack` = `0` (every row)
+- `Slot` = source Module Slot #; `Point` = source Channel
+- `checked` = **always blank on new rows** — Doug's own manual
+  verification column, never auto-filled
+- `Schematic`, `Notes` = blank
+
+**One observed deviation in the existing rows:** the GC analyzer rows
+drop `_RS` from `Tagname` (`Suffix` = `CH4_RS`, `Tagname` =
+`GC-3001.CH4`), while every other row keeps the full suffix. Looks like a
+deliberate choice on Doug's part for multi-component analyzers; it did
+not affect BL-1 (no `_RS` suffixes). Ask Doug before applying it to any
+new GC-style equipment.
+
+### Outputs
+
+New rows appended to the job's Device Index. Nothing else in the file is
+touched. BL-1 run (2026-09-24): rows 21-26 — `SPD_FBK` (HART - P, slot 4
+ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
+`MAN_ST` (DI, 7/4), `RUN_CMD` (DO, 9/10), from IO list v0.6 rows 27, 28,
+34, 35, 36, 59.
+
+### Open Questions / Notes
+
+1. **Script it later?** The BL-1 run was 6 rows and fully manual, which
+   was fine. If the upcoming work turns into many pieces of equipment, or
+   whole IO lists at a time, a small `extract_io_points.py` (equipment ID
+   in, rows appended, per-job mapping kept as an explicit config rather
+   than hardcoded) would pay for itself. Doug's call — not decided.
+2. **GC `_RS` drop** — confirm with Doug whether it's intentional and
+   whether it applies to other analyzer-style equipment (see above).
+
+---
+
+*Last updated: September 24, 2026 — added TASK_013 (extract a named
+equipment's IO points from a job's IO list into that job's Device Index),
+Implemented manually on its first run: Blue Sky BL-1, 6 points appended
+to rows 21-26 of `A1.1 Tagss and Device index.xlsm`. Blue Sky's column
+convention recorded as that job's own, explicitly not hardcoded; one
+existing-row deviation (GC `_RS` drop) flagged for Doug. Prior update,
+September 15, 2026 (10th) — `MODVLV` built, the **7th and
 final type**: every alarm-carrying type in Open Work Item 1 now has a
 deliverable and nothing is unstarted. Delivered as `BlueSky/MODVLV UDT
 definition with alarms 2026-09-15.json`, 4 alarms at uniform `High`, zero
