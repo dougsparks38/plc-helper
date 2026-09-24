@@ -3834,10 +3834,35 @@ or tag export may show fewer or no `_RS` suffixes than this run's source
 did. That is expected drift from Doug's own naming preference, not a bug
 to chase — transcribe whatever the source shows.
 
+### Bulk mode — a whole IO-list sheet at once (added 2026-09-24)
+
+Same rules as above, applied to every row of one sheet. Learned on
+Blue Sky's `BOP-PLC-CP` run (34 rows added):
+
+1. **Dedupe on `prefix` + `loop` + `Suffix`, not on `Tagname`.** Doug
+   hand-edits existing Device Index rows (e.g. GC rows with `_RS` dropped
+   from `Tagname`), so matching on `Tagname` would miss them and add
+   duplicates.
+2. **Report existing rows that differ from the source, but don't touch
+   them.** Those are Doug's own edits. Blue Sky example: `CV-3009`'s
+   description reads "DIG TO LAG..." in the Device Index vs. "DIG BLWR..."
+   in the IO list.
+3. **Equipment ID vs. tag prefix mismatch** (Blue Sky: `PWR-MAIN` →
+   `CR_01.ACFLT`, `FLARECP` → `FLR_CP.*`): split `prefix`/`loop` from the
+   verbatim **tag name**, since that's what the row indexes, keep leading
+   zeros and non-numeric loops as text (`"01"`, `"CP"`), and list every
+   such row in the report for Doug.
+4. **Dry-run first**, printing already-present / differing / flagged /
+   new counts, and check that already-present + new = source data rows
+   before writing.
+5. Stay on the sheet(s) in scope. Other sheets in the same IO list (Blue
+   Sky: `LGN-PLC-CP` = O2/Lagoon, `KCG-RIO-CP`) are separate runs.
+
 ### Outputs
 
 New rows appended to the job's Device Index. Nothing else in the file is
-touched. BL-1 run (2026-09-24): rows 21-26 — `SPD_FBK` (HART - P, slot 4
+touched. BOP bulk run (2026-09-24): rows 27-60, the rest of
+`BOP-PLC-CP`. BL-1 run (2026-09-24): rows 21-26 — `SPD_FBK` (HART - P, slot 4
 ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 `MAN_ST` (DI, 7/4), `RUN_CMD` (DO, 9/10), from IO list v0.6 rows 27, 28,
 34, 35, 36, 59.
@@ -3857,7 +3882,12 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ---
 
-*Last updated: September 24, 2026 (2nd) — TASK_013 follow-up from
+*Last updated: September 24, 2026 (3rd) — TASK_013: added a "Bulk
+mode" section from the whole-sheet run on Blue Sky's `BOP-PLC-CP` (34
+rows): dedupe on prefix+loop+Suffix rather than Tagname, report but never
+touch existing rows that differ from the source, split prefix/loop from
+the tag name when it disagrees with the Equipment ID, dry-run and
+reconcile counts before writing. Prior update, same day (2nd) — TASK_013 follow-up from
 Doug's review: verbatim transcription made a permanent standing rule
 (naming fixes happen later, by Doug, in the PLC — never at extraction);
 GC `_RS` open question closed as Doug's deliberate naming preference, not
