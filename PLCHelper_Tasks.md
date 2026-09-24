@@ -3858,6 +3858,22 @@ Blue Sky's `BOP-PLC-CP` run (34 rows added):
 5. Stay on the sheet(s) in scope. Other sheets in the same IO list (Blue
    Sky: `LGN-PLC-CP` = O2/Lagoon, `KCG-RIO-CP`) are separate runs.
 
+Added after the second bulk run (Blue Sky `LGN-PLC-CP`, 72 rows):
+
+6. **Include `letter` in the dedupe key** (`prefix` + `loop` + `letter` +
+   `Suffix`). A/B equipment (`AC_010A` / `AC_010B`) shares prefix, loop,
+   and suffix, so leaving `letter` out makes the B unit look like a
+   duplicate of the A unit.
+7. **A/B split:** a trailing letter on the loop goes to `letter`, with
+   the numeric part (leading zeros kept, as text) in `loop` —
+   `AC_010A` → `AC` / `"010"` / `A`, Tagname `AC-010A.SPD_FBK`.
+8. **Tag with no `.`** (Blue Sky: `CR_ACFLT`): leave `Suffix` blank, put
+   the part after the underscore in `loop`, Tagname `CR-ACFLT` — flag it.
+9. **Check the `PLC` column when adding a new sheet.** Compare Slot/Channel
+   against the sheets already extracted. Overlapping addresses mean a
+   separate chassis, so reusing the same `PLC` value would put two points
+   at one address. Use the value Doug specifies, but flag the overlap.
+
 ### Outputs
 
 New rows appended to the job's Device Index. Nothing else in the file is
@@ -3882,7 +3898,11 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ---
 
-*Last updated: September 24, 2026 (3rd) — TASK_013: added a "Bulk
+*Last updated: September 24, 2026 (4th) — TASK_013 bulk mode extended
+from the Blue Sky `LGN-PLC-CP` (O2) run, 72 rows: include `letter` in the
+dedupe key, the A/B loop/letter split, dot-less tags, and checking the
+`PLC` column for slot/channel overlap against already-extracted sheets.
+Prior update, same day (3rd) — TASK_013: added a "Bulk
 mode" section from the whole-sheet run on Blue Sky's `BOP-PLC-CP` (34
 rows): dedupe on prefix+loop+Suffix rather than Tagname, report but never
 touch existing rows that differ from the source, split prefix/loop from
