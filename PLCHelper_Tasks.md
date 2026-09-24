@@ -3879,7 +3879,17 @@ Added after the second bulk run (Blue Sky `LGN-PLC-CP`, 72 rows):
    to `O2` the same day. A useful cross-check: if Slot/Channel pairs
    overlap an already-extracted sheet, the new sheet is almost certainly a
    different PLC. That's a sign the value needs confirming, not an
-   addressing problem.
+   addressing problem. **`Rack` is confirmed the same way** — Blue Sky's
+   `KCG-RIO-CP` is a remote rack on the BOP PLC, so `PLC` = `BOP`,
+   `Rack` = `1`.
+10. **Tags with no prefix/loop separator** (Blue Sky `KCG-RIO-CP`:
+    `CV3006.POS_CMD`): split from the hyphenated Equipment ID (`CV-3006`)
+    when prefix + loop + letter joined back together exactly equals the
+    tag base. Tagname then follows the job's hyphen form
+    (`CV-3006.POS_CMD`). If it doesn't rejoin exactly, hold the row back
+    and flag it — e.g. `CR-01-ACFLT` / `CR01ACFLT`, whose split would
+    also produce the same key as an existing row for a different
+    physical point.
 
 ### Outputs
 
@@ -3905,7 +3915,11 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ---
 
-*Last updated: September 24, 2026 (5th) — TASK_013: `PLC` value must
+*Last updated: September 24, 2026 (6th) — TASK_013 bulk mode: from the
+Blue Sky `KCG-RIO-CP` run (11 rows, `Rack` = 1), `Rack` is confirmed per
+sheet like `PLC`, plus new item 10 on tags with no separator, which are
+split from the Equipment ID and held back if they don't rejoin exactly.
+Prior update, same day (5th) — TASK_013: `PLC` value must
 always be confirmed explicitly per source sheet, never defaulted from the
 sheet name or a prior sheet. Blue Sky's LGN ("Lagoon") rows were first
 written as `BOP` and corrected to `O2` (a separate PLC). Updated bulk-mode
