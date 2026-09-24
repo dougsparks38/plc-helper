@@ -44,7 +44,7 @@ once the spec is solid.
 | TASK_010 | Fix flagged Ignition alarm tag configuration problems | Implemented | The companion tool to TASK_009 — applies the corrections the audit flags, for rules 2–9 only (rule 1 `notes` is never auto-fixed, only flagged for Doug). Implemented 2026-09-09 as `fix_alarm_tags.py`; it emits a brand-new corrected export JSON and never writes to its input. Correctness is not restated — it `import`s `audit_alarm_tags` and uses that module's own tables, so the two tools cannot disagree about what "correct" means. First real run on Weston: **143 tags, 367 fields changed** (matching the audit's 367 problems exactly), and re-auditing the corrected output reports **0 problems / 143 OK**. ⚠ Import the output with Collision Policy **`Overwrite`**, not `MergeOverwrite` — rule 9 works by *removing* keys, and MergeOverwrite treats a missing key as "leave alone." Each site's pipelines are still verified independently: an unconfirmed site leaves `activePipeline` untouched rather than guessing. |
 | TASK_011 | Suggest existing AOIs for a described control need | Idea (documentation feature, not a tool) | When someone describes needing an AOI for a new piece of equipment, check whether an existing supported AOI already covers it. Resolved 2026-09-11 as a written **Broader use case** note per AOI in `PLCHelper_Reference.md`, matched by human judgment — no matching engine, no new script. Only `CONSPD4_AOI` has a note so far. |
 | TASK_012 | Embed Ignition alarm definitions into generated UDT definitions | **Capability Implemented; `ALARM_AOI` pilot file built, NOT yet live-verified** | Emit an `alarms` array on the alarm-bit member(s) of a UDT **definition**, so every existing instance inherits a working alarm with zero per-instance work (confirmed by Inductive Automation's "Alarms in UDTs"). Alarm members are exactly the historization rule's alarm case (`_alm`/`_alarm` suffix, or the bare word) — alarm *controls* (`_alm_dis`/`_alm_ack`/`_alm_res`) never qualify. Every config value is a Doug-confirmed site convention, never invented: `Equality` against `1.0`, `priority: "High"`, `activePipeline: "BlueSky"` (site-specific, overridable via `--alarm-pipeline`), `notes` from the member's verbatim L5X Description, `displayPath` omitted. New `ALARM_DEFINITION_EXCLUSIONS` table keeps a member as a normal tag but withholds its alarm (`UnACK_Alm` on `CONSPD4_AOI`/`LEVELIN3_AOI`/`VARSPD2_AOI`, added ahead of need) — deliberately distinct from `MEMBER_EXCLUSIONS`, which deletes the member outright. `--alarms` is opt-in; without it output is byte-identical to the pre-change script. Also fixed a latent bug — `alarms` was missing from `OPTIONAL_MEMBER_KEYS`, which would have stamped one reference member's alarm onto every generated member. |
-| TASK_013 | Extract an equipment's IO points from a job's IO list into its Device Index | Implemented (manually, not scripted) | Given an equipment ID (e.g. `BL-1`), find its rows in the job's coworker-maintained IO list and append one row per IO point to that job's own Tags/Device index, following that job's column convention — re-derived from the Device Index's existing rows every time, never hardcoded across jobs. IO list is transcribed verbatim, never corrected. First run 2026-09-24: Blue Sky BL-1, 6 points. |
+| TASK_013 | Extract an equipment's IO points from a job's IO list into its Device Index | Implemented (manual by design — scripting not planned) | Given an equipment ID (e.g. `BL-1`), find its rows in the job's coworker-maintained IO list and append one row per IO point to that job's own Tags/Device index, following that job's column convention — re-derived from the Device Index's existing rows every time, never hardcoded across jobs. Tag names/descriptions are **always transcribed verbatim** (standing rule); any naming fix happens later, by Doug, in the PLC program. First run 2026-09-24: Blue Sky BL-1, 6 points. |
 
 ---
 
@@ -3725,7 +3725,9 @@ it can be built (Rule 16); `LEVELIN3_AOI` and `VARSPD2_AOI` also carry
 
 **Status:** **Implemented (2026-09-24) — manually, by direct read + write
 in one dispatch, not as a script.** First real run: Blue Sky's BL-1
-blower, 6 points, appended to Blue Sky's Device Index.
+blower, 6 points, appended to Blue Sky's Device Index. **Kept manual by
+design (Doug-decided 2026-09-24)** — scripting is not currently planned;
+see Open Questions item 1.
 
 ### Purpose
 
@@ -3756,8 +3758,10 @@ equipment next, and other jobs after that.
    live file rather than trusting it (Rule 12).
 2. **Re-derive this job's column-mapping convention** by reading every
    existing populated row of the target Device Index. Never assume the
-   last job's convention carries over (Rule 33). Note any row that
-   deviates from the pattern (see Blue Sky's GC note below).
+   last job's convention carries over (Rule 33). Existing rows may
+   differ from each other in naming (see Blue Sky's GC note below) —
+   that is not a pattern to copy or reconcile, see the verbatim rule
+   below.
 3. **Check for existing rows** for the same equipment in the Device
    Index before appending, so points are not duplicated.
 4. **Append one row per IO point** after the last populated row, copying
@@ -3770,6 +3774,19 @@ equipment next, and other jobs after that.
    and the site's reality (Blue Sky: `BL_1.MAN_ST` is really `REM-ST` on
    site — transcribed as `MAN_ST` anyway, since the IO list is the
    source of record and not Doug's to edit).
+
+**Standing rule — always transcribe verbatim (Doug-confirmed
+2026-09-24, permanent, not a per-run choice).** Tag names and
+descriptions go into the Device Index exactly as the IO list's author
+typed them. Never normalize or "fix" naming inconsistencies during
+extraction — not a dropped or present `_RS` suffix, not an outdated name
+like `MAN_ST`. Only the job's own column mechanics are applied (for Blue
+Sky: split into prefix/loop/Suffix, underscore → hyphen in `Tagname`,
+trailing whitespace trimmed). Any naming correction happens later, by
+Doug, when he types the tag into the PLC program — not at extraction
+time. Doug's words: "I want the rows to be brought into the tags and
+device index verbatim, as Hakam typed them... I might just tweak it a
+little bit as necessary when I type it into the PLC."
 
 ### Blue Sky's column-mapping convention (this job's — re-derive per job)
 
@@ -3799,12 +3816,23 @@ description | Rack | Slot | Point | checked | Schematic | Notes`
   verification column, never auto-filled
 - `Schematic`, `Notes` = blank
 
-**One observed deviation in the existing rows:** the GC analyzer rows
-drop `_RS` from `Tagname` (`Suffix` = `CH4_RS`, `Tagname` =
-`GC-3001.CH4`), while every other row keeps the full suffix. Looks like a
-deliberate choice on Doug's part for multi-component analyzers; it did
-not affect BL-1 (no `_RS` suffixes). Ask Doug before applying it to any
-new GC-style equipment.
+**The GC rows' missing `_RS` is not a data error (resolved
+2026-09-24).** The existing GC analyzer rows show `Tagname` without
+`_RS` (`Suffix` = `CH4_RS`, `Tagname` = `GC-3001.CH4`) while other rows
+keep it. Doug confirmed he deliberately removes the `_RS` suffix (which a
+coworker, Tom, adds to some tags) when he types tags into his own PLC
+programs, because it doesn't add clarity — "it's less clear, if
+anything." Tom may also have stopped adding it on his own. So this is
+just each source's own naming choice. No reconciliation is needed; the
+verbatim rule above handles it by design. It did not affect BL-1 (no
+`_RS` suffixes).
+
+**Expected drift going forward (context, not an action item).** Doug
+will do a fresh L5X export from the PLC at some point, and by then more
+tags may have had `_RS` stripped by his own hand edits. A future IO list
+or tag export may show fewer or no `_RS` suffixes than this run's source
+did. That is expected drift from Doug's own naming preference, not a bug
+to chase — transcribe whatever the source shows.
 
 ### Outputs
 
@@ -3816,17 +3844,27 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ### Open Questions / Notes
 
-1. **Script it later?** The BL-1 run was 6 rows and fully manual, which
-   was fine. If the upcoming work turns into many pieces of equipment, or
-   whole IO lists at a time, a small `extract_io_points.py` (equipment ID
-   in, rows appended, per-job mapping kept as an explicit config rather
-   than hardcoded) would pay for itself. Doug's call — not decided.
-2. **GC `_RS` drop** — confirm with Doug whether it's intentional and
-   whether it applies to other analyzer-style equipment (see above).
+1. ✅ **Script it later? — Closed 2026-09-24: no, not planned.** Kept
+   manual by design. Doug's reasoning: he works with a lot of engineers,
+   and people build IO/tag mappings like this on the fly, shaped by
+   whatever suits the specific panel and moment — an approach he can't
+   really argue with. The input conventions are ad hoc and specific to
+   each job and person, not standardizable, so a script would not
+   generalize.
+2. ✅ **GC `_RS` drop — Closed 2026-09-24.** Not an inconsistency; Doug's
+   deliberate naming preference. Handled by the verbatim rule (see the
+   GC note above).
 
 ---
 
-*Last updated: September 24, 2026 — added TASK_013 (extract a named
+*Last updated: September 24, 2026 (2nd) — TASK_013 follow-up from
+Doug's review: verbatim transcription made a permanent standing rule
+(naming fixes happen later, by Doug, in the PLC — never at extraction);
+GC `_RS` open question closed as Doug's deliberate naming preference, not
+a data error; added a note to expect fewer `_RS` suffixes in future
+exports; "script it later?" closed as not planned — kept manual by
+design, since these mappings are ad hoc per job and person. Prior update,
+same day — added TASK_013 (extract a named
 equipment's IO points from a job's IO list into that job's Device Index),
 Implemented manually on its first run: Blue Sky BL-1, 6 points appended
 to rows 21-26 of `A1.1 Tagss and Device index.xlsm`. Blue Sky's column
