@@ -3798,7 +3798,9 @@ rules — re-derive it from that file each time; do not hardcode this.
 Header: `PLC | prefix | loop | letter | Suffix | Tagname | Type |
 description | Rack | Slot | Point | checked | Schematic | Notes`
 
-- `PLC` = `BOP` (every row so far)
+- `PLC` = the controller the source sheet belongs to — **confirmed by
+  Doug for each sheet, never defaulted** (Blue Sky: `BOP-PLC-CP` → `BOP`,
+  `LGN-PLC-CP` → `O2`)
 - `prefix` = alpha part of the equipment ID (`FIT`, `CV`, `GC`, `BL`)
 - `loop` = numeric part of the equipment ID, **stored as text**
   (`"3001"`, `"1"`)
@@ -3869,10 +3871,15 @@ Added after the second bulk run (Blue Sky `LGN-PLC-CP`, 72 rows):
    `AC_010A` → `AC` / `"010"` / `A`, Tagname `AC-010A.SPD_FBK`.
 8. **Tag with no `.`** (Blue Sky: `CR_ACFLT`): leave `Suffix` blank, put
    the part after the underscore in `loop`, Tagname `CR-ACFLT` — flag it.
-9. **Check the `PLC` column when adding a new sheet.** Compare Slot/Channel
-   against the sheets already extracted. Overlapping addresses mean a
-   separate chassis, so reusing the same `PLC` value would put two points
-   at one address. Use the value Doug specifies, but flag the overlap.
+9. **Never default the `PLC` value — always get it explicitly confirmed
+   by Doug for each source sheet.** Don't derive it from the sheet name or
+   reuse what a prior sheet used. Blue Sky example: Hakam's `LGN-PLC-CP`
+   ("Lagoon") is actually the **O2** PLC, a separate controller. It was
+   first written as `BOP` (carried over from the BOP sheet) and corrected
+   to `O2` the same day. A useful cross-check: if Slot/Channel pairs
+   overlap an already-extracted sheet, the new sheet is almost certainly a
+   different PLC. That's a sign the value needs confirming, not an
+   addressing problem.
 
 ### Outputs
 
@@ -3898,7 +3905,12 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ---
 
-*Last updated: September 24, 2026 (4th) — TASK_013 bulk mode extended
+*Last updated: September 24, 2026 (5th) — TASK_013: `PLC` value must
+always be confirmed explicitly per source sheet, never defaulted from the
+sheet name or a prior sheet. Blue Sky's LGN ("Lagoon") rows were first
+written as `BOP` and corrected to `O2` (a separate PLC). Updated bulk-mode
+item 9 and the column-convention `PLC` bullet. Prior update, same day
+(4th) — TASK_013 bulk mode extended
 from the Blue Sky `LGN-PLC-CP` (O2) run, 72 rows: include `letter` in the
 dedupe key, the A/B loop/letter split, dot-less tags, and checking the
 `PLC` column for slot/channel overlap against already-extracted sheets.
