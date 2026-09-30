@@ -79,6 +79,10 @@ content sitting in a repo that gets pushed publicly.
 - Software: RSLogix 5000 / Studio 5000
 - File format: L5X (XML export format)
 - Controller context: `BOP_O2_CombinedTest`, software revision v35.01
+- Communications software (2026-09-30, Doug): older RSLinx Classic and
+  FactoryTalk Linx are both in use across Rockwell projects, and a project
+  usually standardizes on one — always ask or check which one a given
+  project uses before giving browse/driver instructions.
 
 ## L5X file format
 
