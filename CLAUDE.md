@@ -147,6 +147,15 @@ The prefix itself (e.g. `BOP_`/`O2_`) is **not** a universal convention —
 it's chosen per project when multiple PLCs are involved; see that
 project's own `CLAUDE.md` for its actual prefix values.
 
+**Dashes (Doug, 2026-09-22):** Studio 5000 tag names cannot contain "-".
+A dash used for human readability in an IO list or Device Index becomes
+"_" in the PLC tag; a "." in a tag means a sub-element.
+
+**Device Index column conventions** (first column `PLC`, blank Notes,
+dash-form Tagname, Rack 0 for the local rack, literal IO-list Type labels
+such as `HART - P`): see `PLCHelper_Tasks.md` TASK_013 — not duplicated
+here (Lesson 9).
+
 ### Analog input diagnostic bits (best-effort, not guaranteed)
 
 For analog inputs specifically — never analog outputs, never digital IO —
@@ -205,7 +214,26 @@ an outdated firmware revision be the actual root cause of a
 comms-loss/network issue before.
 
 **Tooling:** ControlFLASH Plus, launched via FactoryTalk Linx (the Network
-Browser). Update the controller first, then the backplane modules.
+Browser). Order that works on Compact 5000 I/O (Doug-confirmed
+2026-09-22):
+
+1. In Logix Designer, inhibit each I/O module (Module Properties >
+   Connection > Inhibit).
+2. Go offline.
+3. Flash the modules first.
+4. Flash the controller **last**.
+5. Uninhibit the modules.
+
+Why: a Compact 5000 I/O module rejects a firmware update while its owner
+controller holds an open connection to it, and Program mode keeps that
+connection open — ControlFLASH Plus then reports "target device is not in
+the proper mode". **Warning:** inhibiting an OUTPUT module drives its
+outputs to their configured Program-mode state — check the physical
+effect first.
+
+*Corrected 2026-09-30 (Doug-approved): this section originally said
+"Update the controller first, then the backplane modules." That order is
+what produced the "not in the proper mode" refusal on 2026-09-22.*
 
 Noted 2026-09-22 during a live Blue Sky BOP PLC comms-loss incident — see
 `BlueSky/BLUE_SKY_STATUS.md` for that specific event.
