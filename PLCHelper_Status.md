@@ -3,6 +3,8 @@
 in that job's own status file (e.g. `BlueSky/BLUE_SKY_STATUS.md`) — this
 file is for PLCHelper itself: the tool, not any one job's use of it.*
 
+*Work log: see `PLCHelper_Work_Log.md` (Rule 41) — dated history of work done, failed attempts and fixes, decisions and lessons. This file stays a dashboard.*
+
 ---
 
 ## Open Work Items
