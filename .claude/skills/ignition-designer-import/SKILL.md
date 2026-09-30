@@ -1,6 +1,6 @@
 ---
 name: ignition-designer-import
-description: Ignition Designer reference for PLCHelper — tag history (digital vs. analog config), importing generated UDT definitions, replacing a UDT definition that already has instances, the tag-instance "does not have item 'X' for overrides" error, and Perspective template work (dropConfig UDT drag-and-drop, indirect tag binding syntax, parameterizing a reusable equipment view). Load when configuring Ignition tag history, importing/troubleshooting a TASK_004/TASK_005-generated UDT definition or tag-instance JSON in Designer, or building/reviewing a Perspective view driven by a UDT tag path parameter.
+description: Ignition Designer reference for PLCHelper — tag history (digital vs. analog config), importing generated UDT definitions, replacing a UDT definition that already has instances, the tag-instance "does not have item 'X' for overrides" error, and Perspective template work (export-the-view-first backup note, dropConfig UDT drag-and-drop, indirect tag binding syntax, parameterizing a reusable equipment view). Load when configuring Ignition tag history, importing/troubleshooting a TASK_004/TASK_005-generated UDT definition or tag-instance JSON in Designer, or building/reviewing a Perspective view driven by a UDT tag path parameter.
 ---
 
 ## Ignition tag History — digital vs. analog configuration (verified 2026-09-04)
@@ -215,6 +215,18 @@ This is a **standing convention for digital tags going forward**, distinct
 from the Deadband Style/Mode correctness rules above (which are not
 optional) — Sample Mode has no single "correct" answer the docs mandate,
 so this is Casne's own choice, not something derived from documentation.
+
+## Perspective — export the view before editing it (note, added 2026-09-30)
+
+**Note, not a rule:** before editing a Perspective view in Designer,
+export the view first as a backup. Same reasoning as the UDT pre-flight
+export further down ("Replacing a UDT definition that already has
+instances"): an edit can take out more than you meant it to, and the
+export is how you get the view back.
+
+Why this is written down: on 2026-09-11, deleting one view parameter
+(`Fault`) also deleted `Tag_Path`. Doug had exported the view before
+starting, and that export let him restore it.
 
 ## Perspective — drag-and-drop UDT-to-template binding, and how to parameterize a reusable template (verified 2026-09-11)
 
