@@ -11,6 +11,8 @@
 - **Open / follow-up:** nothing
 - **Billing note:** Internal, no job number.
 - **Source:** Assistant session 2026-09-30.
+- Correction (2026-09-30): the RSLinx vs. Linx note described above was NOT added to CLAUDE.md — the edit was blocked by the permission classifier and is still to be done (Doug approved it). The firmware-note reorder, the dash rule and the Device Index pointer were made as described.
+- Resolution (2026-09-30), from Doug: the plc-helper GitHub repo is private. The two client-named spreadsheets tracked since 2026-08-27 stay as they are. The pre-push PII scan flagged an email address in one of them (not new in this push); Doug reviewed it and chose to leave it, so the two local commits were pushed.
 
 ### 2026-09-22 — no job number — CLAUDE.md: IO-list tag translation, AI diagnostic bits, two IO-wiring methods, firmware note
 - **Work done:** Added the section "Analog input diagnostic bits and I/O-wiring convention" to CLAUDE.md, dictated by Doug (3235e22). It covers: flattening a panel designer's `TAG.SUFFIX` to `TAG_SUFFIX` with a per-project PLC prefix when there are several PLCs; AI-only Overrange/Underrange/Fault bits, best effort because modules differ; and two wiring methods: the "blanket" per-IO-type staging routines, and the Casne method of direct aliases referenced once in the AOI call, which is Doug's preference. Added "Firmware as a network-communication troubleshooting step" (c675b06).
