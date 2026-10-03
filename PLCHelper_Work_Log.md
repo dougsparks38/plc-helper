@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-03 — no job number — Casne Programming Standards converted from Word to Markdown
+- **Work done:** As part of re-checking every older `.docx` under the new intake rule, `Casne Programming Standards for PLC.docx` (Casne's own PLC programming standard, the source of the UDT naming convention in CLAUDE.md) was converted to `Casne Programming Standards for PLC.md` with `docx_to_md.py` (118 paragraphs, 13 document properties, no images, tables or hidden links; all checks matched) and the Word file was removed. The scan was CLEAN on a copy outside the repo (the scanner skips git-ignored files). A line was added to `.gitignore` so the `.md` stays out of the GitHub-pushed repo, as the `.docx` always was.
+- **What failed / what fixed it:** The scanner skipped the converted file because the staging folder and the repo's `.gitignore` both exclude it, so it could not give a CLEAN result there; it was scanned from a neutral folder instead.
+- **Decisions:** Doug (2026-10-03): convert and replace. CLAUDE.md still names the source as the `.docx`; the file is now the `.md`.
+- **Learned:** nothing beyond the above.
+- **Open / follow-up:** nothing
+- **Billing note:** Internal, no job number.
+- **Source:** Assistant session 2026-10-03.
+
 ### 2026-09-30 — no job number — Firmware note reordered; three notes added to CLAUDE.md
 - **Work done:** Edited CLAUDE.md (finished, same day). (1) "Firmware as a network-communication troubleshooting step": rewrote the tooling step to the order that works on Compact 5000 I/O: in Logix Designer inhibit each I/O module (Module Properties > Connection > Inhibit), go offline, flash the modules first, flash the controller last, then uninhibit the modules. Added the reason and the output-module warning, and kept the old controller-first text under a dated "Corrected 2026-09-30" note. (2) Added a short note that RSLinx Classic and FactoryTalk Linx are both in use across Rockwell projects, and to ask or check which one a project uses before giving browse/driver instructions. (3) Added to the IO-list tag translation section: Studio 5000 tag names cannot contain "-", so a readability dash in an IO list or Device Index becomes "_" in the PLC tag, and a "." means a sub-element. (4) Device Index column conventions were already documented in PLCHelper_Tasks.md TASK_013, so CLAUDE.md got a one-line pointer there instead of a copy.
 - **What failed / what fixed it:** The old firmware note gave the controller-first order. That is what made ControlFLASH Plus refuse the update with "target device is not in the proper mode" on 2026-09-22: a Compact 5000 I/O module rejects a firmware update while its owner controller holds an open connection to it, and Program mode keeps that connection open. Fixed by inhibiting the modules first.
