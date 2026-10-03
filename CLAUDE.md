@@ -242,7 +242,7 @@ what produced the "not in the proper mode" refusal on 2026-09-22.*
 Noted 2026-09-22 during a live Blue Sky BOP PLC comms-loss incident — see
 `BlueSky/BLUE_SKY_STATUS.md` for that specific event.
 
-## UDT type naming convention (source: `Casne Programming Standards for PLC.docx`, 2026-09-04)
+## UDT type naming convention (source: `Casne Programming Standards for PLC.md`, converted from the original `.docx` on 2026-10-03; 2026-09-04)
 
 This is about the **UDT type's own name** — a different thing from the
 member-suffix table above.
