@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-05 — no job number — Ignition data storage tips added
+- **Work done:** Added `Ignition_Data_Storage_Tips.md` to the repo root: general, de-identified lessons from a client investigation of a wrong stored value in Ignition daily/monthly data storage (current vs "Last" transactions, mixed PLC and gateway clocks, server/PLC time zone offset, duplicate tag folders, a day-1 month test in a tag event script, site-to-site setting differences, a stored zero after a rollover, and how to compare two sites). Each lesson is marked CONFIRMED or INFERENCE/THEORY. Finished.
+- **What failed / what fixed it:** nothing
+- **Decisions:** Doug: keep the tips in the job's own log during the investigation, then copy them here de-identified so they can be reused on other jobs. Placed in the repo root as a standalone file; no existing file covers Ignition transaction groups.
+- **Learned:** nothing beyond the tips file.
+- **Open / follow-up:** nothing
+- **Billing note:** Internal, no job number (job-specific detail is in that job's own work log).
+- **Source:** Assistant session 2026-10-05 (PLCHelper subagent). Client detail removed for this git-tracked log.
+
 ### 2026-10-03 — no job number — Casne Programming Standards converted from Word to Markdown
 - **Work done:** As part of re-checking every older `.docx` under the new intake rule, `Casne Programming Standards for PLC.docx` (Casne's own PLC programming standard, the source of the UDT naming convention in CLAUDE.md) was converted to `Casne Programming Standards for PLC.md` with `docx_to_md.py` (118 paragraphs, 13 document properties, no images, tables or hidden links; all checks matched) and the Word file was removed. The scan was CLEAN on a copy outside the repo (the scanner skips git-ignored files). A line was added to `.gitignore` so the `.md` stays out of the GitHub-pushed repo, as the `.docx` always was.
 - **What failed / what fixed it:** The scanner skipped the converted file because the staging folder and the repo's `.gitignore` both exclude it, so it could not give a CLEAN result there; it was scanned from a neutral folder instead.
