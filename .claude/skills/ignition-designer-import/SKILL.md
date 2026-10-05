@@ -3,6 +3,26 @@ name: ignition-designer-import
 description: Ignition Designer reference for PLCHelper — tag history (digital vs. analog config), importing generated UDT definitions, replacing a UDT definition that already has instances, the tag-instance "does not have item 'X' for overrides" error, and Perspective template work (export-the-view-first backup note, dropConfig UDT drag-and-drop, indirect tag binding syntax, parameterizing a reusable equipment view). Load when configuring Ignition tag history, importing/troubleshooting a TASK_004/TASK_005-generated UDT definition or tag-instance JSON in Designer, or building/reviewing a Perspective view driven by a UDT tag path parameter.
 ---
 
+## Ignition version in use (2026-10-05)
+
+On a recent job, both the Edge gateway (Ignition Edge 8.3.8, build
+b2026071409) and the standard gateway run Ignition **8.3.8** — confirmed
+2026-10-05 from the Designer's About box. Anything in this skill (or
+elsewhere in PLCHelper) marked as 8.1 only should be read with 8.3.8 in
+mind; existing notes have not been re-verified against 8.3.8.
+
+- On that Edge gateway, the Designer lists these modules as activated:
+  Vision, Perspective, OPC-UA, Alarm Notification, WebDev, Symbol Factory,
+  Enterprise Administration, Legacy DNP3 and Historian Core 1.3.8.
+- Its history provider appears as "Edge Historian" in the Tag Editor's
+  Storage Provider dropdown.
+- **Open question, not a conclusion:** a Historian Core module activated on
+  an Edge gateway does not match earlier research notes, which said the 8.3
+  Core Historian is a full-gateway feature and that Edge uses the legacy
+  internal historian. What this means for the Edge history provider (and so
+  for the Core Historian note under "Official lean against Analog style"
+  below) is not yet known.
+
 ## Ignition tag History — digital vs. analog configuration (verified 2026-09-04)
 
 Source: official Inductive Automation docs, [Configuring Tag

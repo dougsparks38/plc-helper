@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-05 — no job number — Ignition 8.3.8 version note added
+- **Work done:** Added a short "Ignition version in use (2026-10-05)" section at the top of `.claude/skills/ignition-designer-import/SKILL.md`: on a recent job both the Edge gateway (Ignition Edge 8.3.8, build b2026071409) and the standard gateway run 8.3.8, confirmed from the Designer's About box; the Edge gateway's activated module list; its history provider shown as "Edge Historian" in the Tag Editor; and a pointer that anything marked 8.1 only should be read with 8.3.8 in mind. Existing notes were not rewritten or re-verified. Finished.
+- **What failed / what fixed it:** nothing
+- **Decisions:** Placed in the skill rather than CLAUDE.md or a new file, because the skill holds PLCHelper's Ignition notes and their 8.1/8.3 version statements, including the Core Historian note the open question bears on.
+- **Learned:** A Historian Core 1.3.8 module is listed as activated on an Ignition Edge 8.3.8 gateway, which does not match earlier research notes (Core Historian as a full-gateway feature; Edge on the legacy internal historian).
+- **Open / follow-up:** What Historian Core on Edge means for the Edge history provider is unresolved; recorded as an open question in the skill's version section.
+- **Billing note:** Internal, no job number (job-specific detail is in that job's own work log).
+- **Source:** Assistant session 2026-10-05 (PLCHelper subagent), from the Designer's About box. Client detail removed for this git-tracked log.
+
 ### 2026-10-05 — no job number — Ignition data storage tips added
 - **Work done:** Added `Ignition_Data_Storage_Tips.md` to the repo root: general, de-identified lessons from a client investigation of a wrong stored value in Ignition daily/monthly data storage (current vs "Last" transactions, mixed PLC and gateway clocks, server/PLC time zone offset, duplicate tag folders, a day-1 month test in a tag event script, site-to-site setting differences, a stored zero after a rollover, and how to compare two sites). Each lesson is marked CONFIRMED or INFERENCE/THEORY. Finished.
 - **What failed / what fixed it:** nothing
