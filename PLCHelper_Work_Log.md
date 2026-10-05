@@ -3,15 +3,6 @@
 
 ---
 
-### 2026-10-05 — no job number — Ignition 8.3.8 version note added
-- **Work done:** Added a short "Ignition version in use (2026-10-05)" section at the top of `.claude/skills/ignition-designer-import/SKILL.md`: on a recent job both the Edge gateway (Ignition Edge 8.3.8, build b2026071409) and the standard gateway run 8.3.8, confirmed from the Designer's About box; the Edge gateway's activated module list; its history provider shown as "Edge Historian" in the Tag Editor; and a pointer that anything marked 8.1 only should be read with 8.3.8 in mind. Existing notes were not rewritten or re-verified. Finished.
-- **What failed / what fixed it:** nothing
-- **Decisions:** Placed in the skill rather than CLAUDE.md or a new file, because the skill holds PLCHelper's Ignition notes and their 8.1/8.3 version statements, including the Core Historian note the open question bears on.
-- **Learned:** A Historian Core 1.3.8 module is listed as activated on an Ignition Edge 8.3.8 gateway, which does not match earlier research notes (Core Historian as a full-gateway feature; Edge on the legacy internal historian).
-- **Open / follow-up:** What Historian Core on Edge means for the Edge history provider is unresolved; recorded as an open question in the skill's version section.
-- **Billing note:** Internal, no job number (job-specific detail is in that job's own work log).
-- **Source:** Assistant session 2026-10-05 (PLCHelper subagent), from the Designer's About box. Client detail removed for this git-tracked log.
-
 ### 2026-10-05 — no job number — Ignition data storage tips added
 - **Work done:** Added `Ignition_Data_Storage_Tips.md` to the repo root: general, de-identified lessons from a client investigation of a wrong stored value in Ignition daily/monthly data storage (current vs "Last" transactions, mixed PLC and gateway clocks, server/PLC time zone offset, duplicate tag folders, a day-1 month test in a tag event script, site-to-site setting differences, a stored zero after a rollover, and how to compare two sites). Each lesson is marked CONFIRMED or INFERENCE/THEORY. Finished.
 - **What failed / what fixed it:** nothing
@@ -20,6 +11,13 @@
 - **Open / follow-up:** nothing
 - **Billing note:** Internal, no job number (job-specific detail is in that job's own work log).
 - **Source:** Assistant session 2026-10-05 (PLCHelper subagent). Client detail removed for this git-tracked log.
+- **Later 2026-10-05 (Ignition 8.3.8 version note added) — work done:** Added a short "Ignition version in use (2026-10-05)" section at the top of `.claude/skills/ignition-designer-import/SKILL.md`: on a recent job both the Edge gateway (Ignition Edge 8.3.8, build b2026071409) and the standard gateway run 8.3.8, confirmed from the Designer's About box; the Edge gateway's activated module list; its history provider shown as "Edge Historian" in the Tag Editor; and a pointer that anything marked 8.1 only should be read with 8.3.8 in mind. Existing notes were not rewritten or re-verified. Finished.
+- **Later 2026-10-05 (Ignition version note) — what failed / what fixed it:** nothing
+- **Later 2026-10-05 (Ignition version note) — decisions:** Placed in the skill rather than CLAUDE.md or a new file, because the skill holds PLCHelper's Ignition notes and their 8.1/8.3 version statements, including the Core Historian note the open question bears on.
+- **Later 2026-10-05 (Ignition version note) — learned:** A Historian Core 1.3.8 module is listed as activated on an Ignition Edge 8.3.8 gateway, which does not match earlier research notes (Core Historian as a full-gateway feature; Edge on the legacy internal historian).
+- **Later 2026-10-05 (Ignition version note) — open / follow-up:** What Historian Core on Edge means for the Edge history provider is unresolved; recorded as an open question in the skill's version section.
+- **Later 2026-10-05 (Ignition version note) — billing note:** Internal, no job number (job-specific detail is in that job's own work log).
+- **Source (later bullet):** Assistant session 2026-10-05 (PLCHelper subagent), from the Designer's About box. Client detail removed for this git-tracked log.
 
 ### 2026-10-03 — no job number — Casne Programming Standards converted from Word to Markdown
 - **Work done:** As part of re-checking every older `.docx` under the new intake rule, `Casne Programming Standards for PLC.docx` (Casne's own PLC programming standard, the source of the UDT naming convention in CLAUDE.md) was converted to `Casne Programming Standards for PLC.md` with `docx_to_md.py` (118 paragraphs, 13 document properties, no images, tables or hidden links; all checks matched) and the Word file was removed. The scan was CLEAN on a copy outside the repo (the scanner skips git-ignored files). A line was added to `.gitignore` so the `.md` stays out of the GitHub-pushed repo, as the `.docx` always was.

@@ -16,12 +16,15 @@ mind; existing notes have not been re-verified against 8.3.8.
   Enterprise Administration, Legacy DNP3 and Historian Core 1.3.8.
 - Its history provider appears as "Edge Historian" in the Tag Editor's
   Storage Provider dropdown.
-- **Open question, not a conclusion:** a Historian Core module activated on
-  an Edge gateway does not match earlier research notes, which said the 8.3
-  Core Historian is a full-gateway feature and that Edge uses the legacy
-  internal historian. What this means for the Edge history provider (and so
-  for the Core Historian note under "Official lean against Analog style"
-  below) is not yet known.
+- **Open question, not a conclusion:** per Inductive Automation's Ignition
+  8.3 Edge documentation, as read in a research search on 2026-10-05, the
+  Edge history provider is the legacy internal (SQLite-based) historian, one
+  historian per Edge gateway, and the 8.3 Core Historian is a full-gateway
+  feature, not an Edge one. A Historian Core 1.3.8 module being activated on
+  the Edge gateway does not fit that. What it means for the Edge history
+  provider (and so for the Core Historian note under "Official lean against
+  Analog style" below) is not yet known; it has not been tested or looked up
+  further.
 
 ## Ignition tag History — digital vs. analog configuration (verified 2026-09-04)
 
