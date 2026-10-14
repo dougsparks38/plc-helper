@@ -160,6 +160,8 @@ dash-form Tagname, Rack 0 for the local rack, literal IO-list Type labels
 such as `HART - P`): see `PLCHelper_Tasks.md` TASK_013 — not duplicated
 here (Lesson 9).
 
+**`_RS` / "RAW" on module-scaled analog inputs:** see `PLCHelper_Tasks.md` TASK_013, "Analog scaling, "RAW" and `_RS`".
+
 ### Analog input diagnostic bits (best-effort, not guaranteed)
 
 For analog inputs specifically — never analog outputs, never digital IO —

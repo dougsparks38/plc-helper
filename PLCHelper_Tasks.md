@@ -3836,6 +3836,32 @@ or tag export may show fewer or no `_RS` suffixes than this run's source
 did. That is expected drift from Doug's own naming preference, not a bug
 to chase — transcribe whatever the source shows.
 
+### Analog scaling, "RAW" and `_RS` (Doug, 2026-10-14)
+
+- **Where the wording comes from:** Hakam's IO lists end every analog
+  input description with "RAW" and the tag names with `_RS` — e.g.
+  `FIT-3001.F_RS`, "DIG BIO FLOW RATE RAW". That wording is right for an
+  unscaled analog input, as on older PLCs and hardware where the program
+  does the scaling.
+- **How it works on Blue Sky:** the analog input modules scale the value
+  themselves. A channel setting maps 4-20 mA to engineering units (e.g.
+  0-5000 SCFH). The value the PLC reads is already scaled, so it is not
+  raw, and "RAW" and `_RS` do not fit these points.
+- **What PLCHelper does:**
+  - Doug leaves `_RS` and "RAW" off the tags and descriptions he writes.
+    He also leaves out obvious words like "transmitter" — the PLC
+    programmer already knows a device is a transmitter.
+  - When comparing or auditing, differences from Hakam's lists in `_RS`
+    and "RAW" are intentional. Do not flag them and do not "fix" them.
+  - Do not suggest correcting Hakam's descriptions. His lists are very
+    good, and Doug is not raising this with him.
+  - When extracting from an IO list or an L5X file, still transcribe
+    values exactly as written (the verbatim rule above is unchanged).
+- **Future idea, not built:** PLCHelper may one day know, per piece of
+  hardware, which analog inputs are old-style (unscaled, scaled in the
+  program) and which are new-style (scaled by the module), and handle
+  each accordingly.
+
 ### Bulk mode — a whole IO-list sheet at once (added 2026-09-24)
 
 Same rules as above, applied to every row of one sheet. Learned on
@@ -3915,7 +3941,11 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ---
 
-*Last updated: September 24, 2026 (6th) — TASK_013 bulk mode: from the
+*Last updated: October 14, 2026 — TASK_013: added "Analog scaling, "RAW"
+and `_RS`" (Doug's convention: on module-scaled analog inputs he leaves
+`_RS` and "RAW" off; differences from the IO list are intentional and not
+flagged; extraction stays verbatim). Prior update, September 24, 2026
+(6th) — TASK_013 bulk mode: from the
 Blue Sky `KCG-RIO-CP` run (11 rows, `Rack` = 1), `Rack` is confirmed per
 sheet like `PLC`, plus new item 10 on tags with no separator, which are
 split from the Equipment ID and held back if they don't rejoin exactly.

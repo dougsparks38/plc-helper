@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-14 — no job number — Analog scaling, "RAW" and `_RS` convention recorded
+- **Work done:** Added a new section "Analog scaling, "RAW" and `_RS` (Doug, 2026-10-14)" to `PLCHelper_Tasks.md` under TASK_013, directly after the existing `_RS` notes, and updated that file's Last-updated footer. Added a one-line pointer to it in CLAUDE.md's IO-list tag translation section, next to the Device Index pointer. Finished.
+- **What failed / what fixed it:** nothing
+- **Decisions:** Doug: the panel designer's IO lists end analog input descriptions with "RAW" and tag names with `_RS`, which is right for unscaled inputs scaled in the program. On module-scaled analog inputs (a channel setting maps 4-20 mA to engineering units) the PLC value is not raw, so Doug leaves `_RS`, "RAW" and obvious words like "transmitter" off what he writes. PLCHelper treats those differences as intentional (no flagging, no "fixing", no suggesting the IO list be corrected) and still transcribes verbatim when extracting. Placed in TASK_013 because the existing `_RS` and verbatim-transcription notes already live there; the new text agrees with them.
+- **Learned:** The `_RS` suffix and "RAW" mark an unscaled analog input; they do not fit inputs the module scales itself.
+- **Open / follow-up:** Future idea, not built: per-hardware knowledge of old-style vs. new-style analog inputs (recorded in the TASK_013 section).
+- **Billing note:** Internal, no job number.
+- **Source:** Assistant session 2026-10-14 (PLCHelper subagent), Doug's approved wording.
+
 ### 2026-10-05 — no job number — Ignition data storage tips added
 - **Work done:** Added `Ignition_Data_Storage_Tips.md` to the repo root: general, de-identified lessons from a client investigation of a wrong stored value in Ignition daily/monthly data storage (current vs "Last" transactions, mixed PLC and gateway clocks, server/PLC time zone offset, duplicate tag folders, a day-1 month test in a tag event script, site-to-site setting differences, a stored zero after a rollover, and how to compare two sites). Each lesson is marked CONFIRMED or INFERENCE/THEORY. Finished.
 - **What failed / what fixed it:** nothing
