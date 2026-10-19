@@ -6,3 +6,6 @@ Casne Programming Standards for PLC.md
 
 # Python bytecode caches (created by importing audit_alarm_tags.py, 2026-09-09).
 __pycache__/
+
+# Scratch folders written by test scripts (TASK_014, 2026-10-19).
+_test_tmp*/

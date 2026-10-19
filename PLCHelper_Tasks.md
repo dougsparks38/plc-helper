@@ -45,6 +45,7 @@ once the spec is solid.
 | TASK_011 | Suggest existing AOIs for a described control need | Idea (documentation feature, not a tool) | When someone describes needing an AOI for a new piece of equipment, check whether an existing supported AOI already covers it. Resolved 2026-09-11 as a written **Broader use case** note per AOI in `PLCHelper_Reference.md`, matched by human judgment — no matching engine, no new script. Only `CONSPD4_AOI` has a note so far. |
 | TASK_012 | Embed Ignition alarm definitions into generated UDT definitions | **Capability Implemented; `ALARM_AOI` pilot file built, NOT yet live-verified** | Emit an `alarms` array on the alarm-bit member(s) of a UDT **definition**, so every existing instance inherits a working alarm with zero per-instance work (confirmed by Inductive Automation's "Alarms in UDTs"). Alarm members are exactly the historization rule's alarm case (`_alm`/`_alarm` suffix, or the bare word) — alarm *controls* (`_alm_dis`/`_alm_ack`/`_alm_res`) never qualify. Every config value is a Doug-confirmed site convention, never invented: `Equality` against `1.0`, `priority: "High"`, `activePipeline: "BlueSky"` (site-specific, overridable via `--alarm-pipeline`), `notes` from the member's verbatim L5X Description, `displayPath` omitted. New `ALARM_DEFINITION_EXCLUSIONS` table keeps a member as a normal tag but withholds its alarm (`UnACK_Alm` on `CONSPD4_AOI`/`LEVELIN3_AOI`/`VARSPD2_AOI`, added ahead of need) — deliberately distinct from `MEMBER_EXCLUSIONS`, which deletes the member outright. `--alarms` is opt-in; without it output is byte-identical to the pre-change script. Also fixed a latent bug — `alarms` was missing from `OPTIONAL_MEMBER_KEYS`, which would have stamped one reference member's alarm onto every generated member. |
 | TASK_013 | Extract an equipment's IO points from a job's IO list into its Device Index | Implemented (manual by design — scripting not planned) | Given an equipment ID (e.g. `BL-1`), find its rows in the job's coworker-maintained IO list and append one row per IO point to that job's own Tags/Device index, following that job's column convention — re-derived from the Device Index's existing rows every time, never hardcoded across jobs. Tag names/descriptions are **always transcribed verbatim** (standing rule); any naming fix happens later, by Doug, in the PLC program. First run 2026-09-24: Blue Sky BL-1, 6 points. |
+| TASK_014 | Bind existing Ignition memory tags to PLC addresses from a vendor comms-list PDF | Implemented (2026-10-19); Ignition import **not yet validated** | Two scripts with a reviewable CSV between them. `pdf_comms_list_to_csv.py` reads vendor "data communication list" PDFs into one tag-map CSV (rows rebuilt from word positions, never matched by order; a section whose counts or table-cell order disagree is stopped and reported). `csv_to_ignition_opc_tags.py` turns the reviewed CSV plus the existing tag export plus one hand-bound sample tag into a new import JSON with each listed tag bound as a plain OPC atomic tag. |
 
 ---
 
@@ -3941,7 +3942,118 @@ ch 2), `SPD_CMD` (AO, 5/0), `RUN_ST` (DI, 7/2), `FLT_ST` (DI, 7/3),
 
 ---
 
-*Last updated: October 14, 2026 — TASK_013: added "Analog scaling, "RAW"
+## TASK_014 — Bind existing Ignition memory tags to PLC addresses from a vendor comms-list PDF
+
+**Status:** **Implemented (2026-10-19).** Both scripts run on a real job's
+lists and export; 12 synthetic unit tests pass (`test_task014.py`). The
+generated import JSON is **not validated** until a small trial import in
+Ignition shows good quality on the bound tags.
+
+### Purpose
+
+A vendor package PLC exchanges data with the plant PLC/SCADA through
+arrays, and the vendor documents each point in a "data communication list"
+(a spreadsheet exported to PDF): tag name, description, data type, address
+in the vendor PLC (array element or bit of a DINT word), start value, units,
+remarks. When the Ignition project already has memory tags with the right
+names, binding each one to its address by hand (drag from the OPC browser,
+rename, fix folder) is slow and error-prone. This task does it with two
+repeatable scripts and a CSV Doug reviews in between. The tags stay plain
+atomic tags — no AOI/UDT.
+
+### Inputs
+
+| Input | Where it lives | Notes |
+|---|---|---|
+| Vendor comms-list PDF(s) | The job's own folder (read cross-folder, never copied here) | One run can take several PDFs. |
+| Ignition OPC device name per PDF | From Doug | Passed in brackets with each PDF (`--input "<pdf>" "[Device]"`). Never guessed; missing = error. |
+| Vendor word | From the PDF's "From: X To: Y" page headers | `--vendor`; decides read/write direction. |
+| Existing Ignition tag export | The job's folder | Read only. Supplies `ignition_path` (script 1, exact name match) and is the base tree (script 2). |
+| One hand-bound sample tag | Exported by Doug from Designer after dragging one element in from the OPC browser | Read only. Template for OPC server, `valueSource`, extra tag-level properties, and the item path format `<prefix>[<device>]<address>`. Ignition exports only non-default properties, so default deadband/scale/limit settings are deliberately absent and are not added. |
+
+### Process
+
+**Script 1 — `pdf_comms_list_to_csv.py`:**
+
+1. Read each page's words with their positions (pdfplumber). Words on the
+   same text line form a row. Spreadsheet-exported lists often come out of
+   table extraction with merged cells (all names in one cell, all
+   descriptions in another, addresses + start values + units run together),
+   matched only by order — the script never matches by order.
+2. A row is a point when it holds a data-type word directly followed by an
+   address word (`Name[n]`, `Name[n].bit`, `Name[n].member`). Words left of
+   the type split into tag name and description at the page's description
+   column (the most common position after the widest gap); tag names may
+   contain spaces. Words right of the address split into start value /
+   units / remarks by gap and content; the untouched text is kept in
+   `raw_after_address`.
+3. Sections: "Hardwired signals" blocks are skipped (not comms points);
+   "Ethernet/IP signals" blocks are parsed; title rows ending in
+   array/signals/values start a new section; a page with no marker
+   continues the previous page's section. Multi-line remarks attach to the
+   row above.
+4. Safety: per section, names, addresses, types and descriptions are
+   counted. A named row without an address and type on its own line stops
+   the section. Independently, the tag names (and the addresses of named
+   rows) found in the table cells must appear in the same order as in the
+   word parse, or the section stops. A stopped section writes nothing and
+   gets an ERROR naming PDF, page and section.
+5. Rows with an address but no name (spares, the DINT word itself),
+   addresses with no type, malformed addresses, side notes and footnotes go
+   to the issues report, never the CSV.
+6. Cross-checks over all rows: duplicate tag names, duplicate addresses, a
+   word used both as a bit-word and as a value, arrays listed with more than
+   one data type (a Logix array has one type), and a write-direction page
+   whose address array name reads vendor-to-client (direction left blank).
+7. `ignition_path` only from an exact name match in the export. A name in
+   several folders is resolved only when exactly one folder's name equals
+   the section title; otherwise blank. No match → blank plus a "possible:"
+   hint when names differ only in punctuation or a short suffix. Export tags
+   no CSV row matched are listed in the issues report.
+
+**Script 2 — `csv_to_ignition_opc_tags.py`:**
+
+1. Load the sample; require an AtomicTag with `valueSource`, `opcServer`,
+   and an item path of the form `<prefix>[<device>]<address>`.
+2. Deep-copy the base export. For each CSV row whose `ignition_path` names
+   exactly one atomic tag: set the sample's non-per-tag properties
+   (`valueSource`, `opcServer`, …) and `opcItemPath` = prefix + CSV device
+   + CSV address, exactly as written. Keep every other property of the base
+   tag.
+3. Not built, reported: blank path, path not found, two CSV rows for one
+   tag, device not in brackets, no address, base `dataType` ≠ CSV
+   `ignition_data_type`.
+4. Write a new JSON (refuses to overwrite inputs or an existing output) and
+   a build report.
+
+### Outputs
+
+- Tag-map CSV + `<csv> - issues.csv` (script 1).
+- New import JSON + `<json> - build report.csv` (script 2), the same
+  folder/tag tree as the base export.
+- Quick-run notes: `pdf_comms_list_to_csv - help.md`,
+  `csv_to_ignition_opc_tags - help.md`.
+
+### Open Questions / Notes
+
+1. ⬜ **Trial import.** Not validated until Doug imports into a copy of one
+   folder (or a test provider) and sees good quality on bound tags,
+   including at least one bit-of-DINT Boolean.
+2. ⬜ **Memory-tag `value` key.** Some base tags carry a stored `value` (and
+   `defaultValue`); script 2 keeps them because it changes only the binding
+   properties. Confirm in the trial import that Ignition ignores them on an
+   OPC tag.
+3. Notes from the first run (2026-10-19), generic: vendor lists can list
+   one array with several data types, reuse an address for two names, use a
+   DINT word for both bits and a float, and repeat a point on two pages —
+   all flagged in the CSV notes or issues report for Doug to settle with the
+   vendor, never resolved by the script.
+
+---
+
+*Last updated: October 19, 2026 — added TASK_014 (bind existing Ignition
+memory tags to PLC addresses from a vendor comms-list PDF: two scripts with
+a reviewable CSV between them). Prior update, October 14, 2026 — TASK_013: added "Analog scaling, "RAW"
 and `_RS`" (Doug's convention: on module-scaled analog inputs he leaves
 `_RS` and "RAW" off; differences from the IO list are intentional and not
 flagged; extraction stays verbatim). Prior update, September 24, 2026
