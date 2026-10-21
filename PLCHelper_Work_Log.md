@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-21 — no job number — PLC comms array review skill added
+- **Work done:** At Doug's direction, from a day of reviewing vendor data lists, a new skill `claude-workflow/Skills/plc-comms-array-review.skill.md` was added (15 working conventions for reviewing data arrays passed between PLCs), with a pointer line in `claude-workflow/AGENTS.md`'s PLCHelper entry and a one-line pointer in this folder's `CLAUDE.md` under "Tasks". Finished. Documentation only; no script changed.
+- **What failed / what fixed it:** nothing
+- **Decisions:** The content was drafted by Claude and corrected by Doug: word 0 is "often" used for control bits; BOOL arrays are "possibly not possible"; the client file default changes if the client's needs change; the instance versus input tag naming convention was explained by Doug. The content lives only in the skill file (Lesson 9); CLAUDE.md only points to it.
+- **Learned:** nothing else.
+- **Open / follow-up:** nothing
+- **Billing note:** Internal, no job number.
+- **Source:** Assistant session 2026-10-21 (PLCHelper subagent).
+
 ### 2026-10-19 — no job number — TASK_014: vendor comms-list PDF → tag-map CSV → Ignition OPC import JSON
 - **Work done:** Built `pdf_comms_list_to_csv.py` (vendor "data communication list" PDFs → one reviewable tag-map CSV + issues report) and `csv_to_ignition_opc_tags.py` (reviewed CSV + existing tag export + one hand-bound sample tag → new import JSON binding each listed tag as a plain OPC atomic tag + build report), companion help files, `test_task014.py` (12 synthetic tests, all pass), and the TASK_014 catalog entry. Ran both on a client job's two lists and export: all comms sections parsed, none stopped; every tag the CSV could place was bound, with no data-type conflicts. Finished as tooling; the Ignition import itself is not yet validated (trial import pending with Doug).
 - **What failed / what fixed it:** pdfplumber's table cells were unusable as rows on several pages (whole columns merged into one cell, matched only by order), so rows are rebuilt from word positions instead and the table cells are kept only as an order cross-check. First description-column detection took the most common word position and split multi-word tag names wrongly; fixed by taking the position after the widest gap in each row. A first units rule took a short remark as units; tightened to no digits / no "=", with the raw text kept in its own column.

@@ -384,6 +384,7 @@ TASK_00X actually does. Building/updating the SCADA reference document
 `claude-workflow/Skills/plc-aoi-reference-creation-and-update.skill.md`
 — not a local file in this folder; the "Reference document conventions"
 section above is a condensed summary, not the authoritative copy.
+Reviewing data arrays passed between PLCs (Doug's conventions): see `claude-workflow/Skills/plc-comms-array-review.skill.md`.
 
 ## Equipment abbreviation lookup table
 
