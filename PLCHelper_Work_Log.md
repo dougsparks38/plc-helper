@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-23 — no job number — New script to match PLC tags to an Ignition tag export
+- **Work done:** Added `match_plc_tags_to_ignition_json.py` and `test_match_plc_tags.py`. The script takes a list of PLC tag names (xlsx or csv), strips a prefix, matches each name to an atomic tag in an Ignition tag JSON export, and writes a tag-map CSV in the columns `csv_to_ignition_opc_tags.py` reads, plus a review report. It supports skip names and excluded folders, never guesses (not found, duplicate and type mismatch are reported), and never overwrites an input. 13 tests with made-up fixtures pass, and the 12 existing TASK_014 tests still pass. Used once on a real job (details in that job's own work log) to bind 26 tags. Committed and pushed as `f03de1c`.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** the match key and the folder exclusion are command-line inputs with no defaults, so nothing job-specific is hard-coded. Binding stays in the existing `csv_to_ignition_opc_tags.py`; the new script only builds the reviewed map.
+- **Learned:** the binding script needs a template tag; one was built from an existing bound tag with the device name and path changed, which worked.
+- **Open / follow-up:** nothing.
+- **Billing note:** internal tooling, no job number.
+- **Source:** Assistant session 2026-10-23 (PLCHelper subagent).
+
 ### 2026-10-21 — no job number — PLC comms array review skill added
 - **Work done:** At Doug's direction, from a day of reviewing vendor data lists, a new skill `claude-workflow/Skills/plc-comms-array-review.skill.md` was added (15 working conventions for reviewing data arrays passed between PLCs), with a pointer line in `claude-workflow/AGENTS.md`'s PLCHelper entry and a one-line pointer in this folder's `CLAUDE.md` under "Tasks". Finished. Documentation only; no script changed.
 - **What failed / what fixed it:** nothing
