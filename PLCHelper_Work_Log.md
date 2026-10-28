@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-28 — no job number — Rung-structure lesson (NOP placement, rung endings)
+- **Work done:** A rung export put NOP first on the rung. Researched Rockwell's own rung rules and added a lesson to `CLAUDE.md` under "Editing L5X files": check the ending of every rung and branch when writing rung text; NOP goes last per Doug's convention. Documentation only; no script changed.
+- **What failed / what fixed it:** the current 1756-RM003 PDF was too large to fetch; the 2007 edition (1756-RM003I-EN-P) was used for instruction details.
+- **Decisions:** Rockwell's rules and Doug's stricter convention are written separately, labeled.
+- **Learned:** 1756-PM008J says the last instruction on a rung must be an output, and defines outputs to include copying data and calculating a value. 1756-RM003I says NOP can go anywhere on a rung — Doug's "NOP last" is a convention, not a Rockwell rule.
+- **Open / follow-up:** NOP's formal input/output label not confirmed in text; whether Studio 5000 verify rejects a branch ending in an input not found in the manuals.
+- **Billing note:** internal, no job number.
+- **Source:** Assistant session 2026-10-28 (PLCHelper subagent).
+
 ### 2026-10-23 — no job number — New script to match PLC tags to an Ignition tag export
 - **Work done:** Added `match_plc_tags_to_ignition_json.py` and `test_match_plc_tags.py`. The script takes a list of PLC tag names (xlsx or csv), strips a prefix, matches each name to an atomic tag in an Ignition tag JSON export, and writes a tag-map CSV in the columns `csv_to_ignition_opc_tags.py` reads, plus a review report. It supports skip names and excluded folders, never guesses (not found, duplicate and type mismatch are reported), and never overwrites an input. 13 tests with made-up fixtures pass, and the 12 existing TASK_014 tests still pass. Used once on a real job (details in that job's own work log) to bind 26 tags. Committed and pushed as `f03de1c`.
 - **What failed / what fixed it:** nothing.
