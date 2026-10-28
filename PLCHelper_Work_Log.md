@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-28 — no job number — Four rung-import and tag-description lessons added
+- **Work done:** Added four client-neutral lessons from the day's PLC work to `CLAUDE.md` under "Editing L5X files": check every referenced tag against a fresh live-project export before building a rung export (added to the rung-structure working steps); translating an existing routine for another device; the Logix Designer 38.01 freeze on online multi-rung edits (Rockwell technote BF33049, corrected in 36.06/37.05/38.02); building a tag-description CSV from a communications list. Documentation only; no script changed.
+- **What failed / what fixed it:** nothing failed in PLCHelper itself; the lessons come from the day's job work (detail stays in that job's own log).
+- **Decisions:** Doug approved copying these four lessons into PLCHelper, written with no client, site, project or tag names.
+- **Learned:** on Logix Designer 38.01, multi-rung imports are best done offline.
+- **Open / follow-up:** nothing.
+- **Billing note:** internal, no job number.
+- **Source:** Assistant session 2026-10-28 (PLCHelper subagent).
+
 ### 2026-10-28 — no job number — Rung-structure lesson corrected to Rockwell-only
 - **Work done:** Rewrote the "Rung structure" lesson in `CLAUDE.md` so it holds only what Rockwell's documents say (last instruction on a rung must be an output; input vs output definitions; compare = input, math/move = output; NOP behaves like an output), plus two working steps: finish a rung that has nothing to act on yet with NOP last, never NOP first; check the last instruction of every rung before finishing any rung edit or export. Documentation only; no script changed.
 - **What failed / what fixed it:** the earlier entry below labeled NOP-last as "Doug's convention" and added an "every branch that carries an output" rule. Both removed.

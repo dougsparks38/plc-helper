@@ -301,6 +301,58 @@ Where any other wording differs from Rockwell, Rockwell is right.
   instruction. Never put NOP first, ahead of the input instructions.
 - Before finishing any rung-text edit or generated rung export, check that
   the last instruction of every rung is an output instruction.
+- Before building a rung export, check every tag it references against a
+  fresh export of the live project, not an older copy on disk. If a tag is
+  not in the file you have, stop and ask the user for a current export;
+  never guess a substitute tag name.
+
+### Translating an existing routine for another device (lesson, 2026-10-28)
+
+When a working routine is copied for a similar device:
+- Build it as a rung import that copies every rung, in order.
+- In the report, give a table of every source tag: mapped, guessed, newly
+  created, or removed.
+- Put a CHECK comment on every rung that contains a guess.
+- Keep shared plant-wide tags unchanged.
+- Create new tags only where there is no counterpart, and flag them.
+- Where a source tag has no counterpart and the user confirms it, remove it
+  from the logic rather than creating a placeholder tag, and drop any
+  branch leg that becomes empty.
+- Report configuration values copied from the source (limits, setpoints,
+  ranges) that may not fit the new device.
+
+### Logix Designer v38.01 freeze on online multi-rung edits (lesson, 2026-10-28)
+
+- In Studio 5000 Logix Designer 38.01, finalizing online edits of multiple
+  ladder rungs while the controller is in Remote Run can leave Logix
+  Designer unresponsive. Recovery: end the process in Task Manager and
+  reopen.
+- Rockwell lists it as corrected in 36.06, 37.05 and 38.02 (technote
+  BF33049; see the Logix Designer 38.02 corrected-anomalies release notes
+  on rockwellautomation.com).
+- Rockwell's workarounds: make multi-rung imports and edits offline, then
+  download; or finalize in Remote Program; or edit and finalize one or two
+  rungs at a time; or run Accept, Test and Assemble as separate steps
+  instead of Finalize.
+- When handing the user a rung import, say it is best imported offline.
+
+### Tag-description CSV from a communications list (lesson, 2026-10-28)
+
+To fill tag/element descriptions from a data-communication list, build a
+Studio 5000 tag-export CSV (data rows:
+`TYPE,SCOPE,NAME,DESCRIPTION,DATATYPE,SPECIFIER,ATTRIBUTES`).
+- Leave the Rockwell header rows untouched.
+- COMMENT rows: the array tag in NAME, the element or bit path in
+  SPECIFIER.
+- Keep arrays in export order and elements in numerical order. Skip
+  elements the source document skips (no blank filler rows). Do not invent
+  arrays that are not in the export.
+- For unclear items, write a best guess marked `[CHECK: ...]`.
+- End every on/off bit description with "(1 = ...)" so the meaning of the
+  1 state is stated.
+- The user may keep an extra blank row after the header rows, or use the
+  data-type column to mark rows he has checked. Leave both alone, and tell
+  him to clear them before import.
 
 ## Key design patterns
 
