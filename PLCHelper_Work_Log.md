@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-28 — no job number — Rung-structure lesson corrected to Rockwell-only
+- **Work done:** Rewrote the "Rung structure" lesson in `CLAUDE.md` so it holds only what Rockwell's documents say (last instruction on a rung must be an output; input vs output definitions; compare = input, math/move = output; NOP behaves like an output), plus two working steps: finish a rung that has nothing to act on yet with NOP last, never NOP first; check the last instruction of every rung before finishing any rung edit or export. Documentation only; no script changed.
+- **What failed / what fixed it:** the earlier entry below labeled NOP-last as "Doug's convention" and added an "every branch that carries an output" rule. Both removed.
+- **Decisions:** Doug decided that where his wording differs from Rockwell, Rockwell is right. Rockwell has no rule that every branch ends in an output; parallel input branches are normal.
+- **Learned:** NOP-last follows from Rockwell's rule that a rung must end in an output, so it is not a separate convention.
+- **Open / follow-up:** nothing.
+- **Billing note:** internal, no job number.
+- **Source:** Assistant session 2026-10-28 (PLCHelper subagent).
+
 ### 2026-10-28 — no job number — Rung-structure lesson (NOP placement, rung endings)
 - **Work done:** A rung export put NOP first on the rung. Researched Rockwell's own rung rules and added a lesson to `CLAUDE.md` under "Editing L5X files": check the ending of every rung and branch when writing rung text; NOP goes last per Doug's convention. Documentation only; no script changed.
 - **What failed / what fixed it:** the current 1756-RM003 PDF was too large to fetch; the 2007 edition (1756-RM003I-EN-P) was used for instruction details.

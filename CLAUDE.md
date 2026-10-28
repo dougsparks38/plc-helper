@@ -281,35 +281,26 @@ all four topics; not duplicated here (Lesson 9).
 
 ### Rung structure — follow Rockwell's rules (lesson, 2026-10-28)
 
-A rung export once put NOP first on the rung. Follow Rockwell's rung rules
-as documented, and **whenever writing or editing rung text, check the
-ending of every rung and every branch before finishing.**
+Where any other wording differs from Rockwell, Rockwell is right.
 
-**What Rockwell says** (Logix 5000 Controllers Ladder Diagram Programming
-Manual, publication 1756-PM008J-EN-P, July 2022, Ch. 1 "Program ladder
-diagram", pp. 11-15):
-- Input instructions check, compare or examine conditions; output
-  instructions take an action — turn a device on/off, copy data, or
-  calculate a value (p. 11). An input sets rung-condition-out from its
-  result; an output passes rung-condition-in through unchanged (p. 12).
-- Put at least one output to the right of the inputs. Outputs may be in
-  series, in parallel branches, or between inputs, but "the last
-  instruction on the rung must be an output instruction" (pp. 14-15).
-- Inputs in parallel branches are OR logic (p. 14); such input branches
-  rejoin the rung and do not end in an output. The manual states no
-  separate per-branch ending rule.
-- So: compare instructions (EQU, GRT, LES, LIM, CMP) are inputs; math (ADD,
-  SUB, MUL, DIV, CPT) and move (MOV) are outputs — they calculate or copy
-  and pass the rung condition through (also the execution tables in Logix
-  5000 Controllers General Instructions Reference Manual, 1756-RM003).
-- NOP: "functions as a placeholder"; Rockwell says it can be placed
-  anywhere on a rung and does nothing (1756-RM003I-EN-P, p. 459). Its
-  execution passes the rung condition through, like an output.
+**What Rockwell says:**
+- The last instruction on a rung must be an output instruction (Logix 5000
+  Controllers Ladder Diagram Programming Manual, 1756-PM008J-EN-P, p. 15).
+- Input instructions check, compare or examine a condition. Output
+  instructions take an action (turn a device on or off, copy data,
+  calculate a value) and pass the rung condition through (1756-PM008J).
+- Compare instructions (EQU, GRT, LES, LIM, CMP) are inputs. Math (ADD,
+  SUB, MUL, DIV, CPT) and move (MOV) are outputs.
+- NOP passes the rung condition through, so it behaves like an output
+  (Logix 5000 Controllers General Instructions Reference Manual,
+  1756-RM003; edition read: 1756-RM003I).
 
-**Doug's convention (Casne convention, stricter than Rockwell):** every
-rung, and every branch that carries an output, ends in an output
-instruction. NOP is used as an output placeholder and goes **last**,
-after the inputs — never first.
+**Working steps:**
+- When a rung has input instructions but nothing to act on yet, finish it
+  with NOP as the last instruction, because the rung must end in an output
+  instruction. Never put NOP first, ahead of the input instructions.
+- Before finishing any rung-text edit or generated rung export, check that
+  the last instruction of every rung is an output instruction.
 
 ## Key design patterns
 
