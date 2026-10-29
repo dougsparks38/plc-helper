@@ -167,6 +167,13 @@ Apply to every AOI written or edited, for any job.
   hand, set EditedDate (and TargetLastEdited in the header) to the current
   time, or an import will not overwrite the existing AOI. (Source:
   Rockwell's Logix 5000 import/export reference.)
+- **Check for an old-type tag when an instance changes AOI type.** When an
+  instance (e.g. a valve) is moved from one AOI type to another, first look
+  for an existing tag of the same name with the old AOI type. Studio 5000
+  accepts the name when typed into the new instruction, then reports a type
+  mismatch on verify, without saying a tag of that name already exists, so
+  the cause can take a long time to find. Fix: if the old tag is not used
+  anywhere, delete it and create a new tag of the correct AOI type.
 
 ## Analog input diagnostic bits and I/O-wiring convention
 

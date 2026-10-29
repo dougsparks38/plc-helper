@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-29 — no job number — AOI lesson added: old-type tag on AOI type change
+- **Work done:** Added a fourth bullet to the "AOI lessons (added 2026-10-29)" sub-list in `CLAUDE.md`: when an instance changes from one AOI type to another, check first for an existing tag of the same name with the old AOI type; Studio 5000 accepts the name, then reports a type mismatch on verify without saying the tag already exists. Fix: if the old tag is unused, delete it and create a new tag of the correct AOI type. Finished. Documentation only; no script changed.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: save the lesson to PLCHelper at the end-of-day save-everything.
+- **Learned:** nothing beyond the lesson itself.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-10-29 (PLCHelper subagent).
+
 ### 2026-10-29 — no job number — AOI_Library created with VARSPD2_AOI 2.2
 - **Work done:** Created the `AOI_Library` folder with its first AOI, `VARSPD2_AOI.L5X` (revision 2.2), a client-neutral copy of a working export: controller context name set to "Controller", CreatedBy/EditedBy set to "AOI Library", a vendor name in the RevisionNote and one parameter description replaced with "an external system", EditedDate/TargetLastEdited set to the copy time. Parameters, local tags and rungs unchanged. Added `AOI_Library/README.md`. Finished.
 - **What failed / what fixed it:** nothing.
