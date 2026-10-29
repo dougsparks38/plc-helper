@@ -151,6 +151,23 @@ Apply to every AOI written or edited, for any job.
    description of every `s`-suffix parameter begins with the direction:
    scdi/scai → "PLC - to - SCADA"; scdo/scao → "SCADA - to - PLC".
 
+### AOI lessons (added 2026-10-29)
+
+- **Required has a large blast radius.** Making a parameter Required forces
+  every call of the AOI, in every routine and project that uses it, to be
+  edited to supply the new argument (Studio 5000 lists the affected calls
+  and asks before applying). Only Required parameters appear in a call's
+  ladder text. A non-Required parameter can be added without touching any
+  call, so decide Required-ness deliberately.
+- **Latch inside the AOI when the AOI unlatches.** If an AOI unlatches a
+  SCADA command bit (e.g. start/stop) every scan, a rung after the AOI call
+  that latches or reads that bit can miss a command written before the AOI
+  ran that scan. Put the latching inside the AOI, ahead of its unlatch rung.
+- **Update EditedDate on a hand-edited L5X.** After editing an AOI's L5X by
+  hand, set EditedDate (and TargetLastEdited in the header) to the current
+  time, or an import will not overwrite the existing AOI. (Source:
+  Rockwell's Logix 5000 import/export reference.)
+
 ## Analog input diagnostic bits and I/O-wiring convention
 
 Two related conventions: how a client-provided IO list's tag names become

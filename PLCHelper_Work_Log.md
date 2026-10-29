@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-29 — no job number — Three AOI lessons added
+- **Work done:** Added an "AOI lessons (added 2026-10-29)" sub-list at the end of the "AOI conventions" section of `CLAUDE.md`: making a parameter Required forces every existing call to be edited (only Required parameters appear in a call's ladder text); latch SCADA command bits inside the AOI, ahead of its unlatch rung, when the AOI unlatches them every scan; update EditedDate (and TargetLastEdited) on a hand-edited AOI L5X or an import will not overwrite the existing AOI. Finished. Documentation only; no script changed.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: copy the day's client-neutral lessons to PLCHelper.
+- **Learned:** nothing beyond the lessons themselves.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-10-29 (PLCHelper subagent).
+
 ### 2026-10-29 — no job number — Three AOI conventions recorded as standing rules
 - **Work done:** Added an "AOI conventions (Doug's standing rules, 2026-10-29)" section to `CLAUDE.md`, after "Naming conventions": parameters and local tags each kept in alphabetical order (with a caution to keep the Required parameters' existing order so existing call argument order is not broken); every local tag name starts with `_` and no parameter does; descriptions of `s`-suffix parameters begin with "PLC - to - SCADA" (scdi/scai) or "SCADA - to - PLC" (scdo/scao). A one-line pointer to this section was added in a client project's own CLAUDE.md (outside this repo). Finished. Documentation only; no script changed.
 - **What failed / what fixed it:** nothing.
