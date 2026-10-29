@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-29 — no job number — AOI_Library created with VARSPD2_AOI 2.2
+- **Work done:** Created the `AOI_Library` folder with its first AOI, `VARSPD2_AOI.L5X` (revision 2.2), a client-neutral copy of a working export: controller context name set to "Controller", CreatedBy/EditedBy set to "AOI Library", a vendor name in the RevisionNote and one parameter description replaced with "an external system", EditedDate/TargetLastEdited set to the copy time. Parameters, local tags and rungs unchanged. Added `AOI_Library/README.md`. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: keep a latest-version-only AOI library in PLCHelper (git keeps the history).
+- **Learned:** nothing beyond this.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-10-29 (PLCHelper subagent).
+
 ### 2026-10-29 — no job number — Three AOI lessons added
 - **Work done:** Added an "AOI lessons (added 2026-10-29)" sub-list at the end of the "AOI conventions" section of `CLAUDE.md`: making a parameter Required forces every existing call to be edited (only Required parameters appear in a call's ladder text); latch SCADA command bits inside the AOI, ahead of its unlatch rung, when the AOI unlatches them every scan; update EditedDate (and TargetLastEdited) on a hand-edited AOI L5X or an import will not overwrite the existing AOI. Finished. Documentation only; no script changed.
 - **What failed / what fixed it:** nothing.
