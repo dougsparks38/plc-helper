@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-10-29 — no job number — Three AOI conventions recorded as standing rules
+- **Work done:** Added an "AOI conventions (Doug's standing rules, 2026-10-29)" section to `CLAUDE.md`, after "Naming conventions": parameters and local tags each kept in alphabetical order (with a caution to keep the Required parameters' existing order so existing call argument order is not broken); every local tag name starts with `_` and no parameter does; descriptions of `s`-suffix parameters begin with "PLC - to - SCADA" (scdi/scai) or "SCADA - to - PLC" (scdo/scao). A one-line pointer to this section was added in a client project's own CLAUDE.md (outside this repo). Finished. Documentation only; no script changed.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: write the rules once in PLCHelper and point to them from the project folder (Rule 9).
+- **Learned:** nothing.
+- **Open / follow-up:** nothing; applying the conventions to an existing AOI is a separate step.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-10-29 (PLCHelper subagent).
+
 ### 2026-10-28 — no job number — Four rung-import and tag-description lessons added
 - **Work done:** Added four client-neutral lessons from the day's PLC work to `CLAUDE.md` under "Editing L5X files": check every referenced tag against a fresh live-project export before building a rung export (added to the rung-structure working steps); translating an existing routine for another device; the Logix Designer 38.01 freeze on online multi-rung edits (Rockwell technote BF33049, corrected in 36.06/37.05/38.02); building a tag-description CSV from a communications list. Documentation only; no script changed.
 - **What failed / what fixed it:** nothing failed in PLCHelper itself; the lessons come from the day's job work (detail stays in that job's own log).

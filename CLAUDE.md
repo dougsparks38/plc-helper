@@ -131,6 +131,26 @@ RSLogix5000Content
 | `_intm` | Intermediate accumulator (pre-rollover value) |
 | `_` prefix | Internal implementation detail |
 
+## AOI conventions (Doug's standing rules, 2026-10-29)
+
+Apply to every AOI written or edited, for any job.
+
+1. **Alphabetical order.** Parameters (inputs, outputs, in/outs) are kept
+   in alphabetical order; local tags are a separate list, also
+   alphabetical. Studio 5000 cannot reorder them, so edit the L5X.
+   Caution: the ladder text of an AOI call lists only the Required
+   parameters, in definition order, so reordering can change the argument
+   order of existing calls. Keep the existing order of the Required
+   parameters (e.g. inputs A-Z then outputs A-Z) unless the calls are
+   rewritten too.
+2. **Leading underscore means local.** Every local tag name starts with
+   `_`; no parameter starts with `_`.
+3. **Direction prefix on SCADA-side suffixes.** `h` suffixes (hwdi, hwdo,
+   hwai, hwao) need nothing special. `s` suffixes (scdi, scdo, scai, scao)
+   are named from the SCADA side (historical, too late to rename), so the
+   description of every `s`-suffix parameter begins with the direction:
+   scdi/scai → "PLC - to - SCADA"; scdo/scao → "SCADA - to - PLC".
+
 ## Analog input diagnostic bits and I/O-wiring convention
 
 Two related conventions: how a client-provided IO list's tag names become
