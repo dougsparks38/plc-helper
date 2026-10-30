@@ -11,6 +11,7 @@
 - **Open / follow-up:** run the PII scan (Rule 36) before any push; commit/push not done.
 - **Billing note:** not job-specific; tool work.
 - **Source:** Assistant session 2026-10-30 (PLCHelper subagent).
+- **Correction (2026-10-30, later the same day):** the files were committed and pushed as d15343e. The PII scan was skipped for them by Doug's decision (public customer information). The "Left uncommitted" and "run the PII scan" lines above are superseded.
 
 ### 2026-10-30 — no job number — AOI convention 6 added (short descriptions); applied to the modulating valve AOI
 - **Work done:** Added item 6 to the "AOI conventions" section in `CLAUDE.md`: descriptions on parameters, tags and sub-elements are a short label plus an "n = meaning" legend, about 60 characters and at most 80, no sentences or signal names; detail goes in the Help text. Applied it to the modulating valve AOI on top of the user's re-export (kept his shortened descriptions, shortened one other long description, no logic change) and saved as a new `_v3` file; the simulator copy is unchanged. Finished in the file; not yet retested.
