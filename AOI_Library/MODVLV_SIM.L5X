@@ -1,0 +1,267 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--SIM code for MODVLV_AOI-->
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="38.01" TargetName="MODVLV_SIM" TargetType="AddOnInstructionDefinition" TargetRevision="1.0 " TargetLastEdited="2026-10-30T17:56:08.535Z" ContainsContext="true" ExportDate="Fri Oct 30 17:36:25 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="BOP_O2_CombinedTest">
+<DataTypes Use="Context">
+</DataTypes>
+<AddOnInstructionDefinitions Use="Context">
+<AddOnInstructionDefinition Use="Target" Name="MODVLV_SIM" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="2007-09-14T17:41:17.040Z" CreatedBy="KIRKLAND\Tom.Cook" EditedDate="2026-10-30T17:56:08.535Z" EditedBy="LEWISBIO-1\TS-Admin" SoftwareRevision="v38.01"
+>
+<Description>
+<![CDATA[SIM code for MODVLV_AOI]]>
+</Description>
+<AdditionalHelpText>
+<![CDATA[Running_inh: inhibit running Output if you want to trigger a "fail to run" fault]]>
+</AdditionalHelpText>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Enable Input - System Defined Parameter]]>
+</Description>
+</Parameter>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Enable Output - System Defined Parameter]]>
+</Description>
+</Parameter>
+<Parameter Name="Position_CMD_hwao" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="true" Visible="true" ExternalAccess="Read/Write">
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Position_FDBK_hwai" TagType="Base" DataType="REAL" Usage="Output" Radix="Float" Required="true" Visible="true" ExternalAccess="Read Only">
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Fault_hwdi_triggerFault" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Fault_hwdi" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read Only">
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FullyOpened_hwdi" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Simulated fully opened limit switch: on 60 seconds after an open command (Position_CMD_hwao at or above 100)]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FullyClosed_hwdi" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Simulated fully closed limit switch: on 60 seconds after a close command (Position_CMD_hwao at or below 0). Starts on (valve closed)]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[1]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="1"/>
+</DefaultData>
+</Parameter>
+</Parameters>
+<LocalTags>
+<LocalTag Name="_positionCmdLast" DataType="REAL" Radix="Float" ExternalAccess="None">
+<Description>
+<![CDATA[position command last scan]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_positionCmdChanged" DataType="BOOL" Radix="Decimal" ExternalAccess="None">
+<Description>
+<![CDATA[position command changed]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_positionDifference" DataType="REAL" Radix="Float" ExternalAccess="None">
+<Description>
+<![CDATA[position command difference]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_positionDiffSecond" DataType="REAL" Radix="Float" ExternalAccess="None">
+<Description>
+<![CDATA[position cmd change per second]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_positionCmdTmr" DataType="TIMER" ExternalAccess="None">
+<DefaultData Format="L5K">
+<![CDATA[[0,1000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_fullyOpenedTmr" DataType="TIMER" ExternalAccess="None">
+<Description>
+<![CDATA[open travel time to fully opened limit]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[[0,60000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="60000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_fullyClosedTmr" DataType="TIMER" ExternalAccess="None">
+<Description>
+<![CDATA[close travel time to fully closed limit]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[[0,60000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="60000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Comment>
+<![CDATA[******** SIM code for MODVLV_AOI ********
+]]>
+</Comment>
+<Text>
+<![CDATA[NOP();]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Comment>
+<![CDATA[--------------------------------------------------------------------------------------------------------------------------------------------------------
+Notes:
+I/O to sumulate: Need to simulate any I/O that will be turning on and off or changing as a normal part of PLC operation.
+E.g.: run command and running feedback
+I/O that we DO NOT need to simulate: Any bits that only change for status indication.
+E.g.: Fault bits. or hand-off-auto inputs
+Other things that DO NOT need to be simulated: any scada i/o bits or analogs
+--------------------------------------------------------------------------------------------------------------------------------------------------------]]>
+</Comment>
+<Text>
+<![CDATA[NOP();]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text>
+<![CDATA[MOVE(1000,_positionCmdTmr.PRE);]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Comment>
+<![CDATA[On a command change, set the step as one-sixtieth of the distance from feedback to command]]>
+</Comment>
+<Text>
+<![CDATA[NE(Position_CMD_hwao,_positionCmdLast)[OTE(_positionCmdChanged) ,SUB(Position_CMD_hwao,Position_FDBK_hwai,_positionDifference) DIV(_positionDifference,60,_positionDiffSecond) ,MOVE(Position_CMD_hwao,_positionCmdLast) ];]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Comment>
+<![CDATA[Each second add the step to feedback, never pass the command, clamp 0-100]]>
+</Comment>
+<Text>
+<![CDATA[NE(Position_CMD_hwao,Position_FDBK_hwai)[TON(_positionCmdTmr,?,?) ,XIC(_positionCmdTmr.DN) ADD(Position_FDBK_hwai,_positionDiffSecond,Position_FDBK_hwai) RES(_positionCmdTmr) ,GT(_positionDiffSecond,0) GT(Position_FDBK_hwai,Position_CMD_hwao) MOVE(Position_CMD_hwao,Position_FDBK_hwai) ,LT(_positionDiffSecond,0) LT(Position_FDBK_hwai,Position_CMD_hwao) MOVE(Position_CMD_hwao,Position_FDBK_hwai) ,GT(Position_FDBK_hwai,100) MOVE(100,Position_FDBK_hwai) ,LT(Position_FDBK_hwai,0) MOVE(0,Position_FDBK_hwai) ];]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Comment>
+<![CDATA[Limit switch simulation: 60 second travel time to each limit]]>
+</Comment>
+<Text>
+<![CDATA[[MOVE(60000,_fullyOpenedTmr.PRE) ,MOVE(60000,_fullyClosedTmr.PRE) ];]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Comment>
+<![CDATA[Open command (100% or more): closed limit drops now, fully opened limit comes on after 60 seconds]]>
+</Comment>
+<Text>
+<![CDATA[GE(Position_CMD_hwao,100)[OTU(FullyClosed_hwdi) ,TON(_fullyOpenedTmr,?,?) ,XIC(_fullyOpenedTmr.DN) OTL(FullyOpened_hwdi) ];]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Comment>
+<![CDATA[Close command (0% or less): opened limit drops now, fully closed limit comes on after 60 seconds]]>
+</Comment>
+<Text>
+<![CDATA[LE(Position_CMD_hwao,0)[OTU(FullyOpened_hwdi) ,TON(_fullyClosedTmr,?,?) ,XIC(_fullyClosedTmr.DN) OTL(FullyClosed_hwdi) ];]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Comment>
+<![CDATA[Command between 0% and 100%: valve is off both limits]]>
+</Comment>
+<Text>
+<![CDATA[GT(Position_CMD_hwao,0)LT(Position_CMD_hwao,100)[OTU(FullyOpened_hwdi) ,OTU(FullyClosed_hwdi) ];]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[NOP();]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+</AddOnInstructionDefinitions>
+</Controller>
+</RSLogix5000Content>

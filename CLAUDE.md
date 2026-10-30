@@ -150,6 +150,30 @@ Apply to every AOI written or edited, for any job.
    are named from the SCADA side (historical, too late to rename), so the
    description of every `s`-suffix parameter begins with the direction:
    scdi/scai → "PLC - to - SCADA"; scdo/scao → "SCADA - to - PLC".
+4. **Config parameters are Visible, not Required (added 2026-10-30).** Every
+   `config_` parameter is Visible and not Required. Config values are set
+   once by hand in the instance data structure, not wired in the call (and a
+   non-Required parameter does not force edits to existing calls).
+5. **Help file rule (added 2026-10-30).** Any change to a config value (its
+   meaning, allowed values, default, or effect) or any new config value
+   always requires a matching update to the AOI's Help text
+   (`AdditionalHelpText`) in the same change. A config change with no Help
+   update is incomplete. In the report, state which Help text was updated, or
+   that none was needed and why.
+6. **Short descriptions (added 2026-10-30).** Descriptions on AOI
+   parameters, tags and sub-elements must be descriptive but SHORT. They
+   display above the instruction in the ladder and wrap on every line, so a
+   long one swamps the rung. Style: a short label, then the value legend in
+   "n = meaning" form. No sentences and no signal names. Keep the parameter's
+   own text to about 60 characters, 80 at most. Detail about what each value
+   does belongs in the AOI Help text (`AdditionalHelpText`), not in the
+   description. Examples (Doug's wording): `config_binary` "1 = ON/OFF valve
+   0 = modulating"; `config_type` "Valve position type: 0= analog / analog
+   1= analog / digital". The `s`-suffix direction prefix (rule 3) is extra to
+   this length. Rule 4 has no exceptions: every `config_` parameter is
+   Visible, not Required.
+
+Rules 1 to 3 do not renumber or re-sort existing lists that predate them.
 
 ### AOI lessons (added 2026-10-29)
 

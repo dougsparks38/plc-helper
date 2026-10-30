@@ -3,6 +3,42 @@
 
 ---
 
+### 2026-10-30 — no job number — Modulating valve AOI and simulator copied into AOI_Library
+- **Work done:** Copied the verified modulating valve AOI (`MODVLV_AOI.L5X`, revision 1.0) and its simulator (`MODVLV_SIM.L5X`, revision 1.0) into `AOI_Library`, taken from the `_v3` files (Doug imported the AOI into Studio 5000 and all 9 tests passed; v3 has the final shortened descriptions). Byte-for-byte identical to the sources (cmp, one per file); not edited. Added two rows to `AOI_Library/README.md`. No older copy existed to replace. Finished. Left uncommitted.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: customer and site information is public, so it is NOT stripped from these two files (unlike `VARSPD2_AOI.L5X`); the README intro still says library files are client-neutral, so these two are noted as exceptions in their rows.
+- **Learned:** nothing.
+- **Open / follow-up:** run the PII scan (Rule 36) before any push; commit/push not done.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-10-30 (PLCHelper subagent).
+
+### 2026-10-30 — no job number — AOI convention 6 added (short descriptions); applied to the modulating valve AOI
+- **Work done:** Added item 6 to the "AOI conventions" section in `CLAUDE.md`: descriptions on parameters, tags and sub-elements are a short label plus an "n = meaning" legend, about 60 characters and at most 80, no sentences or signal names; detail goes in the Help text. Applied it to the modulating valve AOI on top of the user's re-export (kept his shortened descriptions, shortened one other long description, no logic change) and saved as a new `_v3` file; the simulator copy is unchanged. Finished in the file; not yet retested.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: descriptions display above the instruction in the ladder and wrap, so keep them short. Length limit derived from his own edited descriptions.
+- **Learned:** compare the user's re-export against the last version before editing; his edits are the source of truth.
+- **Open / follow-up:** user to import and check.
+- **Billing note:** job time is charged in the job's own log.
+- **Source:** Assistant session 2026-10-30 (PLCHelper subagent).
+
+### 2026-10-30 — no job number — AOI conventions 4 and 5 added (config Visible/not Required; Help file rule)
+- **Work done:** Added two numbered items to the "AOI conventions" section in `CLAUDE.md`: (4) every `config_` parameter is Visible and not Required, set once by hand in the instance data rather than wired in the call; (5) any change to a config value or any new config value requires a matching update to the AOI's Help text in the same change, and the report must say which Help text was updated or why none was needed. Finished. Documentation only; no script changed.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's. Existing conventions 1-3 stay as they are (not applied retroactively to existing lists).
+- **Learned:** nothing beyond the rules themselves.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-10-30 (PLCHelper subagent).
+
+### 2026-10-30 — no job number — Modulating valve AOI: limit-fail alarms corrected for limit-switch type
+- **Work done:** On top of the user's re-exported AOI, changed the limit-switch (type 1) fail-to-open / fail-to-close alarms so each arms only when that limit is the commanded end state (command at 100 for open, at 0 for closed); a command strictly between 0 and 100 arms neither and clears the timers. Analog type and ON/OFF behavior unchanged. Updated the AOI's Help text and revision note in the same change (convention 5). Saved as a new `_v2` file; AOI name unchanged so it imports over the existing one. Finished in the file; not yet tested in Studio 5000.
+- **What failed / what fixed it:** the first limit-switch version armed the open alarm whenever AutoCall was on and the open limit was off, so a valve commanded to 50% falsely alarmed. Fix: base the arm condition on the command, not on AutoCall alone.
+- **Decisions:** Used the clamped command (Position_CMD_hwao) rather than Position_SP directly, so SP above 100 or below 0 counts as fully open / closed.
+- **Learned:** when a limit-switch alarm is added, ask which end state each limit represents; an intermediate command has no expected limit.
+- **Open / follow-up:** user to retest in Studio 5000 (job detail is in that job's own log).
+- **Billing note:** job time is charged in the job's own log.
+- **Source:** Assistant session 2026-10-30 (PLCHelper subagent).
+
 ### 2026-10-29 — no job number — AOI lesson added: old-type tag on AOI type change
 - **Work done:** Added a fourth bullet to the "AOI lessons (added 2026-10-29)" sub-list in `CLAUDE.md`: when an instance changes from one AOI type to another, check first for an existing tag of the same name with the old AOI type; Studio 5000 accepts the name, then reports a type mismatch on verify without saying the tag already exists. Fix: if the old tag is unused, delete it and create a new tag of the correct AOI type. Finished. Documentation only; no script changed.
 - **What failed / what fixed it:** nothing.

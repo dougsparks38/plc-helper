@@ -1,0 +1,564 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--simple modulating valve control.
+Note: Use with MODVALVE_PIDE_AOI if you need to control valve position with a PIDE command-->
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="38.01" TargetName="MODVLV_AOI" TargetType="AddOnInstructionDefinition" TargetRevision="1.0 " TargetLastEdited="2026-10-30T22:50:00.000Z" ContainsContext="true" ExportDate="Fri Oct 30 17:36:18 2026" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">
+<Controller Use="Context" Name="BOP_O2_CombinedTest">
+<DataTypes Use="Context">
+</DataTypes>
+<AddOnInstructionDefinitions Use="Context">
+<AddOnInstructionDefinition Use="Target" Name="MODVLV_AOI" Revision="1.0" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="2026-10-26T16:25:14.629Z" CreatedBy="LEWISBIO-1\TS-Admin" EditedDate="2026-10-30T22:50:00.000Z" EditedBy="LEWISBIO-1\TS-Admin" SoftwareRevision="v38.01"
+>
+<Description>
+<![CDATA[simple modulating valve control.
+Note: Use with MODVALVE_PIDE_AOI if you need to control valve position with a PIDE command]]>
+</Description>
+<RevisionNote>
+<![CDATA[rev 1.0: initial creation on 10/26/26
+10/30/26: added config_type (0 = analog position feedback, 1 = fully opened / fully closed limit switches), FullyOpened_hwdi, FullyClosed_hwdi and Position_SP (used when config_binary = 0); revision number not changed
+10/30/26: config_type 1 FailOpen / FailClose now arm only when the commanded end state is that limit (config_binary 1 commanded open / closed, or config_binary 0 with Position_SP at 100 / 0); Position_SP between 0 and 100 arms neither; Help text updated; revision number not changed
+10/30/26: parameter descriptions shortened (config_binary, config_type, Position_SP); config_pos_fullyClosed and config_pos_fullyOpened made Visible; Help text unchanged; revision number not changed]]>
+</RevisionNote>
+<AdditionalHelpText>
+<![CDATA[MODVLV_AOI: valve command, position feedback and alarms
+
+config_binary (BOOL, Visible, not Required)
+Config values are set once by hand in the instance data structure, not wired in the call.
+1 = the valve is ON/OFF only. The command is only ever 0% or 100%: AutoCall true sends 100, false sends 0.
+0 = the valve is modulating. AutoCall true sends Position_SP (limited to 0 to 100%), false sends 0.
+Applies to every config_type.
+
+config_type (DINT, Visible, not Required)
+0 = analog position feedback. Position_FDBK_hwai and its OverRange_hwdi, UnderRange_hwdi and Fault_hwdi are used. FailOpen and FailClose compare the analog position with config_pos_fullyOpened and config_pos_fullyClosed. FullyOpened_hwdi and FullyClosed_hwdi are not used.
+1 = limit-switch feedback, no analog position feedback. FullyOpened_hwdi and FullyClosed_hwdi are used. Position_FDBK_hwai and its range and fault inputs are ignored (wire a literal 0 or a dummy tag). There is no channel-fault alarm. Position_scai shows the command, 100 at the open limit and 0 at the closed limit. State: 0 = open, 1 = closed, 2 = traveling (both limits off), 99 = both limits made.
+In type 1 FailOpen and FailClose only arm when that limit is the expected end state, so a valve held between the limits raises neither alarm:
+- FailOpen arms when the open limit is not made and the valve is commanded fully open: config_binary 1 with AutoCall true, or config_binary 0 with AutoCall true and Position_SP at 100 (or above, since the command is limited to 100).
+- FailClose arms when the closed limit is not made and the valve is commanded fully closed: AutoCall false, or config_binary 0 with AutoCall true and Position_SP at 0 (or below).
+- Any Position_SP strictly between 0 and 100 (config_binary 0, AutoCall true) arms neither alarm and clears a pending fail timer. State stays 2 while both limits are off.
+Any other config_type value behaves as type 0.
+When a new type is added, add it to this list.]]>
+</AdditionalHelpText>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Enable Input - System Defined Parameter]]>
+</Description>
+</Parameter>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Enable Output - System Defined Parameter]]>
+</Description>
+</Parameter>
+<Parameter Name="Position_FDBK_hwai" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Position Feedback]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Position_CMD_hwao" TagType="Base" DataType="REAL" Usage="Output" Radix="Float" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Position Command]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Position_scai" TagType="Base" DataType="REAL" Usage="Output" Radix="Float" Required="false" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[PLC to SCADA: Position for display]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="AutoCall" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Auto Call to Open]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="OverRange_hwdi" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Overrange fault from position input]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="UnderRange_hwdi" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Underrange fault from position input]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Fault_hwdi" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Channel fault from position input]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="config_binary" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[1 = ON/OFF valve
+0 = modulating]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailOpen_alm" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Valve Failed to Open Alarm]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailOpen_alm_dis" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm disable]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailOpen_alm_res" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm reset]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailOpen_tmr_preset" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm preset in seconds]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[30]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="30"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailClose_alm" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Valve Failed to Close Alarm]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailClose_alm_dis" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm disable]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailClose_alm_res" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm reset]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FailClose_tmr_preset" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm preset in seconds]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[30]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="30"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="CHFault_alm" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Channel Fault Alarm]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="CHFault_alm_dis" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm disable]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="CHFault_alm_res" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm reset]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="CHFault_tmr_preset" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[alarm preset in seconds]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[30]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="30"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="AUTO_PB_scdo" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[SCADA to PLC: Auto mode selected]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="MAN_PB_scdo" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[SCADA to PLC: Manual  mode selected]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="AUTO_scdi" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[PLC to SCADA: Auto mode selected]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="MAN_scdi" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[PLC to SCADA: Manual mode selected]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="config_pos_fullyClosed" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Set position 0 to 100% for valve fully closed]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[1.00000000e+001]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="10.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="config_pos_fullyOpened" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Set position 0 to 100% for valve fully opened]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[9.00000000e+001]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="90.0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="State" TagType="Base" DataType="DINT" Usage="Output" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read Only">
+<Description>
+<![CDATA[Valve State]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="config_type" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Valve position type: 0= analog / analog
+1= analog / digital]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FullyOpened_hwdi" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Fully opened limit switch (used when config_type = 1)]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="FullyClosed_hwdi" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Fully closed limit switch (used when config_type = 1)]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Position_SP" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description>
+<![CDATA[Auto position command 0 to 100%]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0.00000000e+000]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="0.0"/>
+</DefaultData>
+</Parameter>
+</Parameters>
+<LocalTags>
+<LocalTag Name="_FailOpen_tmr" DataType="TIMER" ExternalAccess="None">
+<Description>
+<![CDATA[alarm timer]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[[0,30000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_FailClose_tmr" DataType="TIMER" ExternalAccess="None">
+<Description>
+<![CDATA[alarm timer]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[[0,30000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_CHFault_tmr" DataType="TIMER" ExternalAccess="None">
+<Description>
+<![CDATA[alarm timer]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[[0,30000,0]]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="_configType1" DataType="BOOL" Radix="Decimal" ExternalAccess="None">
+<Description>
+<![CDATA[config_type:
+0=Analog fdbk
+1=digital fdbk]]>
+</Description>
+<DefaultData Format="L5K">
+<![CDATA[0]]>
+</DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</LocalTag>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Comment>
+<![CDATA[***** timer presets *****]]>
+</Comment>
+<Text>
+<![CDATA[[MUL(FailOpen_tmr_preset,1000,_FailOpen_tmr.PRE) ,MUL(FailClose_tmr_preset,1000,_FailClose_tmr.PRE) ,MUL(CHFault_tmr_preset,1000,_CHFault_tmr.PRE) ];]]>
+</Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Comment>
+<![CDATA[***** config type: 1 = fully opened / fully closed limit switches, no analog position feedback. Any other value = analog position feedback *****]]>
+</Comment>
+<Text>
+<![CDATA[EQ(config_type,1)OTE(_configType1);]]>
+</Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Comment>
+<![CDATA[***** Input rung *****
+config_type 1: position for display is the command, or 100 / 0 when the open / closed limit is made]]>
+</Comment>
+<Text>
+<![CDATA[[XIO(_configType1) MOVE(Position_FDBK_hwai,Position_scai) ,XIC(_configType1) MOVE(Position_CMD_hwao,Position_scai) ,XIC(_configType1) XIC(FullyOpened_hwdi) MOVE(100,Position_scai) ,XIC(_configType1) XIC(FullyClosed_hwdi) MOVE(0,Position_scai) ];]]>
+</Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Comment>
+<![CDATA[***** Output rung *****
+config_binary 1: Auto Call = 100%, else 0%. config_binary 0: Auto Call = Position_SP clamped 0 to 100%, else 0%]]>
+</Comment>
+<Text>
+<![CDATA[[XIC(config_binary) XIC(AutoCall) MOVE(100,Position_CMD_hwao) ,XIO(config_binary) XIC(AutoCall) MOVE(Position_SP,Position_CMD_hwao) ,XIO(config_binary) XIC(AutoCall) GT(Position_CMD_hwao,100) MOVE(100,Position_CMD_hwao) ,XIO(config_binary) XIC(AutoCall) LT(Position_CMD_hwao,0) MOVE(0,Position_CMD_hwao) ,XIO(AutoCall) MOVE(0,Position_CMD_hwao) ];]]>
+</Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Comment>
+<![CDATA[***** ALARMS *****]]>
+</Comment>
+<Text>
+<![CDATA[NOP();]]>
+</Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Comment>
+<![CDATA[***** Alarm: FailOpn: Valve Failed to Open alarm *****
+config_type 1: arms only when commanded fully open (Position_CMD_hwao at 100) and the open limit is not made]]>
+</Comment>
+<Text>
+<![CDATA[[XIO(_configType1) XIC(AutoCall) LE(Position_scai,config_pos_fullyOpened) ,XIC(_configType1) GE(Position_CMD_hwao,100) XIO(FullyOpened_hwdi) ]XIO(FailOpen_alm_dis)XIO(FailOpen_alm_res)[TON(_FailOpen_tmr,?,?) ,XIC(_FailOpen_tmr.DN) OTE(FailOpen_alm) ];]]>
+</Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Comment>
+<![CDATA[***** Alarm: FailCls: Valve Failed to Close alarm *****
+config_type 1: arms only when commanded fully closed (Position_CMD_hwao at 0) and the closed limit is not made]]>
+</Comment>
+<Text>
+<![CDATA[[XIO(_configType1) XIO(AutoCall) GE(Position_scai,config_pos_fullyClosed) ,XIC(_configType1) LE(Position_CMD_hwao,0) XIO(FullyClosed_hwdi) ]XIO(FailClose_alm_dis)XIO(FailClose_alm_res)[TON(_FailClose_tmr,?,?) ,XIC(_FailClose_tmr.DN) OTE(FailClose_alm) ];]]>
+</Text>
+</Rung>
+<Rung Number="7" Type="N">
+<Comment>
+<![CDATA[***** Alarm: CHFault: Analog Output Channel Fault alarm *****]]>
+</Comment>
+<Text>
+<![CDATA[XIO(_configType1)[XIC(OverRange_hwdi) ,XIC(UnderRange_hwdi) ,XIC(Fault_hwdi) ]XIO(CHFault_alm_dis)XIO(CHFault_alm_res)[TON(_CHFault_tmr,?,?) ,XIC(_CHFault_tmr.DN) OTE(CHFault_alm) ];]]>
+</Text>
+</Rung>
+<Rung Number="8" Type="N">
+<Text>
+<![CDATA[XIC(AUTO_PB_scdo)OTL(AUTO_scdi)OTU(MAN_scdi);]]>
+</Text>
+</Rung>
+<Rung Number="9" Type="N">
+<Text>
+<![CDATA[XIC(MAN_PB_scdo)OTL(MAN_scdi)OTU(AUTO_scdi);]]>
+</Text>
+</Rung>
+<Rung Number="10" Type="N">
+<Comment>
+<![CDATA[Valve State:
+Assuming NC valve, ON = OPEN
+99 = I/O error
+0 = Green = Open
+1 = Red = Closed
+2 = Yellow = traveling
+note: If the valve is NC, states 0 and 1 will be reversed.
+config_type 1: open limit only = 0, closed limit only = 1, neither = 2, both = 99
+]]>
+</Comment>
+<Text>
+<![CDATA[[XIO(_configType1) MOVE(99,State) ,XIO(_configType1) GE(Position_scai,config_pos_fullyOpened) MOVE(0,State) ,XIO(_configType1) LE(Position_scai,config_pos_fullyClosed) MOVE(1,State) ,XIO(_configType1) LIMIT(config_pos_fullyClosed,Position_scai,config_pos_fullyOpened) MOVE(2,State) ,XIC(_configType1) MOVE(99,State) ,XIC(_configType1) XIC(FullyOpened_hwdi) XIO(FullyClosed_hwdi) MOVE(0,State) ,XIC(_configType1) XIC(FullyClosed_hwdi) XIO(FullyOpened_hwdi) MOVE(1,State) ,XIC(_configType1) XIO(FullyOpened_hwdi) XIO(FullyClosed_hwdi) MOVE(2,State) ];]]>
+</Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+</AddOnInstructionDefinitions>
+</Controller>
+</RSLogix5000Content>
