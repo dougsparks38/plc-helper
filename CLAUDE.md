@@ -199,6 +199,13 @@ Rules 1 to 3 do not renumber or re-sort existing lists that predate them.
   the cause can take a long time to find. Fix: if the old tag is not used
   anywhere, delete it and create a new tag of the correct AOI type.
 
+## Lessons copied from job work (Doug's decision, 2026-11-01)
+
+Lessons Doug asks to have copied from job work are appended to
+`PLCHelper_Lessons.md` in this folder. That file is git-ignored and local
+only (OneDrive backup) — never `git add` it and never push it. No
+client-neutral scrubbing is required for it (Rule 48).
+
 ## Analog input diagnostic bits and I/O-wiring convention
 
 Two related conventions: how a client-provided IO list's tag names become

@@ -9,3 +9,6 @@ __pycache__/
 
 # Scratch folders written by test scripts (TASK_014, 2026-10-19).
 _test_tmp*/
+
+# Local-only PLC lessons from job work (Rule 48); never pushed (2026-11-01).
+PLCHelper_Lessons.md

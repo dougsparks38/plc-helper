@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-01 — no job number — Local-only PLCHelper_Lessons.md created and git-ignored
+- **Work done:** Created `PLCHelper_Lessons.md` (header only, no entries) as the place for lessons copied from job work (Rule 48). Added an ignore entry for it to `.gitignore` and confirmed git treats it as ignored. Added a short section to `CLAUDE.md` saying lessons are appended there, the file is local only and never added or pushed, and no client-neutral scrubbing is needed for it. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: job-work lessons stay off GitHub (OneDrive backup only) and need no scrubbing.
+- **Learned:** nothing.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-01 (PLCHelper subagent).
+
 ### 2026-10-30 — no job number — Modulating valve AOI and simulator copied into AOI_Library
 - **Work done:** Copied the verified modulating valve AOI (`MODVLV_AOI.L5X`, revision 1.0) and its simulator (`MODVLV_SIM.L5X`, revision 1.0) into `AOI_Library`, taken from the `_v3` files (Doug imported the AOI into Studio 5000 and all 9 tests passed; v3 has the final shortened descriptions). Byte-for-byte identical to the sources (cmp, one per file); not edited. Added two rows to `AOI_Library/README.md`. No older copy existed to replace. Finished. Left uncommitted.
 - **What failed / what fixed it:** nothing.
