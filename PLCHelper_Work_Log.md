@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-01 — no job number — Two lessons added to PLCHelper_Lessons.md
+- **Work done:** At Doug's request, added two entries to the local-only `PLCHelper_Lessons.md` per Rule 48: "Two-PLC blower comms map (BL2 between the BOP PLC and the O2 PLC)" and "Mixed-polarity DMT status bits". Add-only; nothing existing changed. Finished. This log entry left uncommitted.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: lessons copied as written, no scrubbing (file is git-ignored).
+- **Learned:** nothing.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-01 (PLCHelper subagent).
+
 ### 2026-11-01 — no job number — Local-only PLCHelper_Lessons.md created and git-ignored
 - **Work done:** Created `PLCHelper_Lessons.md` (header only, no entries) as the place for lessons copied from job work (Rule 48). Added an ignore entry for it to `.gitignore` and confirmed git treats it as ignored. Added a short section to `CLAUDE.md` saying lessons are appended there, the file is local only and never added or pushed, and no client-neutral scrubbing is needed for it. Finished.
 - **What failed / what fixed it:** nothing.
