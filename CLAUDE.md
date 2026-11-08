@@ -387,6 +387,27 @@ Where any other wording differs from Rockwell, Rockwell is right.
   not in the file you have, stop and ask the user for a current export;
   never guess a substitute tag name.
 
+### Rung comments and descriptions (Doug, 2026-11-08)
+
+PLC programmers already know the items below; writing them wastes their
+time and Doug has to delete them by hand.
+
+- A rung comment says what the rung does and why, briefly. Never put in
+  anything an experienced PLC programmer already knows or that is handled
+  elsewhere.
+- Never write in a rung comment:
+  - a reminder that a JSR must call the routine, or where the JSR goes;
+  - remarks about scan order or a one-scan (100 ms) delay;
+  - that a polarity or other assumption was made or must be checked at
+    checkout (Doug does the checkout);
+  - that a remote I/O rack's or module's data may freeze when it loses
+    power (handled elsewhere by a GSV test and an operator alarm on every
+    rack and module).
+- Leave routine descriptions blank. Do not fill in a description for a new
+  routine.
+- Judgment calls and assumptions go in the report to Doug, never in
+  comments or descriptions.
+
 ### Translating an existing routine for another device (lesson, 2026-10-28)
 
 When a working routine is copied for a similar device:

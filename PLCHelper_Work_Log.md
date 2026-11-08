@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-08 — no job number — Rung comment and routine description rule added to CLAUDE.md
+- **Work done:** Added a "Rung comments and descriptions (Doug, 2026-11-08)" subsection to `CLAUDE.md` under "Editing L5X files", after "Rung structure — follow Rockwell's rules": rung comments say what and why, briefly; no JSR reminders, scan-order or one-scan delay remarks, checkout or assumption notes, or remote I/O power-loss freeze notes; routine descriptions left blank; judgment calls and assumptions go in the report to Doug. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: such comment text is "AI slop" that wastes the programmer's time and he has to delete it by hand.
+- **Learned:** nothing.
+- **Open / follow-up:** the existing "Translating an existing routine for another device" lesson in `CLAUDE.md` still says to put a CHECK comment on every rung that contains a guess, which conflicts with the new rule; left unchanged for Doug to decide.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-08, Doug's decision.
+
 ### 2026-11-08 — no job number — Pointer to AOI skill's build and upgrade practices added to CLAUDE.md
 - **Work done:** Added one pointer paragraph at the end of `CLAUDE.md`'s "AOI conventions (Doug's standing rules, 2026-10-29)" section, pointing to the "AOI build and upgrade practices" section of `claude-workflow\Skills\plc-aoi-reference-creation-and-update.skill.md` (revision-note and test-routine rules). Pointer only; rules 1 to 6 unchanged. Finished.
 - **What failed / what fixed it:** nothing.
