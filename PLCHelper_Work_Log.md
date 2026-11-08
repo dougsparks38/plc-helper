@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-08 — no job number — Four test-routine lessons added to PLCHelper_Lessons.md
+- **Work done:** Added four lessons to the local-only `PLCHelper_Lessons.md` from the Blue Sky B5 state machine test: writes to tags another program rewrites every scan, simulation must include every program and task touching the tags, input points on modules that cannot be inhibited, and test setup that must be undone. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug approved adding the four lessons.
+- **Learned:** see the lessons file.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-08, Doug's decision.
+
 ### 2026-11-08 — no job number — "Designing for testability" rules added to CLAUDE.md
 - **Work done:** Added a "Designing for testability (Doug, 2026-11-08)" section to `CLAUDE.md` after the "Test-routine pass bits" paragraph: 8 short rules from the 8 proposed practices in `Testability_Research_2026_1108.md` (timer presets from one config array with a test scale, simulators with speed/instant/fail bits, one ZZ_TestMode bit, writes to mapped tags not forces, test routine first and simulator last, one state transition per scan with a plain state tag, test hooks planned before a state machine, TestActive alarm and pre-release search for ZZ_ and Tmr_Scale). The pass-bit array rule is referenced, not duplicated. Finished.
 - **What failed / what fixed it:** nothing.
