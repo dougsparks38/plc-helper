@@ -181,6 +181,54 @@ test-routine rules in the "AOI build and upgrade practices" section of
 (brief one-line revision notes; every new or upgraded AOI ships with its own
 test routine covering all its functions). Read that section before starting.
 
+**Test-routine pass bits (Doug, 2026-11-08).** Every test routine (AOI or
+program) records its pass bits in one ZZ-prefixed BOOL array of 100 (or the
+next size that fits), index = step number, 1 = pass and 0 = fail, not one
+tag per step. Other repeated test values (saved presets, timeouts) also go in
+ZZ-prefixed arrays. Cleanup then deletes one tag instead of dozens. The report
+shows which index maps to which step.
+
+## Designing for testability (Doug, 2026-11-08)
+
+Source: `Testability_Research_2026_1108.md`. Rockwell publishes no guidance on
+this; these are engineering practice, not Rockwell recommendations. Doug tests
+in Studio 5000 with I/O inhibited. Pass bits follow the "Test-routine pass
+bits" rule above, not repeated here.
+
+**Scope of every rule below.** They describe what PLCHelper does when it
+BUILDS new program code. They never change an existing tag definition and
+never add a tag to a project without Doug's say-so. List the tags a build
+needs in the plan and wait for his yes.
+
+1. **Timer presets.** When building a timer, load its preset from one config
+   array (DINT ms), scaled by a test scale tag (DINT percent, default 100):
+   `Cfg_Tmr[n] * Tmr_Scale / 100 -> .PRE`. No literal preset in a timer rung.
+   Never shorten a preset by editing it; scale it.
+2. **Simulators.** When building a simulator, put it in its own ZZ-prefixed
+   routine with a travel-time speed parameter (run through the same scale as
+   the timers), an instant mode, and fail bits per simulated device (fail
+   open, fail close, stuck mid, no feedback) that gate its limit-switch rungs.
+3. **One test-mode bit.** Use one `ZZ_TestMode` BOOL. All test writes live in
+   the ZZ test routine plus a few clearly marked substitution rungs.
+4. **Writes, not forces.** Test inputs are written to mapped (non-I/O) tags,
+   read through `XIC(ZZ_TestMode)` / `XIO(ZZ_TestMode)` MOV pairs from the
+   hardware tag. Never rely on forces. With I/O inhibited, hardware input tags
+   are inert.
+5. **Scan order.** Call the test routine first in the main routine and the
+   simulator last. Never let two routines write the same tag.
+6. **State machines.** One transition per scan, with the state number
+   mirrored in a plainly named DINT tag (and step-timer ACC in its own plain
+   tag). The test drives inputs; it does not write the state, except through
+   one named `ZZ_ForceState` rung used in development only.
+7. **Plan the hooks first.** Before building any state machine, the plan
+   states its test hooks (scale tag, simulator, fail bits, observable state).
+   Test timeouts run on real, unscaled time.
+8. **Guard against test code left in.** Build a `TestActive` alarm rung
+   (`ZZ_TestMode OR Tmr_Scale <> 100`) for the HMI. Tmr_Scale defaults to 100
+   in its tag. Before release, search for `ZZ_` and `Tmr_Scale` outside the
+   test routine and confirm the scale is 100; report any hits. Doug removes
+   the JSR to the test routine. Keep ZZ_ tags out of HMI/Ignition imports.
+
 ### AOI lessons (added 2026-10-29)
 
 - **Required has a large blast radius.** Making a parameter Required forces

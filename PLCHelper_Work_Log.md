@@ -3,6 +3,24 @@
 
 ---
 
+### 2026-11-08 — no job number — "Designing for testability" rules added to CLAUDE.md
+- **Work done:** Added a "Designing for testability (Doug, 2026-11-08)" section to `CLAUDE.md` after the "Test-routine pass bits" paragraph: 8 short rules from the 8 proposed practices in `Testability_Research_2026_1108.md` (timer presets from one config array with a test scale, simulators with speed/instant/fail bits, one ZZ_TestMode bit, writes to mapped tags not forces, test routine first and simulator last, one state transition per scan with a plain state tag, test hooks planned before a state machine, TestActive alarm and pre-release search for ZZ_ and Tmr_Scale). The pass-bit array rule is referenced, not duplicated. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: the rules are things PLCHelper does when it builds new code, and never change existing tag definitions or add tags to a project without his say-so.
+- **Learned:** nothing.
+- **Open / follow-up:** the research file's question about which Rockwell sources to log in `TRUSTED_SOURCES.md` is still open with Doug.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-08, Doug's decision.
+
+### 2026-11-08 — no job number — Test-routine pass-bit array practice added to CLAUDE.md
+- **Work done:** Added a short "Test-routine pass bits" paragraph to `CLAUDE.md` after the AOI conventions pointer: every test routine keeps its pass bits in one ZZ-prefixed BOOL array of 100 (or the next size that fits), index = step number, and other repeated test values also go in ZZ arrays, so cleanup deletes one tag. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's, given while the Blue Sky `B5_StateMachineTest` was being built (first built with one tag per step, changed to the array). The matching line in the claude-workflow AOI skill is dispatched separately.
+- **Learned:** nothing.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-08, Doug's decision.
+
 ### 2026-11-08 — no job number — Rung comment and routine description rule added to CLAUDE.md
 - **Work done:** Added a "Rung comments and descriptions (Doug, 2026-11-08)" subsection to `CLAUDE.md` under "Editing L5X files", after "Rung structure — follow Rockwell's rules": rung comments say what and why, briefly; no JSR reminders, scan-order or one-scan delay remarks, checkout or assumption notes, or remote I/O power-loss freeze notes; routine descriptions left blank; judgment calls and assumptions go in the report to Doug. Finished.
 - **What failed / what fixed it:** nothing.
