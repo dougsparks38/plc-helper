@@ -175,6 +175,12 @@ Apply to every AOI written or edited, for any job.
 
 Rules 1 to 3 do not renumber or re-sort existing lists that predate them.
 
+Also required whenever you build or upgrade an AOI: the revision-note and
+test-routine rules in the "AOI build and upgrade practices" section of
+`claude-workflow\Skills\plc-aoi-reference-creation-and-update.skill.md`
+(brief one-line revision notes; every new or upgraded AOI ships with its own
+test routine covering all its functions). Read that section before starting.
+
 ### AOI lessons (added 2026-10-29)
 
 - **Required has a large blast radius.** Making a parameter Required forces

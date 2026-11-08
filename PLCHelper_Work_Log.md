@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-08 — no job number — Pointer to AOI skill's build and upgrade practices added to CLAUDE.md
+- **Work done:** Added one pointer paragraph at the end of `CLAUDE.md`'s "AOI conventions (Doug's standing rules, 2026-10-29)" section, pointing to the "AOI build and upgrade practices" section of `claude-workflow\Skills\plc-aoi-reference-creation-and-update.skill.md` (revision-note and test-routine rules). Pointer only; rules 1 to 6 unchanged. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: PLCHelper's AOI conventions point to the skill's new practices rather than restating them (Lesson 9).
+- **Learned:** nothing.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-08, Doug's decision.
+
 ### 2026-11-01 — no job number — Two lessons added to PLCHelper_Lessons.md
 - **Work done:** At Doug's request, added two entries to the local-only `PLCHelper_Lessons.md` per Rule 48: "Two-PLC blower comms map (BL2 between the BOP PLC and the O2 PLC)" and "Mixed-polarity DMT status bits". Add-only; nothing existing changed. Finished. This log entry left uncommitted.
 - **What failed / what fixed it:** nothing.
