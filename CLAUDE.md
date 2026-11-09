@@ -228,6 +228,16 @@ needs in the plan and wait for his yes.
    in its tag. Before release, search for `ZZ_` and `Tmr_Scale` outside the
    test routine and confirm the scale is 100; report any hits. Doug removes
    the JSR to the test routine. Keep ZZ_ tags out of HMI/Ignition imports.
+9. **Results readable at a glance.** One screenshot of the tag monitor
+   filtered on `ZZ` must show whether the test passed and, if it failed, why.
+   On top of the pass-bit array, keep scalar ZZ_ summary tags (BOOL or DINT),
+   never results only in arrays or logs: steps passed, failed and skipped,
+   the first failing step, and a verdict bit. On a failure, latch the state
+   before and after, the time to the change, and the values the logic
+   actually read, captured in the scan where the logic acts (a test routine
+   that runs last sees different values). Pre-check that every override takes
+   effect where the logic reads it. Continue after a failure when safe. Never
+   ask the user to watch a live tag or dig through a log.
 
 ### AOI lessons (added 2026-10-29)
 
