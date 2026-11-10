@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-10 — no job number — Testability item 5 (scan order) rewritten in CLAUDE.md
+- **Work done:** Rewrote item 5 of "Designing for testability" in `CLAUDE.md`. It no longer gives a fixed position (test routine first, simulator last). PLCHelper now works out where in the scan the test routine must run for the test to succeed, and the test procedure includes placing the JSR to it at that spot. Added dated "superseded" pointers to item 5 at the three places in `Testability_Research_2026_1108.md` that state the old placement (the research text itself is left as written). Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's, 2026-11-10: resolve the conflict between the old item 5 and the 2026-11-09 placement lesson in `PLCHelper_Lessons.md` by having the agent work out the placement per test. The old item's closing sentence "Never let two routines write the same tag" was not carried into the new text, because an override test writes tags another routine also writes; reported to Doug.
+- **Learned:** nothing.
+- **Open / follow-up:** nothing.
+- **Billing note:** not job-specific; tool work.
+- **Source:** Assistant session 2026-11-10, Doug's decision.
+
 ### 2026-11-08 — no job number — Four test-routine lessons added to PLCHelper_Lessons.md
 - **Work done:** Added four lessons to the local-only `PLCHelper_Lessons.md` from the Blue Sky B5 state machine test: writes to tags another program rewrites every scan, simulation must include every program and task touching the tags, input points on modules that cannot be inhibited, and test setup that must be undone. Finished.
 - **What failed / what fixed it:** nothing.

@@ -214,8 +214,13 @@ needs in the plan and wait for his yes.
    read through `XIC(ZZ_TestMode)` / `XIO(ZZ_TestMode)` MOV pairs from the
    hardware tag. Never rely on forces. With I/O inhibited, hardware input tags
    are inert.
-5. **Scan order.** Call the test routine first in the main routine and the
-   simulator last. Never let two routines write the same tag.
+5. **Scan order.** Do not assume a fixed position for a test routine. Work
+   out where in the scan it must run for the test to succeed: an override
+   test after every routine that writes the tags it overrides, a sampler
+   right after the logic under test, an input-substitution or simulator
+   routine before the logic that reads those inputs. The test procedure
+   includes placing the JSR to that routine at that spot in the main routine
+   (or whichever routine calls it).
 6. **State machines.** One transition per scan, with the state number
    mirrored in a plainly named DINT tag (and step-timer ACC in its own plain
    tag). The test drives inputs; it does not write the state, except through

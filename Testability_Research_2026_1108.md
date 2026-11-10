@@ -20,6 +20,7 @@ Source declaration (Lesson 11): Rockwell product and help pages were reachable o
 
 4. **Single test-mode bit and one set of override points, written in a fixed place in scan order.**
    Why: keeps all test writes in one routine, so nothing else in the program is "test aware" except a few clearly marked rungs.
+   *Superseded 2026-11-10: the fixed "test first, sim last" placement below is replaced by item 5 of "Designing for testability" in `CLAUDE.md`.*
    How: `ZZ_TestMode` BOOL. Run the ZZ test routine FIRST in the main routine (before the logic under test) when it writes inputs, and the sim routine LAST (after the logic, so it reacts to commands from the same scan). Where a real input is read in ladder, read it through a mapped tag (alias or MOV from the I/O tag) so the test can substitute: `XIC(ZZ_TestMode) MOV ZZ_x -> Pump1_Run_FB`, `XIO(ZZ_TestMode) MOV Local:3:I.Data.0 -> Pump1_Run_FB`. With inhibited I/O the hardware input tags are inert, so writing mapped (non-I/O) tags is cleaner than forcing.
 
 5. **State machines: one transition per scan, state number in an observable tag, no work done in the transition rung.**
@@ -55,7 +56,7 @@ Source declaration (Lesson 11): Rockwell product and help pages were reachable o
 ## 6. Pitfalls
 
 - **Force vs write:** a force overrides the I/O value every scan and survives program writes; a written value is overwritten by the next logic rung or input update. Use writes on mapped tags; use forces only on real I/O tags and remove them after (check Controller Properties and the force-enabled LED).
-- **Scan order:** a test write placed after the logic under test is seen one scan late; a sim placed before the logic makes feedback arrive instantly. Decide the order once (tests first, sim last) and keep it. Do not let two routines write the same tag (OTE twice).
+- **Scan order:** a test write placed after the logic under test is seen one scan late; a sim placed before the logic makes feedback arrive instantly. Decide the order once (tests first, sim last) and keep it. Do not let two routines write the same tag (OTE twice). *Superseded 2026-11-10: for placement see item 5 of "Designing for testability" in `CLAUDE.md`.*
 - **Test code or short presets left in:** see recommendation 7. Never edit a preset in place to shorten it; scale it.
 - **Unscaled test timers:** if the test routine's own timeouts are scaled with the program's, a fast test will time out the wrong way. Keep test timeouts on real time.
 - **HMI/SCADA exposure:** keep ZZ_ tags out of any HMI/Ignition tag import and do not expose Tmr_Scale/ZZ_TestMode to operators (Ignition imports and tag-based writes: make sure the tag provider only imports named tags). Add the TestActive alarm so a left-on test mode is visible.
@@ -69,7 +70,7 @@ Source declaration (Lesson 11): Rockwell product and help pages were reachable o
 2. Every program with a state machine ships with `Tmr_Scale` (default 100), `ZZ_TestMode` and a `TestActive` alarm bit.
 3. Every simulator routine is ZZ-prefixed and has a speed parameter and an instant mode; every simulated device has fail bits.
 4. State machines make one transition per scan and expose the state number in a plain DINT tag.
-5. Test inputs go through mapped tags, never forces; tests run first in the main routine, simulators last.
+5. Test inputs go through mapped tags, never forces; tests run first in the main routine, simulators last. *Superseded 2026-11-10: placement is worked out per test; see item 5 of "Designing for testability" in `CLAUDE.md`.*
 6. Test routines write pass/fail bits in one ZZ array with a per-step timeout on real time.
 7. Before release: Find All `ZZ_` and `Tmr_Scale` outside the test routine, confirm Tmr_Scale = 100, remove the JSR to the test routine (Doug does the removal).
 8. Design for testability is part of the build request: the plan for any new state machine states the test hooks (scale tag, sim, fail bits, observable state) before the code is written.
