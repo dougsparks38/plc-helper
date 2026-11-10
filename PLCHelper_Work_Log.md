@@ -11,6 +11,7 @@
 - **Open / follow-up:** nothing.
 - **Billing note:** not job-specific; tool work.
 - **Source:** Assistant session 2026-11-10, Doug's decision.
+- **Added later the same day (2026-11-10):** Doug decided to keep the "same tag" rule. It is back as the last sentence of item 5 in `CLAUDE.md`, with one exception: "Never let two routines write the same tag, except an override test routine, which writes only the tags it overrides." Nothing else in item 5 changed. `Testability_Research_2026_1108.md` checked and left as is; its "do not let two routines write the same tag" line agrees with the rule, and its superseded notes cover placement only. Finished.
 
 ### 2026-11-08 — no job number — Four test-routine lessons added to PLCHelper_Lessons.md
 - **Work done:** Added four lessons to the local-only `PLCHelper_Lessons.md` from the Blue Sky B5 state machine test: writes to tags another program rewrites every scan, simulation must include every program and task touching the tags, input points on modules that cannot be inhibited, and test setup that must be undone. Finished.

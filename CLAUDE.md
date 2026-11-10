@@ -220,7 +220,9 @@ needs in the plan and wait for his yes.
    right after the logic under test, an input-substitution or simulator
    routine before the logic that reads those inputs. The test procedure
    includes placing the JSR to that routine at that spot in the main routine
-   (or whichever routine calls it).
+   (or whichever routine calls it). Never let two routines write the same
+   tag, except an override test routine, which writes only the tags it
+   overrides.
 6. **State machines.** One transition per scan, with the state number
    mirrored in a plainly named DINT tag (and step-timer ACC in its own plain
    tag). The test drives inputs; it does not write the state, except through
