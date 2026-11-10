@@ -479,7 +479,9 @@ When a working routine is copied for a similar device:
 - Build it as a rung import that copies every rung, in order.
 - In the report, give a table of every source tag: mapped, guessed, newly
   created, or removed.
-- Put a CHECK comment on every rung that contains a guess.
+- For each guess, name the rung it affects in that table. Never put a CHECK
+  comment or any guess or assumption wording in a rung comment or
+  description (see "Rung comments and descriptions" above).
 - Keep shared plant-wide tags unchanged.
 - Create new tags only where there is no counterpart, and flag them.
 - Where a source tag has no counterpart and the user confirms it, remove it
