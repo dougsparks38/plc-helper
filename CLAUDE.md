@@ -480,6 +480,12 @@ time and Doug has to delete them by hand.
   - that a remote I/O rack's or module's data may freeze when it loses
     power (handled elsewhere by a GSV test and an operator alarm on every
     rack and module).
+- Do not put the name of a tag, timer, preset, counter or other element in
+  a rung comment when the reader can see it in the rung; state the meaning
+  or value only. Write "We allow 60 seconds for equipment to operate", not
+  "We allow 60 seconds for equipment to operate (Some_Timer[1].PRE)". Name
+  a tag in a comment only when it is not in the rung and the reader needs
+  it to follow the logic. (Doug, 2026-11-10)
 - Leave routine descriptions blank. Do not fill in a description for a new
   routine.
 - Judgment calls and assumptions go in the report to Doug, never in
