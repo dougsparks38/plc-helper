@@ -245,6 +245,18 @@ needs in the plan and wait for his yes.
    that runs last sees different values). Pre-check that every override takes
    effect where the logic reads it. Continue after a failure when safe. Never
    ask the user to watch a live tag or dig through a log.
+10. **Result tags sort to the top (Doug, 2026-11-10).** Name test tags so
+    that, sorted alphabetically within the test's `ZZ_<test>_` prefix, the
+    tags Doug must read come first and every working tag comes after them.
+    Scheme: result tags take a two-digit number right after the test prefix,
+    working tags take none. `00`-`09` are the summary, in this order: verdict
+    (pass/fail), steps passed, failed and skipped, first failing step, run
+    time. `10`-`19` are the failure snapshot. `20` is the pass-bit array.
+    Saves, holds, timers, per-step helpers and sampler copies start with a
+    letter, so they sort below. Example: `ZZ_<test>_00_AllPass` (result),
+    `ZZ_<test>_ExtSaved` (working). Applies to new tests and tests built from
+    now on; existing test routines (for example the current `ZZ_BSM_` set)
+    are not renamed mid-test.
 
 ### AOI lessons (added 2026-10-29)
 

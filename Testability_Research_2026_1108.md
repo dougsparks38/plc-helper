@@ -29,7 +29,7 @@ Source declaration (Lesson 11): Rockwell product and help pages were reachable o
 
 6. **Test routine as its own step-sequencer, pass bits in one ZZ array (already Doug's pattern).**
    Why: it is repeatable and visible; one array shows pass/fail at a glance in a Studio 5000 watch window.
-   How: `ZZ_Step` DINT; one step per scan; each step is EQU(ZZ_Step, n) -> set stimulus, wait for condition or a ZZ timeout, compare result -> set `ZZ_Pass[n]`, advance. Add a `ZZ_Timeout` timer per step that sets `ZZ_Fail[n]` so a stuck test never hangs. Add `ZZ_Run`, `ZZ_Done`, `ZZ_AllPass` (a COP/loop, or a compare of the array to expected). Leave test timers on their own unscaled preset (they are wall-clock; the program under test is what is scaled).
+   How: `ZZ_Step` DINT; one step per scan; each step is EQU(ZZ_Step, n) -> set stimulus, wait for condition or a ZZ timeout, compare result -> set `ZZ_Pass[n]`, advance. Add a `ZZ_Timeout` timer per step that sets `ZZ_Fail[n]` so a stuck test never hangs. Add `ZZ_Run`, `ZZ_Done`, `ZZ_AllPass` (a COP/loop, or a compare of the array to expected). Leave test timers on their own unscaled preset (they are wall-clock; the program under test is what is scaled). *Added 2026-11-10: the tag names here are illustrative; for how test tags are named see item 10 of "Designing for testability" in `CLAUDE.md`.*
 
 7. **A safe-restore and "test code left in" guard.**
    Why: the worst failure is shipping with Tmr_Scale not at 100, Sim_Instant on, or ZZ rungs enabled.
