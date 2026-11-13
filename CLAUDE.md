@@ -254,9 +254,14 @@ needs in the plan and wait for his yes.
     time. `10`-`19` are the failure snapshot. `20` is the pass-bit array.
     Saves, holds, timers, per-step helpers and sampler copies start with a
     letter, so they sort below. Example: `ZZ_<test>_00_AllPass` (result),
-    `ZZ_<test>_ExtSaved` (working). Applies to new tests and tests built from
-    now on; existing test routines (for example the current `ZZ_BSM_` set)
-    are not renamed mid-test.
+    `ZZ_<test>_ExtSaved` (working). Every numbered result tag (`00`-`09`
+    summary, `10`-`19` failure snapshot, `20` pass-bit array) carries a short
+    description of a few words; working tags (saves, holds, timers, helpers)
+    may stay blank, so the tags with a description are the ones Doug reads
+    (Doug, 2026-11-13, after the CV_TEST PIDE test run left nearly all test
+    tags blank). Applies to new tests and tests built from now on; existing
+    test routines (for example the current `ZZ_BSM_` set) are not renamed or
+    changed mid-test.
 
 ### AOI lessons (added 2026-10-29)
 
