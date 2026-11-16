@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-16 — no job number — TASK_006 orphan audit built; MODVLV_AOI / MODVLV_PIDE_AOI added to the tag generator
+- **Work done:** Built `audit_ignition_orphan_tags.py` (TASK_006) with its quick-help file. It reads an Ignition tag export and a fresh L5X and writes a CSV of every Ignition tag with no matching PLC tag (ORPHAN) or needing a decision (REVIEW). Tag level only; read only. Tested on a real job export and on a synthetic export covering every branch. Added `MODVLV_AOI` and `MODVLV_PIDE_AOI` to `generate_ignition_tags.py`'s `AOI_PARAMETERS` (DeviceName + Description, unverified); every existing entry unchanged. `PLCHelper_Tasks.md` TASK_005 and TASK_006 updated. Built; awaiting Doug's review.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Dispatch plan approved by Doug. "Match" defined at tag level; UDT-name to PLC-type pairs are explicit `--map` input, never inferred; members are not compared (Hard scope boundary).
+- **Learned:** `MODVLV_AOI` shares only 5 names with the old native `MODVLV` Ignition UDT, so it needs its own UDT. `InOut` AOI parameters have `ExternalAccess="None"` and hold no instance data, so a TASK_004 member for one cannot read anything.
+- **Open / follow-up:** TASK_004 UDT definitions for `MODVLV_AOI` / `MODVLV_PIDE_AOI` wait on a reference UDT definition export from Doug; their top-level parameters and UDT names are pending his answer.
+- **Billing note:** not job-specific; tool work.
+- **Source:** PLCHelper dispatch from the Assistant session, 2026-11-16.
+
 ### 2026-11-10 — no job number — Testability item 5 (scan order) rewritten in CLAUDE.md
 - **Work done:** Rewrote item 5 of "Designing for testability" in `CLAUDE.md`. It no longer gives a fixed position (test routine first, simulator last). PLCHelper now works out where in the scan the test routine must run for the test to succeed, and the test procedure includes placing the JSR to it at that spot. Added dated "superseded" pointers to item 5 at the three places in `Testability_Research_2026_1108.md` that state the old placement (the research text itself is left as written). Finished.
 - **Work done (added later the same day):** Doug asked that test tags be named so the ones he needs to read sort to the top of the ZZ list when the tag monitor is filtered and sorted alphabetically. Rule added as new item 10 of "Designing for testability" in `CLAUDE.md` (two-digit number after the test prefix on result tags, none on working tags; new tests only, existing test routines are not renamed). One dated pointer to item 10 added in `Testability_Research_2026_1108.md` where it lists example test tag names. Finished.

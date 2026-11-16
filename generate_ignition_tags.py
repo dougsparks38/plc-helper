@@ -107,6 +107,9 @@ carry a `source` field ("aoi" or "datatype"); "datatype" types resolve
 their member list via generate_ignition_udt.py's own parse_udt_members()
 plus its MEMBER_EXCLUSIONS mechanism, reused rather than duplicated.
 
+MODVLV_AOI and MODVLV_PIDE_AOI added 2026-11-16 (AOI source). They are not
+the native MODVLV UDT entry, which is kept unchanged.
+
 Written 2026-09-10 for PLCHelper (github.com/dougsparks38/plc-helper).
 """
 
@@ -213,6 +216,23 @@ AOI_PARAMETERS = {
     },
     "VARSPD2_AOI": {
         "params": [DEVICE_NAME, DESCRIPTION, ENG_UNIT],
+        "verified": False,
+        "source": "aoi",
+    },
+    # Added 2026-11-16. MODVLV_AOI is the AOI that replaced the native MODVLV
+    # UDT above (a different member set -- they share 5 names), and
+    # MODVLV_PIDE_AOI is new. Neither has a real Ignition UDT definition
+    # yet, so DeviceName + Description (the pair every row carries) is the
+    # starting assumption, pending Doug's answer on whether either needs
+    # more (e.g. EngUnit). The top-level parameters must match whatever the
+    # UDT definition (TASK_004) ends up declaring.
+    "MODVLV_AOI": {
+        "params": [DEVICE_NAME, DESCRIPTION],
+        "verified": False,
+        "source": "aoi",
+    },
+    "MODVLV_PIDE_AOI": {
+        "params": [DEVICE_NAME, DESCRIPTION],
         "verified": False,
         "source": "aoi",
     },

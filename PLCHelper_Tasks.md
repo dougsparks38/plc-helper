@@ -37,7 +37,7 @@ once the spec is solid.
 | TASK_003 | Rung-comment scaling & TODO audit | Spec Ready | Find every `@`-marked TODO comment and every filled-in 4-20mA scaling comment, resolve each to its field-instrument tag via AOI context, cross-check against the Instrument List |
 | TASK_004 | Generate Ignition UDT definition from an AOI | Implemented | Given an AOI type name, an L5X export, and a reference UDT JSON, generate a brand-new Ignition UDT definition JSON with one member per AOI parameter — every parameter, no exclusions — with History enabled on the members matching the Historization rule |
 | TASK_005 | Generate Ignition tag instances from AOI usages with valid UDTs | **`ALARM_AOI` + `CONSPD4_AOI` + `FLOWIN3_AOI` Implemented and export-verified; `FLOWVLV_AOI` Implemented, structurally verified only (2026-09-11), awaiting Designer import; other 4 AOI types still Idea** | Job-agnostic like TASK_004/009/010. Given a fresh L5X export and an explicit, Doug-supplied list of AOI types with a confirmed-working UDT (not inferred by the script), find every AOI *instance* of a qualifying type and emit its Ignition `UdtInstance` entry, all combined into **one consolidated JSON**. `DeviceName` is one value for the whole run; `Description` is looked up per instance from that instance's own L5X description (blank is a valid value); `EngUnit` is created but left blank. Destination folder is always an explicit input, never hardcoded. Implemented 2026-09-10 as `generate_ignition_tags.py`; first run produced **31 `ALARM_AOI` instances**, verified field-by-field against a real Ignition export. The per-AOI parameter mapping is recorded for all 8 types but **only `ALARM_AOI` is verified** — the script warns on the rest. Auto-populates missing tag instances instead of building each by hand in Designer. |
-| TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Idea | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
+| TASK_006 | Audit Ignition tags for orphaned/unmatched instances | Built 2026-11-16, awaiting Doug's review — `audit_ignition_orphan_tags.py` | Given a real export of existing Ignition tags (e.g. all `O2_`-prefixed instances) and a fresh L5X, find any Ignition tag with no matching real tag in the current PLC program and flag it for Doug's review — never auto-deletes or auto-resolves. The reverse direction of TASK_005: TASK_005 fills in what's missing, TASK_006 finds what shouldn't be there. |
 | TASK_007 | Bulk-update a derived convention across an existing UDT's members | Idea | Given an existing UDT definition JSON and a convention field (e.g. `opcServer`) plus a new value, update that field across every member in one pass — for when a different client/site uses a different OPC Server connection name than the one baked into Blue Sky's references. Not urgent; raised while confirming the OPC Server convention is already applied as one uniform value, not per-member. |
 | TASK_008 | Generate Ignition UDT definition from a native PLC UDT | Implemented | The same operation as TASK_004 but sourced from a native Rockwell UDT (`<DataType Class="User">`) instead of an AOI — for handoff-checklist items like `MODVLV` that turn out not to be AOIs at all. One member per **visible** UDT member; Studio 5000's hidden `ZZZZZZZZZZ*` bit-packing backing members are excluded, and the visible `BIT` bit-alias members are included as Booleans. Conventions, historization, and data-type mapping are shared with TASK_004, unchanged |
 | TASK_009 | Audit Ignition alarm tag configuration for formatting problems | Implemented, patched, and re-run (all 9 rules live) | Given an export of one site's alarm tags (Weston first), check every alarm against 9 correctness rules (pipeline validity, blank email overrides, enabled, folder-based priority match, tagGroup, name/displayPath consistency, historian config) and produce an alphabetized report of problems — read-only, no fixes. Unblocked 2026-09-09: root cause confirmed for `AlmLIT107_HiHi_Alm` (CS0175981) via Andrew's actual received email plus a cross-site comparison across 921 alarms / 8 sites. Implemented same day as `audit_alarm_tags.py`; first run flagged all 143 Weston tags with 356 problems under the original 8-rule/looser-priority version. Rules 5 and 9 were then tightened going through those findings with Doug line by line, and the script was patched and re-run the same day: **143 tags, 0 OK, 367 problems** (+1 priority override, +10 historian config). |
@@ -589,6 +589,9 @@ existing parsing rather than duplicating it). `INTERLOCK_AOI` needed a
 script-level fix (instance `tags` arrays are now always empty, for every
 type — see below) before it would import cleanly.
 **TASK_005 IS COMPLETE — ALL 8 QUALIFYING TYPES DONE.**
+*Extended 2026-11-16: `MODVLV_AOI` and `MODVLV_PIDE_AOI` added to
+`AOI_PARAMETERS` (unverified; their Ignition UDT definitions do not exist
+yet). See the parameter mapping table below.*
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
@@ -752,8 +755,20 @@ supplied the mapping directly. It is implemented in
 | `LEVELIN3_AOI` | `LEVELIN3_AOI` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit` | ❌ No |
 | `MODVLV` | `MODVLV` (same — omit `--udt-name`) | `DeviceName`, `Description`, `EngUnit`, `Analog_Vlv` (Integer, default `0`) | ❌ No |
 | `VARSPD2_AOI` | **`VARSPD_AOI`** | `DeviceName`, `Description`, `EngUnit` | ❌ No |
+| `MODVLV_AOI` (added 2026-11-16) | `MODVLV_AOI` assumed (same name), pending Doug | `DeviceName`, `Description` (assumed, pending Doug) | ❌ No — no Ignition UDT definition exists yet |
+| `MODVLV_PIDE_AOI` (added 2026-11-16) | `MODVLV_PIDE_AOI` assumed (same name), pending Doug | `DeviceName`, `Description` (assumed, pending Doug) | ❌ No — no Ignition UDT definition exists yet |
 
 Notes on this table:
+
+- **`MODVLV_AOI` is not `MODVLV` (2026-11-16).** `MODVLV` is the native
+  Rockwell UDT (row above, unchanged). `MODVLV_AOI` is the AOI that
+  replaced it in the PLC; its parameter list shares only 5 names with the
+  `MODVLV` Ignition UDT's members, so it needs its own Ignition UDT
+  (TASK_004). `MODVLV_PIDE_AOI` is new. Its two `InOut` parameters
+  (`PIDE_Name`, `VALVE_Name`) have `ExternalAccess="None"` in the L5X and
+  hold no data in the instance tag, so a TASK_004 member generated for
+  them cannot read anything; remove them in Designer after generation.
+  `MODVLV_SIM` (a simulator AOI) is deliberately not mapped.
 
 - ⚠ **This table is now the ONLY home for the UDT-name column — the
   script no longer carries it (changed 2026-09-10).** `AOI_PARAMETERS` in
@@ -2042,7 +2057,37 @@ type with a valid UDT" — kept here for history, not the current spec.)*
 
 ## TASK_006 — Audit Ignition tags for orphaned/unmatched instances
 
-**Status:** Idea (raised 2026-09-08, not yet fully speced)
+**Status:** Built 2026-11-16, first real run done, awaiting Doug's review
+of the report (Rule 5: not "done" until he confirms). Script:
+`audit_ignition_orphan_tags.py`; quick help:
+`audit_ignition_orphan_tags - help.md`. Raised 2026-09-08 as an Idea.
+
+### As built (2026-11-16)
+
+The two open questions below were settled by the dispatch that built it:
+the input is a real Ignition tag export of the job's folder (any depth),
+and "match" is defined at **tag level**:
+
+| Ignition tag | Matched when | Flag |
+|---|---|---|
+| `UdtInstance` | a controller-scope PLC tag has the instance's name (the UDT OPC template is `[{DeviceName}]{InstanceName}.<member>`, TASK_004) and its PLC type is the type the Ignition UDT stands for | **ORPHAN**: no tag of that name. **REVIEW**: the name exists but with a different PLC type, or only in program scope |
+| `AtomicTag` with an OPC item path | the base tag (and, for an AOI/UDT base tag, its first member) exists in the L5X | **ORPHAN**: base tag or member missing. **REVIEW**: path unreadable, parameter-bound, or a missing `Program:` scope |
+| `AtomicTag` with no OPC binding | never | **REVIEW**: not PLC-bound, nothing to compare |
+
+- The Ignition-UDT-name to PLC-type pairing is explicit input
+  (`--map PLC_TYPE=IGNITION_UDT`, repeatable), never inferred, same rule as
+  TASK_005; with no `--map` entry a UDT name means the PLC type of the same
+  name.
+- An ORPHAN reason lists PLC tags sharing the name up to its last
+  underscore, as a hint only; they are never treated as a match.
+- Instance members are **not** compared with AOI parameters (Hard scope
+  boundary, `PLCHelper_Status.md`).
+- Output: one CSV (`status, ignition_path, ignition_type, reason`), ORPHAN
+  rows first, then REVIEW rows for Doug's decision. Matched tags are only
+  counted. Read only; refuses to write over an input. Exit 2 when anything
+  is flagged.
+- Tested 2026-11-16 on a real job export (111 tags: 63 UDT instances, 48
+  OPC atomic tags) and on a small synthetic export covering every branch.
 
 ### Purpose
 
@@ -2094,6 +2139,8 @@ different inputs and run in opposite directions.
 
 This task stays at Idea status until these are worked through with Doug,
 per this file's own convention (spec first, build second).
+*(Superseded 2026-11-16: Doug approved the build plan; see "As built"
+above.)*
 
 ---
 
