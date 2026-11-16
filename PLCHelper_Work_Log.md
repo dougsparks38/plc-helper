@@ -3,6 +3,15 @@
 
 ---
 
+### 2026-11-16 — no job number — TASK_015 recorded (scheduled daily CSV export of Edge tag history); new local-only area
+- **Work done:** Added TASK_015 to `PLCHelper_Tasks.md` (status Idea, catalog row added): purpose, CSV and `last_run.txt` formats, design decisions, the build method and lessons from a temporary Ignition Edge history export that Doug built, ran and removed, so it can be rebuilt on another job. Created a git-ignored `Local_Only\` folder (new `.gitignore` line) and put full copies of the job-specific files in `Local_Only\Edge_History_Export\`. No pushed reference script: the live script holds tag names. Finished.
+- **What failed / what fixed it:** nothing.
+- **Decisions:** Doug's: job-specific files stay local-only in PLCHelper; only the generic method is pushed.
+- **Learned:** see TASK_015, Lessons.
+- **Open / follow-up:** a generic, tag-free reference copy of the script could be made if Doug wants one.
+- **Billing note:** not job-specific; tool work.
+- **Source:** PLCHelper dispatch from the Assistant session, 2026-11-16.
+
 ### 2026-11-16 — no job number — TASK_006 orphan audit built; MODVLV_AOI / MODVLV_PIDE_AOI added to the tag generator
 - **Work done:** Built `audit_ignition_orphan_tags.py` (TASK_006) with its quick-help file. It reads an Ignition tag export and a fresh L5X and writes a CSV of every Ignition tag with no matching PLC tag (ORPHAN) or needing a decision (REVIEW). Tag level only; read only. Tested on a real job export and on a synthetic export covering every branch. Added `MODVLV_AOI` and `MODVLV_PIDE_AOI` to `generate_ignition_tags.py`'s `AOI_PARAMETERS` (DeviceName + Description, unverified); every existing entry unchanged. `PLCHelper_Tasks.md` TASK_005 and TASK_006 updated. Built; awaiting Doug's review.
 - **What failed / what fixed it:** nothing.

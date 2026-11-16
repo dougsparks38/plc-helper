@@ -46,6 +46,7 @@ once the spec is solid.
 | TASK_012 | Embed Ignition alarm definitions into generated UDT definitions | **Capability Implemented; `ALARM_AOI` pilot file built, NOT yet live-verified** | Emit an `alarms` array on the alarm-bit member(s) of a UDT **definition**, so every existing instance inherits a working alarm with zero per-instance work (confirmed by Inductive Automation's "Alarms in UDTs"). Alarm members are exactly the historization rule's alarm case (`_alm`/`_alarm` suffix, or the bare word) — alarm *controls* (`_alm_dis`/`_alm_ack`/`_alm_res`) never qualify. Every config value is a Doug-confirmed site convention, never invented: `Equality` against `1.0`, `priority: "High"`, `activePipeline: "BlueSky"` (site-specific, overridable via `--alarm-pipeline`), `notes` from the member's verbatim L5X Description, `displayPath` omitted. New `ALARM_DEFINITION_EXCLUSIONS` table keeps a member as a normal tag but withholds its alarm (`UnACK_Alm` on `CONSPD4_AOI`/`LEVELIN3_AOI`/`VARSPD2_AOI`, added ahead of need) — deliberately distinct from `MEMBER_EXCLUSIONS`, which deletes the member outright. `--alarms` is opt-in; without it output is byte-identical to the pre-change script. Also fixed a latent bug — `alarms` was missing from `OPTIONAL_MEMBER_KEYS`, which would have stamped one reference member's alarm onto every generated member. |
 | TASK_013 | Extract an equipment's IO points from a job's IO list into its Device Index | Implemented (manual by design — scripting not planned) | Given an equipment ID (e.g. `BL-1`), find its rows in the job's coworker-maintained IO list and append one row per IO point to that job's own Tags/Device index, following that job's column convention — re-derived from the Device Index's existing rows every time, never hardcoded across jobs. Tag names/descriptions are **always transcribed verbatim** (standing rule); any naming fix happens later, by Doug, in the PLC program. First run 2026-09-24: Blue Sky BL-1, 6 points. |
 | TASK_014 | Bind existing Ignition memory tags to PLC addresses from a vendor comms-list PDF | Implemented (2026-10-19); Ignition import **not yet validated** | Two scripts with a reviewable CSV between them. `pdf_comms_list_to_csv.py` reads vendor "data communication list" PDFs into one tag-map CSV (rows rebuilt from word positions, never matched by order; a section whose counts or table-cell order disagree is stopped and reported). `csv_to_ignition_opc_tags.py` turns the reviewed CSV plus the existing tag export plus one hand-bound sample tag into a new import JSON with each listed tag bound as a plain OPC atomic tag. |
+| TASK_015 | Scheduled daily CSV export of tag history from an Ignition Edge gateway | Idea | An hourly Gateway Event Scheduled script calls a Project Library script that queries the Edge historian for a tag list and writes one CSV per calendar day (7-day catch-up, already-written days skipped, never overwrites, `last_run.txt` status file, `TEST_MODE` staged test). Built and run on one job, then removed; method and lessons recorded so it can be rebuilt. Job-specific files are local-only in `Local_Only\Edge_History_Export\`. |
 
 ---
 
@@ -4101,7 +4102,171 @@ atomic tags — no AOI/UDT.
 
 ---
 
-*Last updated: October 19, 2026 — added TASK_014 (bind existing Ignition
+## TASK_015 — Scheduled daily CSV export of tag history from an Ignition Edge gateway
+
+**Status:** Idea (recorded 2026-11-16 from a temporary export Doug built,
+ran and has now removed from the gateway; kept so the same kind of
+scheduled history export can be rebuilt on another job)
+
+### Purpose
+
+Ignition Edge keeps tag history for at most 35 days or 10 million points,
+whichever comes first, pruned automatically and not configurable, and has
+no database access (see TRUSTED_SOURCES.md, "Ignition Edge product page").
+To keep history beyond that, a gateway script queries the Edge historian
+and writes one CSV file per calendar day to a folder on the gateway's own
+disk. The files build up outside Ignition and can be copied anywhere.
+
+The job-specific copy (the live script with its tag list, the install and
+test how-to, and the findings notes) is held local-only in
+`Local_Only\Edge_History_Export\` in this folder, git-ignored and never
+pushed. This entry holds only the generic method.
+
+### Inputs
+
+| Input | Notes |
+|---|---|
+| The tag list | Full tag paths, embedded in the script as a list; the scope of the export is chosen by this list (for example only the analog inputs, picked by tag-name suffix). An expected count is checked and a WARNING logged if it differs. |
+| The Edge historian | Queried with `system.historian.queryRawPoints` (8.3; it replaces the deprecated `system.tag.queryTagHistory`), `returnFormat="TALL"`, in batches of tags (20 per query) and chunks of time (24 hours per query, settable). |
+| Settings block at the top of the script | `TEST_MODE`, output folder, test subfolder, `FIRST_DAY` (never export a day before this), `TEST_DAY`, `TEST_TAG`, `CATCHUP_DAYS` (7), `BATCH_SIZE`, `CHUNK_HOURS`, `PARTIAL_BUSY_MINUTES` (30), `SETTLE_MINUTES` (5), `LATE_ERROR_HOUR` (3), float format, time zone, file prefix, logger name. |
+
+### Outputs
+
+**One CSV per calendar day**, named `<prefix>YYYY-MM-DD.csv` by the date of
+the data, all tags in one file, tall format (one row per stored point):
+
+| Column | Meaning |
+|---|---|
+| `timestamp_local` | Time of the stored point in the gateway's time zone, ISO format with UTC offset, e.g. `2026-11-15T00:00:05.053-08:00`. |
+| `epoch_ms_utc` | Same time as milliseconds since 1970-01-01 UTC. Sort on this; it also separates the repeated hour on the fall-back day. |
+| `tag_path` | Tag path in tag-list form `[provider]folder/tag`. The TALL query returns `prov:<provider>:/tag:<path>`, which the script converts. |
+| `value` | Stored value; floats written with `%.9g` (exact for Float4). Empty if no value. |
+| `quality` | Quality as returned; 192 = Good. |
+
+Rows come grouped by query batch, not sorted by time. A day covers local
+midnight to the next local midnight (23 or 25 hours on DST days).
+
+**`last_run.txt`**, rewritten every run (atomically, via a `.tmp` file),
+five lines: `run_time` (ISO local), `result` (`OK`, `PROBLEMS`,
+`YESTERDAY MISSING` or `RUN FAILED`), `summary` (the same summary line
+logged to the gateway log: days checked, exported, already there, busy,
+empty, failed, run seconds), `last_file_written` (`(none this run)` on
+most runs), `last_file_rows`.
+
+**Gateway log:** one summary line per run under a named logger, plus INFO,
+WARN and ERROR lines per day.
+
+### Design decisions
+
+1. **Hourly, not daily.** A Gateway Event **Scheduled** script runs at
+   minute 10 of every hour (cron `10 * * * *`). Its body is one line that
+   calls a function in a **Project Library** script (`<libraryName>.run()`);
+   all the code lives in the library script.
+2. **7-day catch-up, idempotent.** Each run looks at the last 7 calendar
+   days up to and including yesterday (never today, never before
+   `FIRST_DAY`). A day whose file already exists is skipped with a cheap
+   check, so a missed run or a gateway outage is made up by the next run.
+3. **One file per day, never overwritten.** The day is written to
+   `<name>.partial` and renamed to the final name only when complete (an
+   atomic move, with a re-check right before the rename). A `.partial`
+   newer than 30 minutes is left alone (another run may be writing it); an
+   older one is replaced. To re-export a day, delete its file.
+4. **Empty day** (zero rows for every tag): WARNING, no file, retried each
+   hour while the day is in the window. An empty file would block retries.
+5. **Failed query** (any batch or chunk): ERROR with traceback, the
+   `.partial` is deleted, no file, retried next hour. A file never silently
+   misses tags because of a query error.
+6. **Short day** (some rows, e.g. gateway down part of the day): the file
+   is written with what the historian holds and the log names the tags with
+   no rows. Not redone automatically; no minimum-rows rule to guess at.
+7. **Late check:** after 03:00 local, if yesterday's file is still missing,
+   every run logs an ERROR and the result is `YESTERDAY MISSING`.
+8. **Window boundaries:** the query end time is inclusive, so rows outside
+   `start <= t < end` are dropped. A day is exported only 5 minutes after
+   it ends. Day bounds come from `java.time` so DST days are 23 or 25 hours.
+9. **Staged test with `TEST_MODE`.** `TEST_MODE = True` (the default in the
+   draft) writes only to a `test` subfolder, one tag (`TEST_TAG`), one day
+   (`TEST_DAY`), with every file name prefixed `TEST_`, and skips the
+   catch-up window and the late check. Go live by setting it to False.
+10. **Scope chosen by a tag list** embedded in the script, generated by
+    script from a tag export (not typed by hand), with an expected count.
+11. **File writing:** Jython `csv` module and `open()` streaming row by row,
+    not `system.file.writeFile` (which writes one whole string per call).
+    Java and Python errors are both caught (`except (Exception, Throwable)`).
+
+### Method used to build it
+
+1. Design decisions first, made with Doug in the planning session: which
+   tags, one file per day, output folder, hourly trigger with catch-up, and
+   behavior for an empty day, a failed query and a short day.
+2. An agent wrote the script and a how-to as **code only** (a `.py` file
+   ready to paste, no Markdown to strip), every unconfirmed API call marked.
+3. Doug made the output folder on the gateway and checked the gateway
+   service account could write and delete there.
+4. Doug pasted the script into a new Project Library script in the
+   Designer, added the Scheduled event calling it, and saved.
+5. Staged test with `TEST_MODE = True`, the Minutes field set to `*/5` so
+   the test ran within 5 minutes; checked the `TEST_` CSV, `TEST_last_run.txt`
+   and the gateway log (filtered on the logger name).
+6. Switched `TEST_MODE` to False, set Minutes back to `10`, saved; checked
+   the first real day file the next morning. Then a daily check of the new
+   file and `last_run.txt`.
+
+### Lessons
+
+- **Designer froze editing a long script.** Editing the long Project
+  Library script in place froze the Designer; closing it and pasting the
+  script again fixed it.
+- **Script Console is not the gateway.** A Script Console run uses
+  Designer scope and the user's Windows login, so it proves the code and
+  the query but not the service account's write permission, the logger or
+  the schedule. Only a gateway run tests those.
+- **Save restarts event scripts.** Saving the project restarts all gateway
+  event scripts (IA docs). A forum thread reports a new scheduled script
+  sometimes needs a second save before it runs; another forum case of
+  scheduled scripts not running was a project that was not enabled. (The
+  thread links were not in the source files; not re-found here.)
+- **TALL path form.** The TALL result's path column is
+  `prov:<provider>:/tag:<path>`, not `[provider]path`; normalize it before
+  matching against the tag list.
+- **Measure history volume before relying on 35 days.** Boolean history
+  members on Sample Mode Tag Group with a Discrete deadband of 0 stored a
+  point on every tag-group check, filling the 10-million-point limit in
+  about 10 hours. Changing them to On Change with a 20-minute max time cut
+  the volume by about 99 percent. Measure points per day for all
+  history-enabled tags (not just the exported ones) against the limit.
+- **First real file had more rows than estimated** (about 64,500 against
+  48,000) and a few rows stamped out of time order with quality 200; not
+  explained. Look at the first real files closely.
+- **Backup and cleanup are separate decisions.** The script only writes
+  files; where they are copied for backup and whether old files are
+  deleted has to be decided separately.
+
+### Official sources
+
+- Gateway Event Scripts (8.3), Scheduled scripts:
+  https://www.docs.inductiveautomation.com/docs/8.3/platform/scripting/scripting-in-ignition/gateway-event-scripts
+- Crontab Formatting Reference (8.3):
+  https://docs.inductiveautomation.com/docs/8.3/appendix/reference-pages/crontab-formatting-reference
+- `system.historian.queryRawPoints` (8.3):
+  https://docs.inductiveautomation.com/docs/8.3/appendix/scripting-functions/system-historian/system-historian-queryRawPoints
+- Export Tag Historian to CSV (8.3 scripting example):
+  https://docs.inductiveautomation.com/docs/8.3/platform/scripting/scripting-examples/export-tag-historian-to-csv
+- `system.file.writeFile` (8.3):
+  https://www.docs.inductiveautomation.com/docs/8.3/appendix/scripting-functions/system-file/system-file-writeFile
+
+### Open Questions / Notes
+
+- Not yet a reusable tool: the next job starts from the local-only script,
+  with a new tag list and settings. A generic, tag-free reference copy of
+  the script could be made if wanted.
+
+---
+
+*Last updated: November 16, 2026 — added TASK_015 (scheduled daily CSV
+export of tag history from an Ignition Edge gateway: method, design
+decisions and lessons; job-specific files held local-only). Prior update,
+October 19, 2026 — added TASK_014 (bind existing Ignition
 memory tags to PLC addresses from a vendor comms-list PDF: two scripts with
 a reviewable CSV between them). Prior update, October 14, 2026 — TASK_013: added "Analog scaling, "RAW"
 and `_RS`" (Doug's convention: on module-scaled analog inputs he leaves
