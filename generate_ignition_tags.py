@@ -480,6 +480,12 @@ def main():
                              "at import time. 'wrap': nest the instances "
                              "inside an explicit Folder entry named after "
                              "--dest-folder.")
+    parser.add_argument("--exclude-instance", action="append", default=[],
+                        metavar="TAG_NAME",
+                        help="Leave this PLC tag out of the output (e.g. a test "
+                             "instance). Repeatable. Exact name match; a name "
+                             "that matches no instance is reported as a "
+                             "warning. Added 2026-11-16.")
     parser.add_argument("--list-aoi-types", action="store_true",
                         help="List every AOI type AND native Class=\"User\" "
                              "DataType in the L5X, each with an instance "
@@ -560,6 +566,11 @@ def main():
     all_instances = []
     warnings = []
     blank_descriptions = []
+    excluded_names = {n.strip() for n in args.exclude_instance if n.strip()}
+    excluded_hit = set()
+    if excluded_names:
+        print("Excluded instances: %s" % ", ".join(sorted(excluded_names)))
+        print()
 
     for raw in args.aoi_type:
         aoi_type, udt_override = parse_aoi_type_arg(raw)
@@ -650,6 +661,10 @@ def main():
         seen = {}
         for scope, tag in instances:
             tag_name = tag.get("Name")
+            if tag_name in excluded_names:
+                excluded_hit.add(tag_name)
+                print("  %-34s (excluded by --exclude-instance)" % tag_name)
+                continue
             description = read_description(tag)
 
             if tag_name in seen:
@@ -681,6 +696,11 @@ def main():
 
             print("  %-34s %s" % (tag_name, description or "(blank description)"))
         print()
+
+    for name in sorted(excluded_names - excluded_hit):
+        warnings.append(
+            "--exclude-instance '%s' matched no instance of the requested "
+            "types; check the spelling." % name)
 
     if not all_instances:
         print("Nothing generated. See warnings below.")

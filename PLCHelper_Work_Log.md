@@ -11,6 +11,7 @@
 - **Open / follow-up:** TASK_004 UDT definitions for `MODVLV_AOI` / `MODVLV_PIDE_AOI` wait on a reference UDT definition export from Doug; their top-level parameters and UDT names are pending his answer.
 - **Billing note:** not job-specific; tool work.
 - **Source:** PLCHelper dispatch from the Assistant session, 2026-11-16.
+- **Added later the same day (2026-11-16):** Added `--exclude-instance TAG_NAME` (repeatable) to `generate_ignition_tags.py` so test instances can be left out; an exclusion that matches nothing is warned. Tested on the real export (three test instances excluded). Doug confirmed the new UDT names equal the PLC names. TASK_004 generation for the two new AOIs is still blocked: the reference supplied was a parameters-only UDT definition with no member, and TASK_004 needs at least one real member to learn the OPC server, item-path template and member shape (documented in TASK_004, "Reference JSON preparation convention").
 
 ### 2026-11-10 — no job number — Testability item 5 (scan order) rewritten in CLAUDE.md
 - **Work done:** Rewrote item 5 of "Designing for testability" in `CLAUDE.md`. It no longer gives a fixed position (test routine first, simulator last). PLCHelper now works out where in the scan the test routine must run for the test to succeed, and the test procedure includes placing the JSR to it at that spot. Added dated "superseded" pointers to item 5 at the three places in `Testability_Research_2026_1108.md` that state the old placement (the research text itself is left as written). Finished.

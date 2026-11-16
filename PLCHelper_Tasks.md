@@ -591,7 +591,10 @@ type — see below) before it would import cleanly.
 **TASK_005 IS COMPLETE — ALL 8 QUALIFYING TYPES DONE.**
 *Extended 2026-11-16: `MODVLV_AOI` and `MODVLV_PIDE_AOI` added to
 `AOI_PARAMETERS` (unverified; their Ignition UDT definitions do not exist
-yet). See the parameter mapping table below.*
+yet). See the parameter mapping table below. Doug confirmed the UDT names
+are the same as the PLC names. Also added `--exclude-instance TAG_NAME`
+(repeatable) to leave named instances, such as test tags, out of the
+output; an exclusion that matches nothing is reported as a warning.*
 Script: `generate_ignition_tags.py`.
 
 `INTERLOCK_AOI` was the fifth type run through the tool and the type Doug
